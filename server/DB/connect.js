@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/dropJourney');
+    await mongoose.connect('mongodb://127.0.0.1:27017/tallypos');
     console.log("MongoDB connected successfully.");
   } catch (err) {
     console.error("Database connection failed:", err.message);
