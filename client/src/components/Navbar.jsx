@@ -20,6 +20,8 @@ function Navbar() {
               <Link to="/products" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Products</Link>
               <Link to="/sale" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Sales</Link>
               <Link to="/purchase" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Purchases</Link>
+                            <Link to="/api" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">API Documentation</Link>
+
             </div>
           </div>
 
@@ -49,6 +51,8 @@ function Navbar() {
           <Link to="/products" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Products</Link>
           <Link to="/sale" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Sales</Link>
           <Link to="/purchase" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Purchases</Link>
+                <Link to="/api" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">API Documentation</Link>
+
         </div>
       )}
     </nav>
