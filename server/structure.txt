@@ -1,0 +1,107 @@
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "voucherNumber": "S-001",
+      "date": "2025-10-20T00:00:00.000Z",
+      "partyLedgerName": "ABC Traders",
+      ordernumber:(from sham),
+address multiple line 1,2,3,4,5
+      "items": [
+        {
+          "itemName": "Cement Bag",
+          "itemCode": "P001",
+          "quantity": 10,
+          "unit": "Bags",
+          "rate": 350,
+           beforetaxRate,
+           tax rate,
+           tax amount,
+          "netAmount": 3500
+        }
+      ],
+      "totalBeforeVAT": 3500,
+      "totalVAT": 175,
+"discount":,
+roundoff if any,
+      "netAmount": 3675
+
+
+    }
+  ]
+}
+
+
+
+
+
+for purchase
+
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "voucherNumber": "S-001",
+      "date": "2025-10-20T00:00:00.000Z",
+supplier invoice number,
+supplier invoice date,
+pucharseLedger:,
+      "partyLedgerName": "ABC Traders",
+address multiple line 1,2,3,4,5
+      "items": [
+        {
+          "itemName": "Cement Bag",
+          "itemCode": "P001",
+          "quantity": 10,
+          "unit": "Bags",
+          "rate": 350,
+           beforetaxRate,
+           tax rate,
+           tax amount,
+          "netAmount": 3500
+        }
+      ],
+      "totalBeforeVAT": 3500,
+      "totalVAT": 175,
+"discount":,
+roundoff if any,
+      "netAmount": 3675
+
+
+    }
+  ]
+}
+
+
+
+
+inventory api
+{
+  "inventory": [
+    {
+      "itemCode": "P001",
+      "itemName": "Cement Bag",
+      "unit": "Bags",
+      "rate": 350,
+cost,
+
+      "vatPercent": 5,
+      "closingStock": 100
+    },
+    {
+      "itemCode": "P002",
+      "itemName": "Steel Rod",
+      "unit": "Kg",
+      "rate": 60,
+      "vatPercent": 5,
+      "closingStock": 250
+    }
+  ]
+}
+
+
+post api to send response to see successful entered sales and purchase
+
+
