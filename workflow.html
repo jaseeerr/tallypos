@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tally ↔ Node.js ↔ MERN Sync Flow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-inter">
+
+  <header class="bg-gradient-to-r from-indigo-600 to-blue-500 text-white py-6 shadow">
+    <h1 class="text-center text-3xl font-bold tracking-wide">
+      🔄 Tally ↔ Node.js ↔ MERN Sync System
+    </h1>
+    <p class="text-center text-sm mt-2 opacity-80">Multi-company real-time integration (Company A & B)</p>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-6 space-y-10">
+
+    <!-- Overview -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i data-feather="info"></i> Overview</h2>
+      <p class="leading-relaxed">
+        This system synchronizes data between two <strong>Tally companies</strong> (running on different ports) and a
+        <strong>remote VPS MERN app</strong>. Each Tally instance exposes REST-like APIs via TDL, while a local Node.js
+        agent bridges data both ways using a 1-minute cron schedule.
+      </p>
+    </section>
+
+    <!-- System Components -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i data-feather="cpu"></i> System Components</h2>
+      <div class="overflow-x-auto">
+        <table class="table-auto w-full border text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-2 border">Component</th>
+              <th class="p-2 border">Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="border p-2 font-medium">Tally Instance A</td><td class="border p-2">Company A (port 9000)</td></tr>
+            <tr><td class="border p-2 font-medium">Tally Instance B</td><td class="border p-2">Company B (port 9001)</td></tr>
+            <tr><td class="border p-2 font-medium">TDL Layer</td><td class="border p-2">Exposes <code>/getInventory</code>, <code>/getCustomers</code>, <code>/addSale</code></td></tr>
+            <tr><td class="border p-2 font-medium">Local Node.js Service</td><td class="border p-2">Bridge between Tally and VPS</td></tr>
+            <tr><td class="border p-2 font-medium">VPS MERN App</td><td class="border p-2">Central cloud database + UI</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- API Summary -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i data-feather="link"></i> API Summary</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-bold text-indigo-600 mb-2">Local Tally APIs</h3>
+          <ul class="list-disc ml-6 space-y-1 text-sm">
+            <li><code>GET /getInventory</code> – Fetch item stock</li>
+            <li><code>GET /getCustomers</code> – Fetch customer ledgers</li>
+            <li><code>POST /addSale</code> – Insert a new sale and return invoice number</li>
+          </ul>
+          <p class="mt-2 text-xs text-gray-600">Company A → localhost:9000  |  Company B → localhost:9001</p>
+        </div>
+        <div>
+          <h3 class="font-bold text-blue-600 mb-2">Cloud VPS APIs</h3>
+          <ul class="list-disc ml-6 space-y-1 text-sm">
+            <li><code>POST /sync/inventory</code></li>
+            <li><code>POST /sync/customers</code></li>
+            <li><code>GET /tally/pending-sales</code></li>
+            <li><code>POST /tally/confirm-sale</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Flow Diagram -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i data-feather="shuffle"></i> Data Flow</h2>
+      <pre class="bg-gray-900 text-green-300 text-xs p-4 rounded-lg overflow-x-auto">
+┌─────────────┐        ┌──────────────┐        ┌───────────────┐
+│  Tally A    │◄──────►│  Node Agent  │◄──────►│  VPS (MERN)   │
+│ (port 9000) │        │ (Cron Bridge)│        │ Cloud Server  │
+└─────────────┘        └──────────────┘        └───────────────┘
+│  Tally B    │◄──────────────────────►│
+│ (port 9001) │
+└─────────────┘
+      </pre>
+      <p class="text-sm text-gray-600 mt-2">Every minute, the Node agent synchronizes data both ways for Company A and B.</p>
+    </section>
+
+    <!-- Cron Workflow -->
+    <section class="bg-white shadow rounded-2xl p-6 space-y-4">
+      <h2 class="text-2xl font-semibold flex items-center gap-2"><i data-feather="clock"></i> 1-Minute Cron Workflow</h2>
+      <ol class="list-decimal ml-6 space-y-2 text-sm">
+        <li><strong>Fetch</strong> inventory and customers from Tally A &amp; B.</li>
+        <li><strong>Compare hash</strong> of data → only send to VPS if changed.</li>
+        <li><strong>POST</strong> to <code>/sync/inventory</code> and <code>/sync/customers</code>.</li>
+        <li><strong>GET</strong> unsynced sales from VPS (<code>sync:false</code>).</li>
+        <li><strong>POST</strong> each sale to respective Tally instance’s <code>/addSale</code>.</li>
+        <li>On success, <code>POST /tally/confirm-sale</code> with invoice number.</li>
+      </ol>
+    </section>
+
+    <!-- Example Node Script -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-3 flex items-center gap-2"><i data-feather="code"></i> Example Node.js Script</h2>
+      <pre class="bg-gray-900 text-green-300 text-xs p-4 rounded-lg overflow-x-auto">
+import axios from "axios";
+import cron from "node-cron";
+import fs from "fs";
+import crypto from "crypto";
+
+const vpsBase = "https://api.yourapp.com";
+const tally = { A: "http://localhost:9000", B: "http://localhost:9001" };
+
+const hash = (obj) => crypto.createHash("md5").update(JSON.stringify(obj)).digest("hex");
+
+async function syncTally(key, baseURL) {
+  const [inv, cust] = await Promise.all([
+    axios.get(baseURL + "/getInventory"),
+    axios.get(baseURL + "/getCustomers")
+  ]);
+  const invHash = hash(inv.data), custHash = hash(cust.data);
+  let state = fs.existsSync("./data/syncState.json")
+      ? JSON.parse(fs.readFileSync("./data/syncState.json","utf8")) : {};
+  if (state[key]?.invHash !== invHash) {
+    await axios.post(vpsBase + "/sync/inventory",{company:key,data:inv.data});
+    state[key] = {...state[key], invHash};
+  }
+  if (state[key]?.custHash !== custHash) {
+    await axios.post(vpsBase + "/sync/customers",{company:key,data:cust.data});
+    state[key] = {...state[key], custHash};
+  }
+  fs.writeFileSync("./data/syncState.json", JSON.stringify(state,null,2));
+  const pending = await axios.get(vpsBase + "/tally/pending-sales");
+  for (const sale of pending.data.sales.filter(s=>s.company===key)) {
+    const res = await axios.post(baseURL + "/addSale", sale.data);
+    if (res.data.success)
+      await axios.post(vpsBase + "/tally/confirm-sale",
+        {id:sale._id,invoiceNo:res.data.invoiceNo,success:true});
+  }
+  console.log(key,"Sync complete",new Date().toLocaleTimeString());
+}
+
+cron.schedule("*/1 * * * *",()=>Object.entries(tally)
+  .forEach(([k,u])=>syncTally(k,u)));
+      </pre>
+    </section>
+
+    <!-- Responsibilities -->
+    <section class="bg-white shadow rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-4 flex items-center gap-2"><i data-feather="users"></i> Developer Responsibilities</h2>
+      <ul class="list-disc ml-6 space-y-1 text-sm">
+        <li><strong>Tally Developer</strong> – Provide working TDL exposing the required APIs and returning JSON.</li>
+        <li><strong>Node Developer</strong> – Run local cron agent and manage sync logic, hash check, retry queue.</li>
+        <li><strong>VPS Developer</strong> – Implement cloud endpoints and update MongoDB records accordingly.</li>
+      </ul>
+    </section>
+
+    <!-- Result -->
+    <section class="bg-green-50 border border-green-200 rounded-2xl p-6">
+      <h2 class="text-2xl font-semibold mb-3 flex items-center gap-2 text-green-700"><i data-feather="check-circle"></i> Expected Outcome</h2>
+      <p class="text-sm leading-relaxed">
+        ✅ Inventory &amp; customers from both Tally instances stay in sync with the VPS.<br/>
+        ✅ Sales created in the VPS are automatically posted to the correct Tally company.<br/>
+        ✅ Confirmation and status updates ensure no duplicate or lost records.<br/>
+        ✅ A clean, automated, real-time integration between Tally and MERN.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-xs text-gray-500 py-4">
+    Built with ❤️ using TailwindCSS · © 2025 Honor Tech
+  </footer>
+
+  <script>feather.replace()</script>
+</body>
+</html>

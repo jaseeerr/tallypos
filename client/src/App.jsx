@@ -5,6 +5,7 @@ import Sales from './pages/Sales'
 import Purchases from './pages/Purchases'
 import Navbar from './components/Navbar' // make sure path matches your folder
 import TallyApiDocs from './pages/Apidoc'
+import Workflow from './pages/Workflow'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="/sale" element={<Sales />} />
             <Route path="/purchase" element={<Purchases />} />
                         <Route path="/api" element={<TallyApiDocs />} />
+                        <Route path="/workflow" element={<Workflow />} />
 
           </Routes>
         </div>
