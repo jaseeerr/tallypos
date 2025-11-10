@@ -286,7 +286,7 @@ cron.schedule("*/1 * * * *", () =>
       </main>
 
       <footer className="text-center text-xs text-gray-500 py-4">
-        Built with ❤️ using TailwindCSS · © 2025 Honor Tech
+       
       </footer>
     </div>
   );
