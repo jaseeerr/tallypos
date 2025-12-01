@@ -21,7 +21,7 @@ function App() {
                         <Route path="/listSales" element={<SalesList />} />
 
             <Route path="/purchase" element={<Purchases />} />
-                        <Route path="/api" element={<TallyApiDoc />} />
+                        <Route path="/api-doc" element={<TallyApiDoc />} />
                         <Route path="/workflow" element={<Workflow />} />
 
           </Routes>

@@ -22,7 +22,7 @@ function Navbar() {
                             {/* <Link to="/listSales" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Sales</Link> */}
 
               {/* <Link to="/purchase" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Purchases</Link> */}
-                            <Link to="/api" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">API Documentation</Link>
+                            <Link to="/api-doc" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">API Documentation</Link>
                             <Link to="/workflow" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">WorkFlow Documentation</Link>
 
             </div>
