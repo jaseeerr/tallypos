@@ -15,7 +15,7 @@ function App() {
         <Navbar />
         <div className="flex-grow">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<SalesList />} />
             <Route path="/products" element={<Products />} />
             <Route path="/sale" element={<Sales />} />
                         <Route path="/listSales" element={<SalesList />} />

@@ -19,7 +19,7 @@ function Navbar() {
               <Link to="/" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Home</Link>
               <Link to="/products" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Inventory</Link>
               <Link to="/sale" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Add New Sale</Link>
-                            <Link to="/listSales" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Sales</Link>
+                            {/* <Link to="/listSales" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Sales</Link> */}
 
               {/* <Link to="/purchase" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Purchases</Link> */}
                             <Link to="/api" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">API Documentation</Link>
