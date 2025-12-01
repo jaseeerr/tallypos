@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Sale = require("../models/Sale");
-const Purchase = require('../models/Purchase')
-const Product = require("../models/Product");
+const Inventory = require('../models/Inventory');
+const Customer = require('../models/Customer');
 
 
 
@@ -12,411 +12,359 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express tallyPos' });
 });
 
-
-
-
-//  ADD SALE
-router.post("/addSale", async (req, res) => {
+/* ============================================================
+   1) TALLY FETCH SALES (GET)
+   Tally calls this to get all pending sales for a company
+   ============================================================ */
+router.get("/fetch-sales", async (req, res) => {
   try {
-    const data = req.body;
+    const company = req.query.company;
 
-    if (!data.voucherNumber || !data.partyLedgerName || !data.date) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields" });
+    if (!company) {
+      return res.status(400).json({ ok: false, message: "company is required" });
     }
 
-    // Compute totals from items
-    const totalBeforeVAT = data.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
-    const totalVAT = data.items?.reduce((sum, i) => sum + (i.vatAmount || 0), 0) || 0;
-    const netAmount = totalBeforeVAT + totalVAT;
+    // 1. Fetch all pending sales
+    const pendingSales = await Sale.find({
+      companyName: company,
+      status: "pending",
+    }).lean();
 
-    const sale = await Sale.create({
-      ...data,
-      totalBeforeVAT,
-      totalVAT,
-      netAmount,
-    });
-
-    res.status(201).json({ success: true, data: sale });
-  } catch (err) {
-    console.error("Add Sale Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-//  GET ALL SALES (optionally filter by date or party)
-router.get("/getSales", async (req, res) => {
-  try {
-    const { startDate, endDate, partyLedgerName } = req.query;
-    const filter = {};
-
-    if (startDate && endDate) {
-      filter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
-    }
-
-    if (partyLedgerName) {
-      filter.partyLedgerName = new RegExp(partyLedgerName, "i");
-    }
-
-    const sales = await Sale.find(filter).sort({ date: -1 });
-    res.json({ success: true, count: sales.length, data: sales });
-  } catch (err) {
-    console.error("Get Sales Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-//  EDIT SALE
-router.put("/editSale/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const data = req.body;
-
-    // Compute totals again from items
-    const totalBeforeVAT =
-      data.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
-    const totalVAT =
-      data.items?.reduce((sum, i) => sum + (i.vatAmount || 0), 0) || 0;
-    const netAmount = totalBeforeVAT + totalVAT;
-
-    const sale = await Sale.findByIdAndUpdate(
-      id,
-      { ...data, totalBeforeVAT, totalVAT, netAmount },
-      { new: true }
+    // 2. Mark them as "processing"
+    await Sale.updateMany(
+      { companyName: company, status: "pending" },
+      { $set: { status: "processing" } }
     );
 
-    if (!sale)
-      return res
-        .status(404)
-        .json({ success: false, message: "Sale not found" });
+    // 3. Transform into Tally-compatible response
+    const vouchers = pendingSales.map((sale) => ({
+      TYPE: "Sales Invoice",
+      BILLNO: sale.billNo,
+      DATE: sale.date.toISOString().split("T")[0],
+      REFERENCE: sale.reference || "",
+      TOTALAMOUNT: sale.totalAmount.toFixed(2),
+      REMARKS: sale.remarks || "",
 
-    res.json({ success: true, data: sale });
-  } catch (err) {
-    console.error("Edit Sale Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+      PARTYVATNO: sale.partyVatNo || "",
+      PARTYCODE: sale.partyCode || "",
+      PARTYNAME: sale.isCashSale ? sale.cashLedgerName : sale.partyName,
+      PARTYADDRESS: sale.partyAddress.map((a) => ({ ADDRESS: a.address })),
+
+      ITEMS: sale.items.map((i) => ({
+        ITEMNAME: i.itemName,
+        ITEMCODE: i.itemCode,
+        ITEMGROUP: i.itemGroup,
+        DESCRIPTION: i.description,
+        QTY: i.qty.toFixed(4),
+        UNIT: i.unit,
+        RATE: i.rate.toFixed(2),
+        AMOUNT: i.amount.toFixed(2),
+        Rateoftax: i.rateOfTax?.toFixed(2) || "0.00",
+      })),
+
+      LEDGERS: sale.ledgers.map((l) => ({
+        LEDGERSNAME: l.ledgerName,
+        Percentage: l.percentage.toFixed(2),
+        Amount: l.amount.toFixed(2),
+      })),
+    }));
+
+    return res.json({ Vouchers: vouchers });
+  } catch (error) {
+    console.error("Error in /fetch-sales:", error);
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-
-//  DELETE SALE
-router.delete("/deleteSale/:id", async (req, res) => {
+/* ============================================================
+   2) TALLY CALLBACK AFTER INSERTION (POST)
+   Tally calls this after inserting vouchers
+   ============================================================ */
+router.post("/sales-callback", async (req, res) => {
   try {
-    const { id } = req.params;
-    const sale = await Sale.findByIdAndDelete(id);
+    const results = req.body?.results;
 
-    if (!sale)
-      return res.status(404).json({ success: false, message: "Sale not found" });
-
-    res.json({ success: true, message: "Sale deleted successfully" });
-  } catch (err) {
-    console.error("Delete Sale Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-
-// purchase
-
-
-
-//  ADD PURCHASE
-router.post("/addPurchase", async (req, res) => {
-  try {
-    const data = req.body;
-
-    if (!data.voucherNumber || !data.partyLedgerName || !data.date) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields" });
-    }
-
-    // Compute totals from purchase items
-    const totalBeforeVAT =
-      data.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
-    const totalVAT =
-      data.items?.reduce((sum, i) => sum + (i.vatAmount || 0), 0) || 0;
-    const netAmount = totalBeforeVAT + totalVAT;
-
-    const purchase = await Purchase.create({
-      ...data,
-      totalBeforeVAT,
-      totalVAT,
-      netAmount,
-    });
-
-    res.status(201).json({ success: true, data: purchase });
-  } catch (err) {
-    console.error("Add Purchase Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-//  GET ALL PURCHASES (optionally filter by date or supplier)
-router.get("/getPurchases", async (req, res) => {
-  try {
-    const { startDate, endDate, partyLedgerName } = req.query;
-    const filter = {};
-
-    if (startDate && endDate) {
-      filter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
-    }
-
-    if (partyLedgerName) {
-      filter.partyLedgerName = new RegExp(partyLedgerName, "i");
-    }
-
-    const purchases = await Purchase.find(filter).sort({ date: -1 });
-    res.json({ success: true, count: purchases.length, data: purchases });
-  } catch (err) {
-    console.error("Get Purchases Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-//  EDIT PURCHASE
-router.put("/editPurchase/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const data = req.body;
-
-    // Compute totals again from items
-    const totalBeforeVAT =
-      data.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0;
-    const totalVAT =
-      data.items?.reduce((sum, i) => sum + (i.vatAmount || 0), 0) || 0;
-    const netAmount = totalBeforeVAT + totalVAT;
-
-    const purchase = await Purchase.findByIdAndUpdate(
-      id,
-      { ...data, totalBeforeVAT, totalVAT, netAmount },
-      { new: true }
-    );
-
-    if (!purchase)
-      return res
-        .status(404)
-        .json({ success: false, message: "Purchase not found" });
-
-    res.json({ success: true, data: purchase });
-  } catch (err) {
-    console.error("Edit Purchase Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-//  DELETE PURCHASE
-router.delete("/deletePurchase/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const purchase = await Purchase.findByIdAndDelete(id);
-
-    if (!purchase)
-      return res.status(404).json({ success: false, message: "Purchase not found" });
-
-    res.json({ success: true, message: "Purchase deleted successfully" });
-  } catch (err) {
-    console.error("Delete Purchase Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-
-
-//  ADD PRODUCT
-router.post("/addProduct", async (req, res) => {
-  try {
-    const data = req.body;
-
-    if (!data.name) {
+    if (!Array.isArray(results)) {
       return res
         .status(400)
-        .json({ success: false, message: "Product name is required" });
+        .json({ ok: false, message: "Invalid results array" });
     }
 
-    const product = await Product.create(data);
-    res.status(201).json({ success: true, data: product });
-  } catch (err) {
-    console.error("Add Product Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+    for (const result of results) {
+      const { billNo, status, message, tallyInvoiceNumber } = result;
 
-//  GET ALL PRODUCTS (optional search by name/code)
-router.get("/getAllProducts", async (req, res) => {
-  try {
-    const { search } = req.query;
-    const filter = {};
+      const sale = await Sale.findOne({ billNo });
+      if (!sale) continue;
 
-    if (search) {
-      filter.$or = [
-        { name: new RegExp(search, "i") },
-        { code: new RegExp(search, "i") },
-      ];
-    }
+      // Log the full Tally result
+      sale.tallyResponseLogs.push({
+        timestamp: new Date(),
+        data: result,
+      });
 
-    const products = await Product.find(filter).sort({ name: 1 });
-    res.json({ success: true, count: products.length, data: products });
-  } catch (err) {
-    console.error("Get Products Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-//  EDIT PRODUCT
-router.put("/editProduct/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    const product = await Product.findByIdAndUpdate(id, updates, { new: true });
-    if (!product)
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-
-    res.json({ success: true, data: product });
-  } catch (err) {
-    console.error("Edit Product Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-//  DELETE PRODUCT
-router.delete("/deleteProduct/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const product = await Product.findByIdAndDelete(id);
-
-    if (!product)
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-
-    res.json({ success: true, message: "Product deleted successfully" });
-  } catch (err) {
-    console.error("Delete Product Error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-
-
-
-// custom triggers
-
-
-//  GET /getAllSalesForTally
-router.get("/getAllSalesForTally", async (req, res) => {
-  try {
-    const sales = await Sale.find().sort({ date: -1 }); // latest first
-    res.status(200).json({
-      success: true,
-      count: sales.length,
-      data: sales,
-    });
-  } catch (err) {
-    console.error("Error fetching sales for Tally:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch sales for Tally",
-      error: err.message,
-    });
-  }
-});
-
-
-
-//  GET /getAllPurchasesForTally
-router.get("/getAllPurchasesForTally", async (req, res) => {
-  try {
-    const purchases = await Purchase.find().sort({ date: -1 }); // newest first
-    res.status(200).json({
-      success: true,
-      count: purchases.length,
-      data: purchases,
-    });
-  } catch (err) {
-    console.error("Error fetching purchases for Tally:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch purchases for Tally",
-      error: err.message,
-    });
-  }
-});
-
-
-//  Update inventory from Tally using product code
-router.post("/updateInventoryFromTally", async (req, res) => {
-  try {
-    const { inventory } = req.body;
-
-    if (!inventory || !Array.isArray(inventory)) {
-      return res.status(400).json({ success: false, message: "Invalid inventory format" });
-    }
-
-    let updated = 0;
-    let inserted = 0;
-
-    for (const item of inventory) {
-      if (!item.itemCode) continue; // must have a unique code
-
-      const existing = await Product.findOne({ code: item.itemCode });
-
-      if (existing) {
-        await Product.findOneAndUpdate(
-          { code: item.itemCode },
-          {
-            $set: {
-              name: item.itemName || existing.name,
-              unit: item.unit || existing.unit,
-              rate: item.rate || existing.rate,
-              vatPercent: item.vatPercent ?? existing.vatPercent,
-              stockQty: item.closingStock ?? existing.stockQty,
-            },
-          }
-        );
-        updated++;
+      if (status === "success") {
+        sale.status = "synced";
+        sale.tallyInvoiceNumber = tallyInvoiceNumber || "";
+        sale.syncError = "";
       } else {
-        await Product.create({
-          code: item.itemCode,
-          name: item.itemName || "",
-          unit: item.unit || "",
-          rate: item.rate || 0,
-          vatPercent: item.vatPercent || 0,
-          stockQty: item.closingStock || 0,
-        });
-        inserted++;
+        sale.status = "error";
+        sale.syncAttempts += 1;
+        sale.syncError = message || "Unknown error";
       }
+
+      await sale.save();
     }
 
-    res.status(200).json({
-      success: true,
-      message: `Inventory sync complete — ${updated} updated, ${inserted} added`,
-    });
-  } catch (err) {
-    console.error("Error updating inventory:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update inventory",
-      error: err.message,
-    });
+    return res.json({ ok: true, message: "Callback processed" });
+  } catch (error) {
+    console.error("Error in /sales-callback:", error);
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
 
+
+
+
+
+
+/* ============================================================
+   1) INVENTORY SYNC (LOCAL NODE → VPS)
+   Local agent posts inventory pulled from Tally XML
+   ============================================================ */
+router.post("/inventory-sync", async (req, res) => {
+  try {
+    const { companyName, items } = req.body;
+
+    if (!companyName || !Array.isArray(items)) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName and items array required",
+      });
+    }
+
+    for (const item of items) {
+      const {
+        itemName,
+        itemCode,
+        itemGroup,
+        description,
+        unit,
+        openingQty,
+        availableQty,
+        closingQty,
+        avgRate,
+        closingValue,
+        vatRate,
+        gstRate,
+        godowns,
+      } = item;
+
+      // Upsert inventory item
+      await Inventory.findOneAndUpdate(
+        { companyName, itemCode },
+        {
+          companyName,
+          itemName,
+          itemCode,
+          itemGroup,
+          description,
+          unit,
+          openingQty,
+          availableQty,
+          closingQty,
+          avgRate,
+          closingValue,
+          vatRate,
+          gstRate,
+          godowns: godowns || [],
+          lastSyncedAt: new Date(),
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    return res.json({
+      ok: true,
+      message: "Inventory synced successfully",
+      count: items.length,
+    });
+  } catch (error) {
+    console.error("inventory-sync error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+/* ============================================================
+   2) CUSTOMER SYNC (LOCAL NODE → VPS)
+   Local agent posts customer data pulled from Tally XML
+   ============================================================ */
+router.post("/customer-sync", async (req, res) => {
+  try {
+    const { companyName, customers } = req.body;
+
+    if (!companyName || !Array.isArray(customers)) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName and customers array required",
+      });
+    }
+
+    for (const cust of customers) {
+      const {
+        partyCode,
+        partyName,
+        partyVatNo,
+        address,
+        contactPerson,
+        phone,
+        email,
+        ledgerName,
+        ledgerGroup,
+      } = cust;
+
+      await Customer.findOneAndUpdate(
+        { companyName, partyCode },
+        {
+          companyName,
+          partyCode,
+          partyName,
+          partyVatNo,
+          address: address?.map((a) => ({ line: a })) || [],
+          contactPerson,
+          phone,
+          email,
+          ledgerName,
+          ledgerGroup,
+          lastSyncedAt: new Date(),
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    return res.json({
+      ok: true,
+      message: "Customers synced successfully",
+      count: customers.length,
+    });
+  } catch (error) {
+    console.error("customer-sync error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+/* ============================================================
+   1) NEW CUSTOMER FROM TALLY (Real-time push)
+   ============================================================ */
+router.post("/new-customer", async (req, res) => {
+  try {
+    const { companyName, customer } = req.body;
+
+    if (!companyName || !customer) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName and customer object are required",
+      });
+    }
+
+    const {
+      partyCode,
+      partyName,
+      partyVatNo,
+      address,
+      contactPerson,
+      phone,
+      email,
+      ledgerName,
+      ledgerGroup,
+    } = customer;
+
+    await Customer.findOneAndUpdate(
+      { companyName, partyCode },
+      {
+        companyName,
+        partyCode,
+        partyName,
+        partyVatNo,
+        address: address?.map((a) => ({ line: a })) || [],
+        contactPerson,
+        phone,
+        email,
+        ledgerName,
+        ledgerGroup,
+        lastSyncedAt: new Date(),
+        source: "tally",
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ ok: true, message: "Customer updated from Tally" });
+  } catch (error) {
+    console.error("new-customer error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+/* ============================================================
+   2) NEW INVENTORY ITEM FROM TALLY (Real-time push)
+   ============================================================ */
+router.post("/new-inventory", async (req, res) => {
+  try {
+    const { companyName, item } = req.body;
+
+    if (!companyName || !item) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName and item object are required",
+      });
+    }
+
+    const {
+      itemName,
+      itemCode,
+      itemGroup,
+      description,
+      unit,
+      openingQty,
+      availableQty,
+      closingQty,
+      avgRate,
+      closingValue,
+      vatRate,
+      gstRate,
+      godowns,
+    } = item;
+
+    await Inventory.findOneAndUpdate(
+      { companyName, itemCode },
+      {
+        companyName,
+        itemName,
+        itemCode,
+        itemGroup,
+        description,
+        unit,
+        openingQty,
+        availableQty,
+        closingQty,
+        avgRate,
+        closingValue,
+        vatRate,
+        gstRate,
+        godowns: godowns || [],
+        lastSyncedAt: new Date(),
+        source: "tally",
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ ok: true, message: "Inventory item updated from Tally" });
+  } catch (error) {
+    console.error("new-inventory error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
 
 
 
