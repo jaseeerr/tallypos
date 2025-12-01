@@ -608,4 +608,59 @@ router.get("/list-sales", async (req, res) => {
 
 
 
+
+
+/* ============================================================
+   LIST ALL CUSTOMERS (GET)
+   Supports: search, company filter, pagination
+   ============================================================ */
+router.get("/customers", async (req, res) => {
+  try {
+    let { page = 1, limit = 50, search = "", companyName = "" } = req.query;
+
+    page = Number(page);
+    limit = Number(limit);
+
+    const query = {};
+
+    // Optional filter by company
+    if (companyName) {
+      query.companyName = companyName;
+    }
+
+    // Optional search (partyName, partyCode, phone, email)
+    if (search) {
+      const regex = new RegExp(search, "i");
+      query.$or = [
+        { partyName: regex },
+        { partyCode: regex },
+        { phone: regex },
+        { email: regex }
+      ];
+    }
+
+    // Count total customers
+    const total = await Customer.countDocuments(query);
+
+    // Fetch paginated customers
+    const customers = await Customer.find(query)
+      .sort({ partyName: 1 }) // alphabetical
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    return res.json({
+      ok: true,
+      customers,
+      total,
+      page,
+      limit,
+    });
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
 module.exports = router;
