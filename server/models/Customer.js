@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const AddressSchema = new mongoose.Schema({
   line: { type: String, required: true }
@@ -22,12 +22,12 @@ const CustomerSchema = new mongoose.Schema(
     ledgerName: { type: String, default: "" }, // exact tally ledger name
     ledgerGroup: { type: String, default: "" }, // eg: Sundry Debtors
 
-    // SYNC INFO (optional but useful)
-    lastSyncedAt: { type: Date },
+    // SYNC INFO
+    lastSyncedAt: { type: Date }
   },
   {
     timestamps: true
   }
 );
 
-export default mongoose.model("Customer", CustomerSchema);
+module.exports = mongoose.model("Customer", CustomerSchema);

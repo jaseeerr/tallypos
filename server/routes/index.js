@@ -123,10 +123,6 @@ router.post("/sales-callback", async (req, res) => {
 });
 
 
-
-
-
-
 /* ============================================================
    1) INVENTORY SYNC (LOCAL NODE → VPS)
    Local agent posts inventory pulled from Tally XML
@@ -362,6 +358,250 @@ router.post("/new-inventory", async (req, res) => {
     return res.json({ ok: true, message: "Inventory item updated from Tally" });
   } catch (error) {
     console.error("new-inventory error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+
+
+
+/* ============================================================
+   GET INVENTORY (From MongoDB — For MERN App)
+   ============================================================ */
+router.get("/inventory", async (req, res) => {
+  try {
+    const { companyName, search, page = 1, limit = 50 } = req.query;
+
+    // Basic query
+    let query = {};
+
+    // Filter by company
+    if (companyName) {
+      query.companyName = companyName;
+    }
+
+    // Search filter
+    if (search) {
+      query.$or = [
+        { itemName: { $regex: search, $options: "i" } },
+        { itemCode: { $regex: search, $options: "i" } },
+        { itemGroup: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const items = await Inventory.find(query)
+      .lean()
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ itemName: 1 });
+
+    const total = await Inventory.countDocuments(query);
+
+    return res.json({
+      ok: true,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      items,
+    });
+  } catch (error) {
+    console.error("Error fetching inventory:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+
+
+
+
+/* ============================================================
+   ADD SALE (MERN APP → SERVER)
+   Users create a sale inside the web app. Stored as pending.
+   ============================================================ */
+router.post("/add-sale", async (req, res) => {
+  try {
+    const data = req.body;
+
+    const {
+      companyName,
+      billNo,
+      date,
+      reference,
+      remarks,
+      totalAmount,
+
+      isCashSale,
+      cashLedgerName,
+
+      partyCode,
+      partyName,
+      partyVatNo,
+      partyAddress,
+
+      items,
+      ledgers,
+
+      createdBy,
+    } = data;
+
+    // Basic validation
+    if (!companyName || !billNo || !date || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName, billNo, date and items[] are required",
+      });
+    }
+
+    // Check duplicate billNo
+    const exists = await Sale.findOne({ billNo, companyName });
+    if (exists) {
+      return res.status(400).json({
+        ok: false,
+        message: "Bill number already exists for this company",
+      });
+    }
+
+    // Create sale object
+    const newSale = new Sale({
+      companyName,
+
+      billNo,
+      date,
+      reference: reference || "",
+      remarks: remarks || "",
+      totalAmount,
+
+      // CASH SALE or CUSTOMER SALE
+      isCashSale: !!isCashSale,
+      cashLedgerName: cashLedgerName || "",
+
+      partyCode: isCashSale ? "" : (partyCode || ""),
+      partyName: isCashSale ? "" : (partyName || ""),
+      partyVatNo: isCashSale ? "" : (partyVatNo || ""),
+      partyAddress: isCashSale
+        ? []
+        : (partyAddress || []).map(a => ({ address: a })),
+
+      // ITEMS
+      items: items.map(i => ({
+        itemName: i.itemName,
+        itemCode: i.itemCode,
+        itemGroup: i.itemGroup,
+        description: i.description,
+        qty: i.qty,
+        unit: i.unit,
+        rate: i.rate,
+        amount: i.amount,
+        rateOfTax: i.rateOfTax,
+      })),
+
+      // LEDGERS
+      ledgers: ledgers ? ledgers.map(l => ({
+        ledgerName: l.ledgerName,
+        percentage: l.percentage,
+        amount: l.amount,
+      })) : [],
+
+      // SYNC STATUS
+      status: "pending",
+      syncAttempts: 0,
+      syncError: "",
+      tallyInvoiceNumber: "",
+      tallyResponseLogs: [],
+
+      createdBy: createdBy || null,
+      updatedBy: createdBy || null,
+    });
+
+    await newSale.save();
+
+    return res.json({
+      ok: true,
+      message: "Sale added successfully",
+      saleId: newSale._id,
+    });
+
+  } catch (error) {
+    console.error("Error adding sale:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+/* ============================================================
+   LIST ALL SALES (MERN APP → SERVER)
+   Supports: search, company filter, date filter, pagination
+   ============================================================ */
+router.get("/list-sales", async (req, res) => {
+  try {
+    let {
+      companyName,
+      search,
+      fromDate,
+      toDate,
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    let query = {};
+
+    // Company filter
+    if (companyName) {
+      query.companyName = companyName;
+    }
+
+    // Search filter
+    if (search) {
+      const regex = new RegExp(search, "i");
+      query.$or = [
+        { billNo: regex },
+        { partyName: regex },
+        { partyCode: regex },
+        { cashLedgerName: regex },
+      ];
+    }
+
+    // Date filter
+    if (fromDate || toDate) {
+      query.date = {};
+      if (fromDate) query.date.$gte = new Date(fromDate);
+      if (toDate) {
+        let d = new Date(toDate);
+        d.setHours(23, 59, 59, 999);
+        query.date.$lte = d;
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Fetch sales
+    const sales = await Sale.find(query)
+      .sort({ date: -1, createdAt: -1 }) // newest first
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Sale.countDocuments(query);
+
+    return res.json({
+      ok: true,
+      total,
+      page,
+      limit,
+      sales,
+    });
+  } catch (error) {
+    console.error("Error fetching sales:", error);
     return res.status(500).json({ ok: false, error: error.message });
   }
 });

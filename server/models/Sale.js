@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const AddressSchema = new mongoose.Schema({
   address: { type: String, required: true }
@@ -24,12 +24,11 @@ const LedgerSchema = new mongoose.Schema({
 
 const TallyResponseSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now },
-  data: { type: Object } // Store ANY response from Tally (success or error)
+  data: { type: Object } // Any raw Tally response (success or error)
 });
 
 const SaleSchema = new mongoose.Schema(
   {
-
     // BASIC SALE INFO
     billNo: { type: String, required: true, unique: true },
     date: { type: Date, required: true },
@@ -39,11 +38,11 @@ const SaleSchema = new mongoose.Schema(
 
     companyName: { type: String, required: true },
 
-    // SALE TYPE: CUSTOMER or CASH
+    // SALE TYPE
     isCashSale: { type: Boolean, default: false },
-    cashLedgerName: { type: String }, // Example: "Cash", "Cash Ledger"
+    cashLedgerName: { type: String },
 
-    // PARTY DETAILS (ignore if cash sale)
+    // PARTY DETAILS (ignored for cash sale)
     partyCode: { type: String },
     partyName: { type: String },
     partyVatNo: { type: String, default: "" },
@@ -66,7 +65,7 @@ const SaleSchema = new mongoose.Schema(
 
     tallyInvoiceNumber: { type: String, default: "" },
 
-    tallyResponseLogs: [TallyResponseSchema], // FULL history of Tally responses
+    tallyResponseLogs: [TallyResponseSchema],
 
     // META
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -77,4 +76,4 @@ const SaleSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Sale", SaleSchema);
+module.exports = mongoose.model("Sale", SaleSchema);

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const GodownStockSchema = new mongoose.Schema({
   godownName: { type: String, required: true },
@@ -25,7 +25,7 @@ const InventorySchema = new mongoose.Schema(
     avgRate: { type: Number, default: 0 },
     closingValue: { type: Number, default: 0 },
 
-    // GODOWN-WISE STOCK (if tally uses godowns)
+    // GODOWN-WISE STOCK
     godowns: [GodownStockSchema],
 
     // TAX INFO
@@ -40,4 +40,4 @@ const InventorySchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Inventory", InventorySchema);
+module.exports = mongoose.model("Inventory", InventorySchema);
