@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import Barcode from "react-barcode";
+import QRCode from "react-qr-code";
 import { API_BASE } from "../utils/url";
 
 export default function InventoryPage() {
@@ -41,52 +41,47 @@ export default function InventoryPage() {
     );
   });
 
-  // ⬇️ DOWNLOAD BARCODE AS PNG
-const handleBarcodeDownload = (svgElement, fileName, labelText) => {
-  if (!svgElement) return;
+  // ⬇️ DOWNLOAD QR CODE AS PNG (with product name)
+  const handleQRDownload = (svgElement, fileName, label) => {
+    if (!svgElement) return;
 
-  const svgData = new XMLSerializer().serializeToString(svgElement);
-  const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
 
-  const img = new Image();
-  img.onload = function () {
-    // Create canvas with extra height for text
-    const canvas = document.createElement("canvas");
-    const padding = 10;
-    const textHeight = 22;
-    canvas.width = img.width + padding * 2;
-    canvas.height = img.height + textHeight + padding * 2;
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      const padding = 15;
+      const textHeight = 24;
 
-    const ctx = canvas.getContext("2d");
+      canvas.width = img.width + padding * 2;
+      canvas.height = img.height + textHeight + padding * 2;
 
-    // WHITE BACKGROUND
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext("2d");
 
-    // Draw barcode centered
-    const barcodeX = (canvas.width - img.width) / 2;
-    ctx.drawImage(img, barcodeX, padding);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw product name text below
-    ctx.fillStyle = "#000000";
-    ctx.font = "16px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(labelText, canvas.width / 2, img.height + padding + textHeight - 5);
+      ctx.drawImage(img, padding, padding);
 
-    // Convert to PNG & download
-    const pngUrl = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.href = pngUrl;
-    link.download = `${fileName}.png`;
-    link.click();
+      ctx.font = "18px Arial";
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = "center";
+      ctx.fillText(label, canvas.width / 2, img.height + padding + textHeight);
 
-    URL.revokeObjectURL(url);
+      const pngUrl = canvas.toDataURL("image/png");
+
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = `${fileName}.png`;
+      link.click();
+
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
   };
-
-  img.src = url;
-};
-
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -133,7 +128,7 @@ const handleBarcodeDownload = (svgElement, fileName, labelText) => {
             <thead className="bg-gray-100 text-gray-700">
               <tr>
                 <th className="p-3">Image</th>
-                <th className="p-3">Barcode</th>
+                <th className="p-3 text-center">QR Code</th>
                 <th className="p-3 text-left">Item Name</th>
                 <th className="p-3 text-left">Item Code</th>
                 <th className="p-3 text-left">Group</th>
@@ -147,6 +142,7 @@ const handleBarcodeDownload = (svgElement, fileName, labelText) => {
             <tbody>
               {filteredList.map((item) => (
                 <tr key={item._id} className="border-t hover:bg-gray-50">
+
                   {/* PRODUCT IMAGE */}
                   <td className="p-3">
                     {item.imageUrl ? (
@@ -160,31 +156,24 @@ const handleBarcodeDownload = (svgElement, fileName, labelText) => {
                     )}
                   </td>
 
-                  {/* BARCODE */}
+                  {/* QR CODE */}
                   <td className="p-3 text-center">
                     <div
-                      className="cursor-pointer inline-block"
-                     onDoubleClick={(e) =>
-  handleBarcodeDownload(
-    e.currentTarget.querySelector("svg"),
-    item.itemCode || item.itemName,
-    item.itemName   // 👈 this is the label shown in the PNG
-  )
-}
-
+                      className="inline-block cursor-pointer"
+                      onDoubleClick={(e) =>
+                        handleQRDownload(
+                          e.currentTarget.querySelector("svg"),
+                          item.itemCode || item.itemName,
+                          item.itemName
+                        )
+                      }
                     >
-                      <Barcode
+                      <QRCode
                         value={item.itemName}
-                        format="CODE128"
-                        width={1.4}
-                        height={40}
-                        displayValue={false}
+                        size={70}
+                        level="M"
                       />
-
-                      {/* BARCODE VALUE BELOW */}
-                      <div className="text-xs text-gray-700 mt-1 font-medium">
-                        {item.itemName}
-                      </div>
+                      <div className="text-xs mt-1">{item.itemName}</div>
                     </div>
                   </td>
 
@@ -199,7 +188,7 @@ const handleBarcodeDownload = (svgElement, fileName, labelText) => {
                   </td>
 
                   <td className="p-3">
-                    {Array.isArray(item.godowns) && item.godowns.length > 0 ? (
+                    {item.godowns?.length > 0 ? (
                       <ul className="list-disc pl-4 text-xs">
                         {item.godowns.map((g, i) => (
                           <li key={i}>{g.name}: {g.qty}</li>
@@ -209,6 +198,7 @@ const handleBarcodeDownload = (svgElement, fileName, labelText) => {
                       "-"
                     )}
                   </td>
+
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE } from "../utils/url";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import QRBarcodeScanner from "react-qr-barcode-scanner"; // ← NEW SCANNER
 
 export default function CreateSaleOrder() {
   const [activeCompany, setActiveCompany] = useState("ABC");
@@ -11,16 +11,7 @@ export default function CreateSaleOrder() {
   const [product, setProduct] = useState(null);
   const [loadingProduct, setLoadingProduct] = useState(false);
 
-  const videoRef = useRef(null);
-  const codeReader = useRef(null);
-
-  // Start scanner when modal opens
-  useEffect(() => {
-    if (scannerOpen) startScanner();
-    return () => stopScanner();
-  }, [scannerOpen]);
-
-  // ---- FETCH PRODUCT API ----
+  // ---- FETCH PRODUCT ----
   const fetchProduct = async (name) => {
     try {
       setLoadingProduct(true);
@@ -34,49 +25,34 @@ export default function CreateSaleOrder() {
       });
 
       setProduct(res.data.item);
-      setLoadingProduct(false);
     } catch (err) {
       console.error("Error fetching product:", err);
       setProduct(null);
-      setLoadingProduct(false);
+    }
+
+    setLoadingProduct(false);
+  };
+
+  // ---- HANDLE SCAN RESULT ----
+  const handleScan = (data) => {
+    if (!data?.text) return;
+
+    const text = data.text;
+    console.log("📦 SCANNED:", text);
+
+    // prevent duplicate fetches
+    if (text !== scannedData) {
+      setScannedData(text);
+      fetchProduct(text);
     }
   };
 
-  // ---- START CAMERA SCANNER ----
-  const startScanner = () => {
-    codeReader.current = new BrowserMultiFormatReader();
-
-    codeReader.current
-      .decodeFromVideoDevice(
-        null,
-        videoRef.current,
-        (result, err) => {
-          if (result) {
-            const text = result.getText();
-            if (text && text !== scannedData) {
-              setScannedData(text);
-              fetchProduct(text);
-            }
-          }
-        }
-      )
-      .catch((err) => console.error("Scanner Error:", err));
-  };
-
-  // ---- STOP CAMERA SCANNER ----
-  const stopScanner = () => {
-    try {
-      if (codeReader.current) {
-        codeReader.current.reset();
-      }
-    } catch (err) {
-      console.warn("Scanner stop error:", err);
-    }
+  const handleError = (err) => {
+    console.error("Scanner error:", err);
   };
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-
       {/* TITLE */}
       <h2 className="text-3xl font-bold mb-6">Create Sale Order</h2>
 
@@ -106,7 +82,7 @@ export default function CreateSaleOrder() {
         }}
         className="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
       >
-        Open Scanner
+        Open QR/Barcode Scanner
       </button>
 
       {/* SCANNER MODAL */}
@@ -117,7 +93,6 @@ export default function CreateSaleOrder() {
             {/* CLOSE BUTTON */}
             <button
               onClick={() => {
-                stopScanner();
                 setScannerOpen(false);
               }}
               className="absolute top-2 right-2 text-gray-600 hover:text-black"
@@ -125,15 +100,18 @@ export default function CreateSaleOrder() {
               ✖
             </button>
 
-            <h3 className="text-lg font-semibold mb-4">Scan Barcode</h3>
+            <h3 className="text-lg font-semibold mb-4">Scan Code</h3>
 
-            {/* VIDEO FEED */}
-            <video
-              ref={videoRef}
-              className="w-full h-64 object-cover rounded border"
-              autoPlay
-              muted
-            ></video>
+            {/* CAMERA SCANNER */}
+            <div className="w-full h-64 overflow-hidden rounded border bg-black">
+              <QRBarcodeScanner
+                onUpdate={(err, data) => {
+                  if (err) handleError(err);
+                  if (data) handleScan(data);
+                }}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
 
             {/* PRODUCT STATUS */}
             {loadingProduct && (
