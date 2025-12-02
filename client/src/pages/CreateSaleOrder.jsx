@@ -1,19 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { API_BASE } from "../utils/url";
-import BarcodeScannerComponent from "react-qr-barcode-scanner";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function CreateSaleOrder() {
   const [activeCompany, setActiveCompany] = useState("ABC");
   const [scannerOpen, setScannerOpen] = useState(false);
+
   const [scannedData, setScannedData] = useState(null);
   const [product, setProduct] = useState(null);
   const [loadingProduct, setLoadingProduct] = useState(false);
 
-  // Call API to fetch product
+  const videoRef = useRef(null);
+  const codeReader = useRef(null);
+
+  // Start scanner when modal opens
+  useEffect(() => {
+    if (scannerOpen) startScanner();
+    return () => stopScanner();
+  }, [scannerOpen]);
+
+  // ---- FETCH PRODUCT API ----
   const fetchProduct = async (name) => {
     try {
       setLoadingProduct(true);
+      setProduct(null);
+
       const res = await axios.get(`${API_BASE}/getProductByName`, {
         params: {
           name,
@@ -30,11 +42,43 @@ export default function CreateSaleOrder() {
     }
   };
 
+  // ---- START CAMERA SCANNER ----
+  const startScanner = () => {
+    codeReader.current = new BrowserMultiFormatReader();
+
+    codeReader.current
+      .decodeFromVideoDevice(
+        null,
+        videoRef.current,
+        (result, err) => {
+          if (result) {
+            const text = result.getText();
+            if (text && text !== scannedData) {
+              setScannedData(text);
+              fetchProduct(text);
+            }
+          }
+        }
+      )
+      .catch((err) => console.error("Scanner Error:", err));
+  };
+
+  // ---- STOP CAMERA SCANNER ----
+  const stopScanner = () => {
+    try {
+      if (codeReader.current) {
+        codeReader.current.reset();
+      }
+    } catch (err) {
+      console.warn("Scanner stop error:", err);
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
 
       {/* TITLE */}
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Create Sale Order</h2>
+      <h2 className="text-3xl font-bold mb-6">Create Sale Order</h2>
 
       {/* COMPANY SELECTOR */}
       <div className="flex gap-4 mb-6">
@@ -42,11 +86,11 @@ export default function CreateSaleOrder() {
           <button
             key={comp}
             onClick={() => setActiveCompany(comp)}
-            className={`px-4 py-2 rounded-md font-semibold border transition
-              ${activeCompany === comp
+            className={`px-4 py-2 rounded-md font-semibold border transition ${
+              activeCompany === comp
                 ? "bg-blue-600 text-white border-blue-700"
                 : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
+            }`}
           >
             {comp}
           </button>
@@ -67,12 +111,15 @@ export default function CreateSaleOrder() {
 
       {/* SCANNER MODAL */}
       {scannerOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-lg p-5 w-full max-w-md relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40">
+          <div className="bg-white p-5 rounded-lg w-full max-w-md relative">
 
             {/* CLOSE BUTTON */}
             <button
-              onClick={() => setScannerOpen(false)}
+              onClick={() => {
+                stopScanner();
+                setScannerOpen(false);
+              }}
               className="absolute top-2 right-2 text-gray-600 hover:text-black"
             >
               ✖
@@ -80,30 +127,22 @@ export default function CreateSaleOrder() {
 
             <h3 className="text-lg font-semibold mb-4">Scan Barcode</h3>
 
-            {/* BARCODE SCANNER */}
-            <div className="w-full h-64 border rounded overflow-hidden mb-4">
-              <BarcodeScannerComponent
-                width={"100%"}
-                height={"100%"}
-                onUpdate={(err, result) => {
-                  if (result) {
-                    const text = result.text;
-                    if (text !== scannedData) {
-                      setScannedData(text);
-                      fetchProduct(text);
-                    }
-                  }
-                }}
-              />
-            </div>
+            {/* VIDEO FEED */}
+            <video
+              ref={videoRef}
+              className="w-full h-64 object-cover rounded border"
+              autoPlay
+              muted
+            ></video>
 
-            {/* SCANNED PRODUCT INFORMATION */}
+            {/* PRODUCT STATUS */}
             {loadingProduct && (
-              <p className="text-gray-600 text-center">Fetching product...</p>
+              <p className="text-gray-600 text-center mt-3">Searching...</p>
             )}
 
+            {/* PRODUCT FOUND */}
             {product && (
-              <div className="border rounded p-3 bg-gray-50">
+              <div className="border rounded p-4 mt-4 bg-gray-50">
                 <h4 className="font-semibold text-gray-800 text-lg mb-2">
                   Product Found
                 </h4>
@@ -117,15 +156,16 @@ export default function CreateSaleOrder() {
                   <img
                     src={`${API_BASE}/${product.imageUrl}`}
                     alt="product"
-                    className="h-24 w-24 mt-3 rounded object-cover"
+                    className="h-24 w-24 object-cover mt-3 rounded"
                   />
                 )}
               </div>
             )}
 
+            {/* PRODUCT NOT FOUND */}
             {!loadingProduct && scannedData && !product && (
-              <p className="text-red-600 text-center mt-3">
-                No product found for barcode:
+              <p className="text-red-600 text-center mt-4">
+                No product found for:
                 <br />
                 <span className="font-bold">{scannedData}</span>
               </p>

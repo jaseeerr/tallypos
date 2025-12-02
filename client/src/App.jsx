@@ -10,6 +10,7 @@ import SalesList from './pages/SalesList'
 import Customers from './pages/Customers'
 import ViewSale from './pages/ViewSale'
 import CreateSaleOrder from './pages/CreateSaleOrder'
+import DebugScanner from './pages/Scanner'
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
                         <Route path="/listSales" element={<SalesList />} />
 
                                     <Route path="/addSaleOrder" element={<CreateSaleOrder />} />
+                                    <Route path="/test" element={<DebugScanner />} />
 
                                                 <Route path="/customers" element={<Customers />} />
 
