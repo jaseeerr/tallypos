@@ -3,8 +3,28 @@ const router = express.Router();
 const Sale = require("../models/Sale");
 const Inventory = require('../models/Inventory');
 const Customer = require('../models/Customer');
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+const SaleOrder = require('../models/SaleOrder')
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, "../uploads/inventory");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
+// Multer setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, "inv_" + Date.now() + ext);
+  }
+});
 
+const upload = multer({ storage });
 
 
 /* GET home page. */
@@ -661,6 +681,303 @@ router.get("/customers", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
+
+/* ============================================================
+   GET SINGLE SALE (with full details + logs)
+   /sale/:billNo
+   ============================================================ */
+router.get("/sale/:billNo", async (req, res) => {
+  try {
+    const { billNo } = req.params;
+
+    if (!billNo) {
+      return res.status(400).json({
+        ok: false,
+        message: "billNo is required",
+      });
+    }
+
+    const sale = await Sale.findOne({ billNo }).lean();
+
+    if (!sale) {
+      return res.status(404).json({
+        ok: false,
+        message: "Sale not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      sale,
+    });
+  } catch (error) {
+    console.error("Error fetching sale:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+router.put("/inventory/update-image/:id", upload.single("image"), async (req, res) => {
+  try {
+    const inventoryId = req.params.id;
+
+    if (!req.file) {
+      return res.status(400).json({ ok: false, message: "Image file required" });
+    }
+
+    const filePath = "/uploads/inventory/" + req.file.filename;
+
+    const inv = await Inventory.findByIdAndUpdate(
+      inventoryId,
+      { imageUrl: filePath },
+      { new: true }
+    ).lean();
+
+    if (!inv) {
+      // Delete uploaded file if item not found
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ ok: false, message: "Inventory item not found" });
+    }
+
+    return res.json({
+      ok: true,
+      message: "Image updated successfully",
+      imageUrl: filePath,
+      inventory: inv,
+    });
+  } catch (error) {
+    console.error("Update inventory image error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+router.put("/inventory/remove-image/:id", async (req, res) => {
+  try {
+    const inventoryId = req.params.id;
+
+    const inv = await Inventory.findById(inventoryId);
+
+    if (!inv) {
+      return res.status(404).json({ ok: false, message: "Inventory item not found" });
+    }
+
+    // Remove file from disk
+    if (inv.imageUrl) {
+      const filePath = path.join(__dirname, "..", inv.imageUrl);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // Clear DB field
+    inv.imageUrl = "";
+    await inv.save();
+
+    return res.json({
+      ok: true,
+      message: "Image removed successfully",
+    });
+  } catch (error) {
+    console.error("Remove inventory image error:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+/* =============================
+console.error('addSaleOrder error:', error);
+return res.status(500).json({ ok: false, error: error.message });
+}
+});
+
+
+/* =============================
+EDIT SALE ORDER
+PUT /editSaleOrder/:id
+============================= */
+router.put('/editSaleOrder/:id', async (req, res) => {
+try {
+const { id } = req.params;
+const data = req.body;
+
+
+const updated = await SaleOrder.findByIdAndUpdate(id, data, { new: true });
+
+
+if (!updated) {
+return res.status(404).json({ ok: false, message: 'SaleOrder not found' });
+}
+
+
+return res.json({ ok: true, saleOrder: updated });
+} catch (error) {
+console.error('editSaleOrder error:', error);
+return res.status(500).json({ ok: false, error: error.message });
+}
+});
+
+
+/* =============================
+DELETE SALE ORDER
+DELETE /deleteSaleOrder/:id
+============================= */
+router.delete('/deleteSaleOrder/:id', async (req, res) => {
+try {
+const { id } = req.params;
+
+
+const removed = await SaleOrder.findByIdAndDelete(id);
+
+
+if (!removed) {
+return res.status(404).json({ ok: false, message: 'SaleOrder not found' });
+}
+
+
+return res.json({ ok: true, message: 'SaleOrder deleted' });
+} catch (error) {
+console.error('deleteSaleOrder error:', error);
+return res.status(500).json({ ok: false, error: error.message });
+}
+});
+
+
+/* =============================
+GET ALL SALE ORDERS
+GET /getAllSaleOrders
+Supports: search, companyName filters
+============================= */
+router.get('/getAllSaleOrders', async (req, res) => {
+try {
+const { search, companyName } = req.query;
+
+
+let filter = {};
+
+
+if (companyName) filter.companyName = companyName;
+
+
+if (search) {
+filter.$or = [
+{ billNo: { $regex: search, $options: 'i' } },
+{ partyName: { $regex: search, $options: 'i' } },
+{ partyCode: { $regex: search, $options: 'i' } }
+];
+}
+
+
+const saleOrders = await SaleOrder.find(filter).sort({ date: -1 }).lean();
+
+
+return res.json({ ok: true, saleOrders });
+} catch (error) {
+console.error('getAllSaleOrders error:', error);
+return res.status(500).json({ ok: false, error: error.message });
+}
+});
+
+
+// GET ONE SALE ORDER
+router.get("/sale-orders/:billNo", async (req, res) => {
+  try {
+    const { billNo } = req.params;
+
+    if (!billNo) {
+      return res.status(400).json({
+        ok: false,
+        message: "billNo is required",
+      });
+    }
+
+    const saleOrder = await SaleOrder.findOne({ billNo }).lean();
+
+    if (!saleOrder) {
+      return res.status(404).json({
+        ok: false,
+        message: "Sale Order not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      saleOrder,
+    });
+  } catch (error) {
+    console.error("Error fetching sale order:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
+router.get("/getProductsBasic", async (req, res) => {
+  try {
+    const companyName = req.query.companyName;
+
+    const filter = {};
+    if (companyName) filter.companyName = companyName;
+
+    // Fetch name + stock + image + code
+    const items = await Inventory.find(filter)
+      .select("itemName itemCode availableQty openingQty closingQty imageUrl -_id")
+      .sort({ itemName: 1 })
+      .lean();
+
+    return res.json({
+      ok: true,
+      count: items.length,
+      items,
+    });
+
+  } catch (error) {
+    console.error("Error fetching product names:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
+
+
+router.get("/getAllCustomers", async (req, res) => {
+  try {
+    const { companyName } = req.query;
+
+    if (!companyName) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName is required",
+      });
+    }
+
+    const customers = await Customer.find({ companyName }).lean();
+
+    return res.json({
+      ok: true,
+      companyName,
+      count: customers.length,
+      customers,
+    });
+
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
 
 
 module.exports = router;

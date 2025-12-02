@@ -147,7 +147,7 @@ export default function SalesList() {
 
                   <td className="p-3 text-center">
                     <button
-                      onClick={() => alert("View page not built yet")}
+                      onClick={() => location.href=`/sale/${sale.billNo}`}
                       className="text-blue-600 hover:text-blue-800"
                     >
                       View

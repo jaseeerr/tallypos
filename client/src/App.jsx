@@ -8,6 +8,8 @@ import Workflow from './pages/Workflow'
 import TallyApiDoc from './pages/Apidoc'
 import SalesList from './pages/SalesList'
 import Customers from './pages/Customers'
+import ViewSale from './pages/ViewSale'
+import CreateSaleOrder from './pages/CreateSaleOrder'
 
 function App() {
   return (
@@ -19,7 +21,12 @@ function App() {
             <Route path="/" element={<SalesList />} />
             <Route path="/products" element={<Products />} />
             <Route path="/sale" element={<Sales />} />
+                        <Route path="/sale/:billNo" element={<ViewSale />} />
+
                         <Route path="/listSales" element={<SalesList />} />
+
+                                    <Route path="/addSaleOrder" element={<CreateSaleOrder />} />
+
                                                 <Route path="/customers" element={<Customers />} />
 
 

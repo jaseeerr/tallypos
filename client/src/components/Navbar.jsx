@@ -17,6 +17,8 @@ function Navbar() {
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
               <Link to="/" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Home</Link>
+                                          <Link to="/addSaleOrder" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">New Order</Link>
+
               <Link to="/products" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Inventory</Link>
               <Link to="/sale" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Add New Sale</Link>
                             <Link to="/customers" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Customers</Link>
