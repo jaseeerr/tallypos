@@ -55,6 +55,8 @@ function Navbar() {
       {isOpen && (
         <div className="md:hidden px-2 pb-3 space-y-1 sm:px-3">
           <Link to="/" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Home</Link>
+                   <Link to="/addSaleOrder" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">New Order</Link>
+
           <Link to="/products" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Inventory</Link>
           <Link to="/sale" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Add New Sale</Link>
                 <Link to="/api-doc" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">API Documentation</Link>
