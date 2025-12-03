@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import QRCode from "react-qr-code";
 import { API_BASE } from "../utils/url";
+import { Pencil } from "lucide-react"; // Edit icon
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState([]);
@@ -9,7 +10,14 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [activeCompany, setActiveCompany] = useState("ALL");
 
-  // =============== FETCH INVENTORY =================
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalItem, setModalItem] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  // ========= FETCH INVENTORY =========
   const fetchInventory = async () => {
     try {
       setLoading(true);
@@ -22,8 +30,9 @@ export default function InventoryPage() {
       const res = await axios.get(`${API_BASE}/inventory${query}`);
       setInventory(res.data.items || []);
     } catch (err) {
-      console.error("Error fetching inventory:", err);
+      console.error("Inventory fetch error:", err);
     }
+
     setLoading(false);
   };
 
@@ -31,7 +40,7 @@ export default function InventoryPage() {
     fetchInventory();
   }, [activeCompany]);
 
-  // =============== FILTER LIST =================
+  // ========= FILTER =========
   const filteredList = inventory.filter((item) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -41,7 +50,7 @@ export default function InventoryPage() {
     );
   });
 
-  // =============== QR DOWNLOAD =================
+  // ========= QR Download =========
   const handleQRDownload = (svgElement, fileName, label) => {
     if (!svgElement) return;
 
@@ -59,19 +68,15 @@ export default function InventoryPage() {
       canvas.height = img.height + textHeight + padding * 2;
 
       const ctx = canvas.getContext("2d");
-
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       ctx.drawImage(img, padding, padding);
-
       ctx.font = "18px Arial";
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = "#000";
       ctx.textAlign = "center";
       ctx.fillText(label, canvas.width / 2, img.height + padding + textHeight);
 
       const pngUrl = canvas.toDataURL("image/png");
-
       const link = document.createElement("a");
       link.href = pngUrl;
       link.download = `${fileName}.png`;
@@ -83,72 +88,101 @@ export default function InventoryPage() {
     img.src = url;
   };
 
-  // =============== UPLOAD IMAGE =================
-  const handleImageUpload = async (itemId, file) => {
+  // ========= OPEN MODAL =========
+  const openModal = (item) => {
+    setModalItem(item);
+    setSelectedFile(null);
+    setPreview(item.imageUrl ? `${API_BASE}${item.imageUrl}` : null);
+    setModalOpen(true);
+  };
+
+  // ========= HANDLE FILE SELECT =========
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  // ========= UPLOAD IMAGE =========
+  const handleUpload = async () => {
+    if (!selectedFile) return alert("Select an image first!");
+
     try {
+      setUploading(true);
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", selectedFile);
 
-      await axios.put(`${API_BASE}/inventory/update-image/${itemId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await axios.put(
+        `${API_BASE}/inventory/update-image/${modalItem._id}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
+      setUploading(false);
+      setModalOpen(false);
       fetchInventory();
     } catch (err) {
       console.error("Image upload error:", err);
+      setUploading(false);
     }
   };
 
-  // =============== REMOVE IMAGE =================
-  const handleRemoveImage = async (itemId) => {
+  // ========= REMOVE IMAGE =========
+  const handleRemoveImage = async () => {
     try {
-      await axios.put(`${API_BASE}/inventory/remove-image/${itemId}`);
+      setUploading(true);
+
+      await axios.put(
+        `${API_BASE}/inventory/remove-image/${modalItem._id}`
+      );
+
+      setUploading(false);
+      setModalOpen(false);
       fetchInventory();
     } catch (err) {
       console.error("Remove image error:", err);
+      setUploading(false);
     }
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
 
-      {/* ===== PAGE HEADER ===== */}
+      {/* ===== Header ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h2 className="text-3xl font-semibold text-gray-800 mb-3 sm:mb-0">
-          Inventory
-        </h2>
+        <h2 className="text-3xl font-semibold text-gray-800">Inventory</h2>
 
-        {/* COMPANY SELECTOR */}
-        <div className="flex gap-2">
-          {["ALL", "ABC", "XYZ"].map((company) => (
+        <div className="flex gap-2 mt-3 sm:mt-0">
+          {["ALL", "ABC", "XYZ"].map((c) => (
             <button
-              key={company}
-              onClick={() => setActiveCompany(company)}
+              key={c}
+              onClick={() => setActiveCompany(c)}
               className={`px-4 py-2 rounded-md border font-semibold transition ${
-                activeCompany === company
+                activeCompany === c
                   ? "bg-blue-600 text-white border-blue-700"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
               }`}
             >
-              {company}
+              {c}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ===== SEARCH BAR ===== */}
-      <div className="flex sm:flex-row flex-col gap-3 mb-6">
+      {/* ===== Search ===== */}
+      <div className="flex gap-3 mb-6">
         <input
           type="text"
           placeholder="Search items..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-64"
+          className="border border-gray-300 rounded-md px-3 py-2 w-64"
         />
 
         <button
           onClick={fetchInventory}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
         >
           Refresh
         </button>
@@ -156,23 +190,18 @@ export default function InventoryPage() {
 
       {/* ===== TABLE ===== */}
       {loading ? (
-        <p className="text-gray-600">Loading inventory...</p>
-      ) : filteredList.length === 0 ? (
-        <p className="text-gray-600">No inventory items found.</p>
+        <p>Loading…</p>
       ) : (
-        <div className="overflow-x-auto bg-white shadow border border-gray-200 rounded-lg">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-gray-100 text-gray-700">
+        <div className="overflow-x-auto bg-white shadow-sm border rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
               <tr>
                 <th className="p-3">Image</th>
-                <th className="p-3 text-center">QR Code</th>
-                <th className="p-3 text-left">Item Name</th>
-                <th className="p-3 text-left">Item Code</th>
-                <th className="p-3 text-left">Group</th>
-                <th className="p-3 text-right">Available Qty</th>
-                <th className="p-3 text-right">Closing Qty</th>
-                <th className="p-3 text-right">Avg Rate</th>
-                <th className="p-3 text-center">Upload / Remove Image</th>
+                <th className="p-3">QR</th>
+                <th className="p-3 text-left">Item</th>
+                <th className="p-3 text-left">Code</th>
+                <th className="p-3 text-right">Qty</th>
+                <th className="p-3 text-center">Edit</th>
               </tr>
             </thead>
 
@@ -180,12 +209,11 @@ export default function InventoryPage() {
               {filteredList.map((item) => (
                 <tr key={item._id} className="border-t hover:bg-gray-50">
 
-                  {/* PRODUCT IMAGE */}
+                  {/* IMAGE */}
                   <td className="p-3 text-center">
                     {item.imageUrl ? (
                       <img
                         src={`${API_BASE}${item.imageUrl}`}
-                        alt={item.itemName}
                         className="h-14 w-14 object-cover rounded mx-auto"
                       />
                     ) : (
@@ -193,10 +221,10 @@ export default function InventoryPage() {
                     )}
                   </td>
 
-                  {/* QR CODE */}
+                  {/* QR */}
                   <td className="p-3 text-center">
                     <div
-                      className="inline-block cursor-pointer"
+                      className="cursor-pointer inline-block"
                       onDoubleClick={(e) =>
                         handleQRDownload(
                           e.currentTarget.querySelector("svg"),
@@ -205,54 +233,100 @@ export default function InventoryPage() {
                         )
                       }
                     >
-                      <QRCode value={item.itemName} size={70} level="M" />
-                      <div className="text-xs mt-1">{item.itemName}</div>
+                      <QRCode value={item.itemName} size={70} />
+                      <p className="text-xs">{item.itemName}</p>
                     </div>
                   </td>
 
-                  {/* BASIC INFO */}
+                  {/* INFO */}
                   <td className="p-3">{item.itemName}</td>
                   <td className="p-3">{item.itemCode}</td>
-                  <td className="p-3">{item.itemGroup || "-"}</td>
-                  <td className="p-3 text-right">{item.availableQty ?? "-"}</td>
-                  <td className="p-3 text-right">{item.closingQty ?? "-"}</td>
-                  <td className="p-3 text-right">
-                    {item.avgRate?.toFixed(2) ?? "-"}
-                  </td>
+                  <td className="p-3 text-right">{item.availableQty}</td>
 
-                  {/* IMAGE UPLOAD + REMOVE */}
+                  {/* EDIT ICON */}
                   <td className="p-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <label className="cursor-pointer bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-xs">
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) =>
-                            handleImageUpload(item._id, e.target.files[0])
-                          }
-                        />
-                      </label>
-
-                      {item.imageUrl && (
-                        <button
-                          onClick={() => handleRemoveImage(item._id)}
-                          className="text-red-600 text-xs hover:underline"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => openModal(item)}
+                      className="p-2 hover:bg-gray-200 rounded"
+                    >
+                      <Pencil size={18} />
+                    </button>
                   </td>
 
                 </tr>
               ))}
             </tbody>
-
           </table>
         </div>
       )}
+
+      {/* ======================= IMAGE EDIT MODAL ======================= */}
+      {modalOpen && modalItem && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md relative">
+
+            {/* Close */}
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute right-3 top-3 text-gray-600 hover:text-black"
+            >
+              ✖
+            </button>
+
+            <h3 className="text-xl font-semibold mb-4">
+              Edit Image – {modalItem.itemName}
+            </h3>
+
+            {/* Preview */}
+            <div className="w-full flex justify-center mb-4">
+              {preview ? (
+                <img
+                  src={preview}
+                  className="h-40 w-40 object-cover rounded border"
+                />
+              ) : (
+                <div className="h-40 w-40 border rounded flex items-center justify-center text-gray-400">
+                  No Image
+                </div>
+              )}
+            </div>
+
+            {/* Select File */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="border p-2 rounded w-full mb-4"
+            />
+
+            {/* Buttons */}
+            <div className="flex justify-between">
+
+              {/* REMOVE IMAGE */}
+              {modalItem.imageUrl && (
+                <button
+                  onClick={handleRemoveImage}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                  disabled={uploading}
+                >
+                  Remove Image
+                </button>
+              )}
+
+              {/* UPLOAD IMAGE */}
+              <button
+                onClick={handleUpload}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-auto"
+                disabled={uploading}
+              >
+                {uploading ? "Uploading…" : "Upload Image"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
