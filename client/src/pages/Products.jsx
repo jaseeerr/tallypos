@@ -7,10 +7,9 @@ export default function InventoryPage() {
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-
   const [activeCompany, setActiveCompany] = useState("ALL");
 
-  // Fetch inventory
+  // =============== FETCH INVENTORY =================
   const fetchInventory = async () => {
     try {
       setLoading(true);
@@ -22,18 +21,17 @@ export default function InventoryPage() {
 
       const res = await axios.get(`${API_BASE}/inventory${query}`);
       setInventory(res.data.items || []);
-      setLoading(false);
     } catch (err) {
       console.error("Error fetching inventory:", err);
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchInventory();
   }, [activeCompany]);
 
-  // Filter list
+  // =============== FILTER LIST =================
   const filteredList = inventory.filter((item) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -43,7 +41,7 @@ export default function InventoryPage() {
     );
   });
 
-  // ⬇️ DOWNLOAD QR CODE AS PNG
+  // =============== QR DOWNLOAD =================
   const handleQRDownload = (svgElement, fileName, label) => {
     if (!svgElement) return;
 
@@ -85,6 +83,32 @@ export default function InventoryPage() {
     img.src = url;
   };
 
+  // =============== UPLOAD IMAGE =================
+  const handleImageUpload = async (itemId, file) => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      await axios.put(`${API_BASE}/inventory/update-image/${itemId}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      fetchInventory();
+    } catch (err) {
+      console.error("Image upload error:", err);
+    }
+  };
+
+  // =============== REMOVE IMAGE =================
+  const handleRemoveImage = async (itemId) => {
+    try {
+      await axios.put(`${API_BASE}/inventory/remove-image/${itemId}`);
+      fetchInventory();
+    } catch (err) {
+      console.error("Remove image error:", err);
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
 
@@ -94,7 +118,7 @@ export default function InventoryPage() {
           Inventory
         </h2>
 
-        {/* ===== COMPANY SELECTOR BUTTONS ===== */}
+        {/* COMPANY SELECTOR */}
         <div className="flex gap-2">
           {["ALL", "ABC", "XYZ"].map((company) => (
             <button
@@ -148,7 +172,7 @@ export default function InventoryPage() {
                 <th className="p-3 text-right">Available Qty</th>
                 <th className="p-3 text-right">Closing Qty</th>
                 <th className="p-3 text-right">Avg Rate</th>
-                <th className="p-3">Godowns</th>
+                <th className="p-3 text-center">Upload / Remove Image</th>
               </tr>
             </thead>
 
@@ -157,12 +181,12 @@ export default function InventoryPage() {
                 <tr key={item._id} className="border-t hover:bg-gray-50">
 
                   {/* PRODUCT IMAGE */}
-                  <td className="p-3">
+                  <td className="p-3 text-center">
                     {item.imageUrl ? (
                       <img
                         src={`${API_BASE}${item.imageUrl}`}
                         alt={item.itemName}
-                        className="h-14 w-14 object-cover rounded"
+                        className="h-14 w-14 object-cover rounded mx-auto"
                       />
                     ) : (
                       <span className="text-xs text-gray-400">No Image</span>
@@ -186,7 +210,7 @@ export default function InventoryPage() {
                     </div>
                   </td>
 
-                  {/* OTHER INFO */}
+                  {/* BASIC INFO */}
                   <td className="p-3">{item.itemName}</td>
                   <td className="p-3">{item.itemCode}</td>
                   <td className="p-3">{item.itemGroup || "-"}</td>
@@ -196,16 +220,30 @@ export default function InventoryPage() {
                     {item.avgRate?.toFixed(2) ?? "-"}
                   </td>
 
-                  <td className="p-3">
-                    {item.godowns?.length > 0 ? (
-                      <ul className="list-disc pl-4 text-xs">
-                        {item.godowns.map((g, i) => (
-                          <li key={i}>{g.name}: {g.qty}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "-"
-                    )}
+                  {/* IMAGE UPLOAD + REMOVE */}
+                  <td className="p-3 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <label className="cursor-pointer bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-xs">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleImageUpload(item._id, e.target.files[0])
+                          }
+                        />
+                      </label>
+
+                      {item.imageUrl && (
+                        <button
+                          onClick={() => handleRemoveImage(item._id)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                 </tr>
