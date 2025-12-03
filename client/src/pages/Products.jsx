@@ -7,16 +7,18 @@ export default function InventoryPage() {
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [companyName, setCompanyName] = useState("");
+
+  const [activeCompany, setActiveCompany] = useState("ALL");
 
   // Fetch inventory
   const fetchInventory = async () => {
     try {
       setLoading(true);
 
-      const query = companyName
-        ? `?companyName=${encodeURIComponent(companyName)}`
-        : "";
+      const query =
+        activeCompany !== "ALL"
+          ? `?companyName=${encodeURIComponent(activeCompany)}`
+          : "";
 
       const res = await axios.get(`${API_BASE}/inventory${query}`);
       setInventory(res.data.items || []);
@@ -29,7 +31,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchInventory();
-  }, [companyName]);
+  }, [activeCompany]);
 
   // Filter list
   const filteredList = inventory.filter((item) => {
@@ -41,7 +43,7 @@ export default function InventoryPage() {
     );
   });
 
-  // ⬇️ DOWNLOAD QR CODE AS PNG (with product name)
+  // ⬇️ DOWNLOAD QR CODE AS PNG
   const handleQRDownload = (svgElement, fileName, label) => {
     if (!svgElement) return;
 
@@ -85,39 +87,50 @@ export default function InventoryPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* HEADER */}
+
+      {/* ===== PAGE HEADER ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 className="text-3xl font-semibold text-gray-800 mb-3 sm:mb-0">
           Inventory
         </h2>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            placeholder="Filter by company"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2"
-          />
-
-          <input
-            type="text"
-            placeholder="Search items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2"
-          />
-
-          <button
-            onClick={fetchInventory}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-          >
-            Refresh
-          </button>
+        {/* ===== COMPANY SELECTOR BUTTONS ===== */}
+        <div className="flex gap-2">
+          {["ALL", "ABC", "XYZ"].map((company) => (
+            <button
+              key={company}
+              onClick={() => setActiveCompany(company)}
+              className={`px-4 py-2 rounded-md border font-semibold transition ${
+                activeCompany === company
+                  ? "bg-blue-600 text-white border-blue-700"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {company}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* ===== SEARCH BAR ===== */}
+      <div className="flex sm:flex-row flex-col gap-3 mb-6">
+        <input
+          type="text"
+          placeholder="Search items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-64"
+        />
+
+        <button
+          onClick={fetchInventory}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* ===== TABLE ===== */}
       {loading ? (
         <p className="text-gray-600">Loading inventory...</p>
       ) : filteredList.length === 0 ? (
@@ -168,16 +181,12 @@ export default function InventoryPage() {
                         )
                       }
                     >
-                      <QRCode
-                        value={item.itemName}
-                        size={70}
-                        level="M"
-                      />
+                      <QRCode value={item.itemName} size={70} level="M" />
                       <div className="text-xs mt-1">{item.itemName}</div>
                     </div>
                   </td>
 
-                  {/* OTHER FIELDS */}
+                  {/* OTHER INFO */}
                   <td className="p-3">{item.itemName}</td>
                   <td className="p-3">{item.itemCode}</td>
                   <td className="p-3">{item.itemGroup || "-"}</td>

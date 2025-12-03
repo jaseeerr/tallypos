@@ -918,33 +918,49 @@ router.get("/sale-orders/:billNo", async (req, res) => {
 });
 
 
-router.get("/getProductsBasic", async (req, res) => {
+router.get("/getProductBasic", async (req, res) => {
   try {
-    const companyName = req.query.companyName;
+    const { companyName, itemName } = req.query;
 
-    const filter = {};
-    if (companyName) filter.companyName = companyName;
+    if (!companyName || !itemName) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName and itemName are required",
+      });
+    }
 
-    // Fetch name + stock + image + code
-    const items = await Inventory.find(filter)
-      .select("itemName itemCode availableQty openingQty closingQty imageUrl -_id")
-      .sort({ itemName: 1 })
+    const filter = {
+      companyName,
+      itemName,
+    };
+
+    // Find single product
+    const item = await Inventory.findOne(filter)
+      .select("itemName itemCode availableQty openingQty closingQty imageUrl")
       .lean();
+
+    if (!item) {
+      return res.json({
+        ok: false,
+        message: "Product not found",
+        item: null,
+      });
+    }
 
     return res.json({
       ok: true,
-      count: items.length,
-      items,
+      item,
     });
 
   } catch (error) {
-    console.error("Error fetching product names:", error);
+    console.error("Error fetching product:", error);
     return res.status(500).json({
       ok: false,
       error: error.message,
     });
   }
 });
+
 
 
 
