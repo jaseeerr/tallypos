@@ -462,8 +462,105 @@ router.post("/add-sale", async (req, res) => {
       companyName,
       billNo,
       date,
+      reference = "",
+      remarks = "",
+      subtotal = 0,
+      vatAmount = 0,
+      totalAmount = 0,
+      isCashSale,
+      cashLedgerName = "",
+      customerId,
+      items
+    } = data;
+
+    // ----------------------------
+    // VALIDATION
+    // ----------------------------
+    if (!companyName || !billNo || !date) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName, billNo, and date are required",
+      });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "At least one item is required",
+      });
+    }
+
+    // Check duplicate bill for company
+    const exists = await Sale.findOne({ billNo, companyName });
+    if (exists) {
+      return res.status(400).json({
+        ok: false,
+        message: "Bill number already exists for this company",
+      });
+    }
+
+    // ----------------------------
+    // POPULATE CUSTOMER DETAILS
+    // ----------------------------
+    let partyCode = "";
+    let partyName = "";
+    let partyVatNo = "";
+    let partyAddress = [];
+
+    if (!isCashSale && customerId) {
+      const customer = await Customer.findById(customerId).lean();
+
+      if (!customer) {
+        return res.status(400).json({ ok: false, message: "Customer not found" });
+      }
+
+      partyCode = customer.partyCode || "";
+      partyName = customer.partyName || "";
+      partyVatNo = customer.vatNumber || "";
+      partyAddress = (customer.address || []).map(a => ({ address: a }));
+    }
+
+    // ----------------------------
+    // ITEMS (use VAT exactly as frontend sends)
+    // ----------------------------
+    const processedItems = items.map(i => ({
+      itemName: i.itemName,
+      itemCode: i.itemCode,
+      itemGroup: i.itemGroup || "",
+      description: i.description || "",
+      qty: Number(i.qty),
+      unit: i.unit,
+      rate: Number(i.rate),
+      amount: Number(i.amount),
+      rateOfTax: Number(i.rateOfTax), // ← directly from frontend (correct)
+    }));
+
+    // ----------------------------
+    // LEDGERS — AUTO VAT LEDGER
+    // ----------------------------
+    let ledgerList = [];
+
+    if (vatAmount > 0) {
+      ledgerList.push({
+        ledgerName: "VAT",
+        percentage: null, // because items can have mixed VAT
+        amount: vatAmount,
+      });
+    }
+
+    // ----------------------------
+    // SAVE SALE
+    // ----------------------------
+    const newSale = new Sale({
+      companyName,
+      billNo,
+      date,
       reference,
       remarks,
+
+      subtotal,
+      vatAmount,
+      totalAmount,
 
       isCashSale,
       cashLedgerName,
@@ -473,90 +570,8 @@ router.post("/add-sale", async (req, res) => {
       partyVatNo,
       partyAddress,
 
-      items,
-      ledgers = [],   // you can still manually add Discount etc.
-
-      createdBy,
-    } = data;
-
-    if (!companyName || !billNo || !date || !items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        ok: false,
-        message: "companyName, billNo, date and items[] are required",
-      });
-    }
-
-    // Check duplicate billNo
-    const exists = await Sale.findOne({ billNo, companyName });
-    if (exists) {
-      return res.status(400).json({
-        ok: false,
-        message: "Bill number already exists for this company",
-      });
-    }
-
-    // --- CALCULATE VAT LEDGERS ---
-    let vatGroups = {}; // { "5": amount, "12": amount }
-
-    items.forEach(i => {
-      const amount = Number(i.amount);
-      const vatPercent = Number(i.rateOfTax || 0);
-
-      if (!vatPercent) return;
-
-      const vatAmt = (amount * vatPercent) / 100;
-
-      if (!vatGroups[vatPercent]) vatGroups[vatPercent] = 0;
-      vatGroups[vatPercent] += vatAmt;
-    });
-
-    // Convert VAT groups into ledger entries
-    Object.keys(vatGroups).forEach(vat => {
-      ledgers.push({
-        ledgerName: `VAT@${vat}%`,
-        percentage: Number(vat),
-        amount: vatGroups[vat],
-      });
-    });
-
-    // Calculate totals
-    const subtotal = items.reduce((sum, i) => sum + Number(i.amount || 0), 0);
-    const totalVat = Object.values(vatGroups).reduce((a, b) => a + b, 0);
-    const totalAmount = subtotal + totalVat;
-
-    // CREATE SALE
-    const newSale = new Sale({
-      companyName,
-      billNo,
-      date,
-      reference: reference || "",
-      remarks: remarks || "",
-      totalAmount,
-
-      isCashSale: !!isCashSale,
-      cashLedgerName: cashLedgerName || "",
-
-      partyCode: isCashSale ? "" : (partyCode || ""),
-      partyName: isCashSale ? "" : (partyName || ""),
-      partyVatNo: isCashSale ? "" : (partyVatNo || ""),
-
-      partyAddress: isCashSale
-        ? []
-        : (partyAddress || []).map(a => ({ address: a })),
-
-      items: items.map(i => ({
-        itemName: i.itemName,
-        itemCode: i.itemCode,
-        itemGroup: i.itemGroup,
-        description: i.description,
-        qty: i.qty,
-        unit: i.unit,
-        rate: i.rate,
-        amount: i.amount,
-        rateOfTax: i.rateOfTax,
-      })),
-
-      ledgers,  // includes VAT ledgers now
+      items: processedItems,
+      ledgers: ledgerList,
 
       status: "pending",
       syncAttempts: 0,
@@ -564,8 +579,8 @@ router.post("/add-sale", async (req, res) => {
       tallyInvoiceNumber: "",
       tallyResponseLogs: [],
 
-      createdBy: createdBy || null,
-      updatedBy: createdBy || null,
+      createdBy: data.createdBy || null,
+      updatedBy: data.createdBy || null,
     });
 
     await newSale.save();
@@ -581,6 +596,7 @@ router.post("/add-sale", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
