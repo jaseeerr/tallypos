@@ -87,7 +87,7 @@ router.get("/fetch-sales", async (req, res) => {
       LEDGERS: sale.ledgers.map((l) => ({
         LEDGERSNAME: l.ledgerName,
         Percentage:
-          l.percentage != null ? Number(l.percentage).toFixed(2) : "0.00",
+          l.percentage != null ? Number(l.percentage).toFixed(2) : "5.00",
         Amount: Number(l.amount).toFixed(2),
       })),
     }));
