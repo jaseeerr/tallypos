@@ -3,16 +3,17 @@ import axios from "axios";
 import { API_BASE } from "../utils/url";
 
 export default function AddSale() {
+  // ==========================
+  // STATES
+  // ==========================
   const [inventory, setInventory] = useState([]);
-  const [customers, setCustomers] = useState([]);
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
 
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [customerCompanyFilter, setCustomerCompanyFilter] = useState("ALL");
+
   const [selectedItems, setSelectedItems] = useState([]);
-
-  const [activeCompany, setActiveCompany] = useState("ALL");
+  const [includeVAT, setIncludeVAT] = useState(false);
 
   const [saleData, setSaleData] = useState({
     companyName: "",
@@ -20,46 +21,19 @@ export default function AddSale() {
     date: new Date().toISOString().split("T")[0],
     reference: "",
     remarks: "",
-    isCashSale: false,
+    customerId: "",
   });
 
   const [loadingInventory, setLoadingInventory] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
 
-  // --------------------------------------------------------
-  // Fetch Customers
-  // --------------------------------------------------------
-  const fetchCustomers = async () => {
-    try {
-      setLoadingCustomers(true);
-      const params = {
-        page: 1,
-        limit: 500,
-        search: customerSearch,
-      };
-
-      if (activeCompany !== "ALL") params.companyName = activeCompany;
-
-      const res = await axios.get(`${API_BASE}/customers`, { params });
-      setCustomers(res.data.customers || []);
-    } catch (err) {
-      console.error("Customer fetch error:", err);
-    }
-    setLoadingCustomers(false);
-  };
-
-  // --------------------------------------------------------
-  // Fetch Inventory
-  // --------------------------------------------------------
+  // ==========================
+  // FETCH INVENTORY
+  // ==========================
   const fetchInventory = async () => {
     try {
       setLoadingInventory(true);
-      const query =
-        activeCompany !== "ALL"
-          ? `?companyName=${encodeURIComponent(activeCompany)}`
-          : "";
-
-      const res = await axios.get(`${API_BASE}/inventory${query}`);
+      const res = await axios.get(`${API_BASE}/inventory`);
       setInventory(res.data.items || []);
     } catch (err) {
       console.error("Error fetching inventory:", err);
@@ -67,158 +41,146 @@ export default function AddSale() {
     setLoadingInventory(false);
   };
 
+  // ==========================
+  // FETCH CUSTOMERS
+  // ==========================
+  const fetchCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+
+      const query =
+        customerCompanyFilter !== "ALL"
+          ? `?companyName=${encodeURIComponent(customerCompanyFilter)}`
+          : "";
+
+      const res = await axios.get(`${API_BASE}/customers${query}`);
+      setCustomers(res.data.customers || []);
+    } catch (err) {
+      console.error("Error fetching customers:", err);
+    }
+    setLoadingCustomers(false);
+  };
+
   useEffect(() => {
     fetchInventory();
-    fetchCustomers();
-  }, [activeCompany]);
+  }, []);
 
   useEffect(() => {
     fetchCustomers();
-  }, [customerSearch]);
+  }, [customerCompanyFilter]);
 
-  // --------------------------------------------------------
-  // Add Item
-  // --------------------------------------------------------
+  // ==========================
+  // FILTER INVENTORY LIST
+  // ==========================
+  const filteredInventory = inventory.filter((item) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      item.itemName?.toLowerCase().includes(q) ||
+      item.itemCode?.toLowerCase().includes(q) ||
+      item.itemGroup?.toLowerCase().includes(q)
+    );
+  });
+
+  // ==========================
+  // ADD ITEM
+  // ==========================
   const addItem = (item) => {
     const exists = selectedItems.find((i) => i.itemCode === item.itemCode);
     if (exists) return;
 
-    setSelectedItems([
-      ...selectedItems,
+    setSelectedItems((prev) => [
+      ...prev,
       {
         itemName: item.itemName,
         itemCode: item.itemCode,
         qty: 1,
         rate: item.avgRate || 0,
-        vatRate: 5,
-        vatIncluded: false,
-        netAmount: item.avgRate || 0,
-        vatAmount: 0,
-        grossAmount: item.avgRate || 0,
+        amount: item.avgRate || 0,
+        rateOfTax: item.vatRate || 5, // default VAT 5%
       },
     ]);
   };
 
-  // --------------------------------------------------------
-  // VAT Logic
-  // --------------------------------------------------------
-  const recalcItem = (item) => {
-    const qty = Number(item.qty) || 0;
-    const rate = Number(item.rate) || 0;
-    const vatRate = Number(item.vatRate) || 0;
-
-    if (item.vatIncluded) {
-      const net = (rate / (1 + vatRate / 100)) * qty;
-      const vat = rate * qty - net;
-      return {
-        ...item,
-        netAmount: net,
-        vatAmount: vat,
-        grossAmount: rate * qty,
-      };
-    } else {
-      const net = rate * qty;
-      const vat = net * (vatRate / 100);
-      return {
-        ...item,
-        netAmount: net,
-        vatAmount: vat,
-        grossAmount: net + vat,
-      };
-    }
-  };
-
+  // ==========================
+  // UPDATE ITEM
+  // ==========================
   const updateItem = (index, field, value) => {
     const updated = [...selectedItems];
     updated[index][field] = value;
-    updated[index] = recalcItem(updated[index]);
+
+    updated[index].amount =
+      parseFloat(updated[index].qty) * parseFloat(updated[index].rate);
+
     setSelectedItems(updated);
   };
 
+  // ==========================
+  // REMOVE ITEM
+  // ==========================
   const removeItem = (index) => {
     const updated = [...selectedItems];
     updated.splice(index, 1);
     setSelectedItems(updated);
   };
 
-  const subtotal = selectedItems.reduce((a, b) => a + b.netAmount, 0);
-  const totalVat = selectedItems.reduce((a, b) => a + b.vatAmount, 0);
-  const grandTotal = selectedItems.reduce((a, b) => a + b.grossAmount, 0);
+  // ==========================
+  // TOTALS
+  // ==========================
+  const subTotal = selectedItems.reduce(
+    (sum, i) => sum + Number(i.amount || 0),
+    0
+  );
 
-  // --------------------------------------------------------
+  const taxAmount = selectedItems.reduce((sum, i) => {
+    if (!includeVAT) return sum;
+    return sum + (i.amount * i.rateOfTax) / 100;
+  }, 0);
+
+  const grandTotal = includeVAT ? subTotal + taxAmount : subTotal;
+
+  // ==========================
   // SUBMIT SALE
-  // --------------------------------------------------------
+  // ==========================
   const submitSale = async () => {
     if (!saleData.companyName || !saleData.billNo) {
-      alert("Company Name & Bill No required");
-      return;
+      return alert("Company name & Bill No are required");
     }
 
-    if (!saleData.isCashSale && !selectedCustomer) {
-      alert("Select a customer");
-      return;
+    if (!saleData.customerId) {
+      return alert("Please select a customer");
     }
 
     if (selectedItems.length === 0) {
-      alert("Select at least one item");
-      return;
+      return alert("Add at least one item");
     }
 
     const payload = {
       ...saleData,
-      partyName: selectedCustomer?.partyName || "",
-      partyCode: selectedCustomer?.partyCode || "",
-      partyVatNo: selectedCustomer?.partyVatNo || "",
-      partyAddress: selectedCustomer?.address || [],
-      items: selectedItems.map((i) => ({
-        ...i,
-        amount: i.netAmount,
-      })),
-      subtotal,
-      vatTotal: totalVat,
-      totalAmount: grandTotal,
+      includeVAT,
+      items: selectedItems,
+      subTotal,
+      taxAmount,
+      grandTotal,
     };
 
     try {
       await axios.post(`${API_BASE}/add-sale`, payload);
-      alert("Sale created!");
+      alert("Sale created successfully!");
       window.location.reload();
     } catch (err) {
-      console.error(err);
+      console.error("Error saving sale:", err);
       alert("Error saving sale");
     }
   };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* ============================================================
-          TITLE
-      ============================================================ */}
       <h2 className="text-3xl font-semibold mb-6">Create New Sale</h2>
 
-      {/* ============================================================
-          COMPANY SELECTOR
-      ============================================================ */}
-      <div className="flex gap-2 mb-6">
-        {["ALL", "ABC", "XYZ"].map((c) => (
-          <button
-            key={c}
-            onClick={() => setActiveCompany(c)}
-            className={`px-4 py-2 rounded font-semibold border ${
-              activeCompany === c
-                ? "bg-blue-600 text-white border-blue-700"
-                : "bg-white text-gray-700 border-gray-300"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {/* ============================================================
-          SALE BASICS
-      ============================================================ */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      {/* ==========================
+          SALE INFO
+      ========================== */}
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
         <input
           type="text"
           placeholder="Company Name"
@@ -247,87 +209,74 @@ export default function AddSale() {
         />
       </div>
 
-      {/* ============================================================
-          CASH OR CUSTOMER
-      ============================================================ */}
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="checkbox"
-          checked={saleData.isCashSale}
-          onChange={(e) =>
-            setSaleData({ ...saleData, isCashSale: e.target.checked })
-          }
-        />
-        <span className="font-semibold">Cash Sale</span>
+      {/* ==========================
+          CUSTOMER SELECTOR
+      ========================== */}
+      <h3 className="text-xl font-semibold mb-2">Select Customer</h3>
+
+      <div className="flex gap-4 mb-3">
+        {["ALL", "ABC", "XYZ"].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCustomerCompanyFilter(c)}
+            className={`px-4 py-2 rounded border ${
+              customerCompanyFilter === c
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 border-gray-300"
+            }`}
+          >
+            {c}
+          </button>
+        ))}
       </div>
 
-      {/* ============================================================
-          CUSTOMER DROPDOWN
-      ============================================================ */}
-      {!saleData.isCashSale && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-2">Select Customer</h3>
+      <select
+        className="border p-2 rounded mb-6 w-full md:w-1/2"
+        value={saleData.customerId}
+        onChange={(e) =>
+          setSaleData({ ...saleData, customerId: e.target.value })
+        }
+      >
+        <option value="">Select Customer</option>
+        {customers.map((cust) => (
+          <option key={cust._id} value={cust._id}>
+            {cust.partyName} ({cust.partyCode})
+          </option>
+        ))}
+      </select>
 
-          <input
-            type="text"
-            placeholder="Search customer..."
-            className="border p-2 rounded w-full mb-2"
-            value={customerSearch}
-            onChange={(e) => setCustomerSearch(e.target.value)}
-          />
+      {/* ==========================
+          VAT OPTION
+      ========================== */}
+      <label className="flex items-center gap-2 mb-6">
+        <input
+          type="checkbox"
+          checked={includeVAT}
+          onChange={(e) => setIncludeVAT(e.target.checked)}
+        />
+        Include VAT (5%)
+      </label>
 
-          <div className="border rounded bg-white max-h-48 overflow-y-auto">
-            {loadingCustomers ? (
-              <p className="p-3 text-gray-500">Loading...</p>
-            ) : customers.length === 0 ? (
-              <p className="p-3 text-gray-500">No customers found</p>
-            ) : (
-              customers.map((cust) => (
-                <div
-                  key={cust._id}
-                  className={`p-3 border-b cursor-pointer hover:bg-gray-100 ${
-                    selectedCustomer?._id === cust._id ? "bg-blue-50" : ""
-                  }`}
-                  onClick={() => setSelectedCustomer(cust)}
-                >
-                  <div className="font-medium">{cust.partyName}</div>
-                  <div className="text-xs text-gray-600">
-                    {cust.partyCode} | {cust.phone}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {selectedCustomer && (
-            <div className="mt-3 text-sm bg-gray-50 p-3 rounded border">
-              <strong>Selected:</strong> {selectedCustomer.partyName}  
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ============================================================
-          INVENTORY SEARCH
-      ============================================================ */}
-      <h3 className="text-xl font-semibold mb-2">Select Items</h3>
-
+      {/* ==========================
+          SEARCH INVENTORY
+      ========================== */}
+      <h3 className="text-xl font-semibold mb-3">Select Items</h3>
       <input
         type="text"
         placeholder="Search items..."
-        className="border p-2 rounded mb-4 w-full md:w-1/2"
+        className="border p-2 rounded w-full md:w-1/2"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 
-      {/* ============================================================
+      {/* ==========================
           INVENTORY LIST
-      ============================================================ */}
-      <div className="border rounded bg-white h-60 overflow-y-auto mb-6">
+      ========================== */}
+      <div className="border rounded p-4 h-64 overflow-y-auto bg-white mt-4 mb-6">
         {loadingInventory ? (
-          <p className="p-3">Loading inventory...</p>
+          <p>Loading inventory...</p>
         ) : filteredInventory.length === 0 ? (
-          <p className="p-3">No products found</p>
+          <p>No products found.</p>
         ) : (
           filteredInventory.map((item) => (
             <div
@@ -336,7 +285,7 @@ export default function AddSale() {
               onClick={() => addItem(item)}
             >
               <div className="font-medium">{item.itemName}</div>
-              <div className="text-xs text-gray-500">
+              <div className="text-gray-500 text-sm">
                 Code: {item.itemCode} | Stock: {item.availableQty}
               </div>
             </div>
@@ -344,28 +293,26 @@ export default function AddSale() {
         )}
       </div>
 
-      {/* ============================================================
-          SELECTED ITEMS TABLE (with VAT)
-      ============================================================ */}
+      {/* ==========================
+          SELECTED ITEMS TABLE
+      ========================== */}
       {selectedItems.length > 0 && (
         <div className="mb-6">
           <h3 className="text-xl font-semibold mb-3">Selected Items</h3>
 
-          <table className="w-full bg-white rounded shadow border-collapse">
-            <thead className="bg-gray-100 text-gray-700">
+          <table className="w-full border-collapse bg-white rounded shadow">
+            <thead className="bg-gray-100">
               <tr>
                 <th className="p-2 text-left">Item</th>
                 <th className="p-2 text-right">Qty</th>
                 <th className="p-2 text-right">Rate</th>
-                <th className="p-2 text-right">VAT %</th>
-                <th className="p-2 text-center">VAT Included?</th>
-                <th className="p-2 text-right">Net</th>
-                <th className="p-2 text-right">VAT</th>
-                <th className="p-2 text-right">Gross</th>
-                <th className="p-2 text-center">X</th>
+                <th className="p-2 text-right">Amount</th>
+                {includeVAT && (
+                  <th className="p-2 text-right">VAT%</th>
+                )}
+                <th className="p-2 text-center">Remove</th>
               </tr>
             </thead>
-
             <tbody>
               {selectedItems.map((item, index) => (
                 <tr key={index} className="border-t">
@@ -374,49 +321,37 @@ export default function AddSale() {
                   <td className="p-2 text-right">
                     <input
                       type="number"
-                      className="border p-1 w-20 text-right rounded"
                       value={item.qty}
                       onChange={(e) => updateItem(index, "qty", e.target.value)}
+                      className="border p-1 w-20 rounded text-right"
                     />
                   </td>
 
                   <td className="p-2 text-right">
                     <input
                       type="number"
-                      className="border p-1 w-20 text-right rounded"
                       value={item.rate}
-                      onChange={(e) =>
-                        updateItem(index, "rate", e.target.value)
-                      }
+                      onChange={(e) => updateItem(index, "rate", e.target.value)}
+                      className="border p-1 w-20 rounded text-right"
                     />
                   </td>
 
                   <td className="p-2 text-right">
-                    <input
-                      type="number"
-                      className="border p-1 w-16 text-right rounded"
-                      value={item.vatRate}
-                      onChange={(e) =>
-                        updateItem(index, "vatRate", e.target.value)
-                      }
-                    />
+                    {item.amount.toFixed(2)}
                   </td>
 
-                  <td className="p-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={item.vatIncluded}
-                      onChange={(e) =>
-                        updateItem(index, "vatIncluded", e.target.checked)
-                      }
-                    />
-                  </td>
-
-                  <td className="p-2 text-right">{item.netAmount.toFixed(2)}</td>
-                  <td className="p-2 text-right">{item.vatAmount.toFixed(2)}</td>
-                  <td className="p-2 text-right">
-                    {item.grossAmount.toFixed(2)}
-                  </td>
+                  {includeVAT && (
+                    <td className="p-2 text-right">
+                      <input
+                        type="number"
+                        value={item.rateOfTax}
+                        onChange={(e) =>
+                          updateItem(index, "rateOfTax", e.target.value)
+                        }
+                        className="border p-1 w-16 rounded text-right"
+                      />
+                    </td>
+                  )}
 
                   <td className="p-2 text-center">
                     <button
@@ -433,21 +368,24 @@ export default function AddSale() {
         </div>
       )}
 
-      {/* ============================================================
+      {/* ==========================
           TOTALS
-      ============================================================ */}
-      <div className="text-right text-lg font-semibold mb-6">
-        <div>Subtotal: AED {subtotal.toFixed(2)}</div>
-        <div>VAT Total: AED {totalVat.toFixed(2)}</div>
-        <div className="text-xl mt-1">
-          Grand Total:{" "}
-          <span className="font-bold">AED {grandTotal.toFixed(2)}</span>
+      ========================== */}
+      <div className="text-right text-xl font-semibold mb-6">
+        Subtotal: AED {subTotal.toFixed(2)} <br />
+        {includeVAT && (
+          <>
+            VAT: AED {taxAmount.toFixed(2)} <br />
+          </>
+        )}
+        <div className="mt-2 text-2xl text-green-600">
+          Grand Total: AED {grandTotal.toFixed(2)}
         </div>
       </div>
 
-      {/* ============================================================
+      {/* ==========================
           SUBMIT BUTTON
-      ============================================================ */}
+      ========================== */}
       <button
         onClick={submitSale}
         className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700"
@@ -457,4 +395,3 @@ export default function AddSale() {
     </div>
   );
 }
-// a
