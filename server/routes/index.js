@@ -51,10 +51,10 @@ router.get("/fetch-sales", async (req, res) => {
     }).lean();
 
     // 2. Mark them as "processing"
-    await Sale.updateMany(
-      { companyName: company, status: "pending" },
-      { $set: { status: "processing" } }
-    );
+    // await Sale.updateMany(
+    //   { companyName: company, status: "pending" },
+    //   { $set: { status: "processing" } }
+    // );
 
     // 3. Transform into Tally-compatible response
     const vouchers = pendingSales.map((sale) => ({
