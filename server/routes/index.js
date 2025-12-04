@@ -38,39 +38,31 @@ router.get('/', function(req, res, next) {
    ============================================================ */
 router.get("/fetch-sales", async (req, res) => {
   try {
-
     const formatDate = (date) => {
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
-};
-
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
     const company = req.query.company;
 
     if (!company) {
-      return res.status(400).json({ ok: false, message: "company is required" });
+      return res
+        .status(400)
+        .json({ ok: false, message: "company is required" });
     }
 
-    // 1. Fetch all pending sales
     const pendingSales = await Sale.find({
       companyName: company,
       status: "pending",
     }).lean();
 
-    // 2. Mark them as "processing"
-    // await Sale.updateMany(
-    //   { companyName: company, status: "pending" },
-    //   { $set: { status: "processing" } }
-    // );
-
-    // 3. Transform into Tally-compatible response
     const vouchers = pendingSales.map((sale) => ({
       TYPE: "Sales Invoice",
       BILLNO: sale.billNo,
-  DATE: formatDate(sale.date),
+      DATE: formatDate(sale.date),
       REFERENCE: sale.reference || "",
       TOTALAMOUNT: sale.totalAmount.toFixed(2),
       REMARKS: sale.remarks || "",
@@ -85,17 +77,18 @@ router.get("/fetch-sales", async (req, res) => {
         ITEMCODE: i.itemCode,
         ITEMGROUP: i.itemGroup,
         DESCRIPTION: i.description,
-        QTY: i.qty.toFixed(4),
+        QTY: Number(i.qty).toFixed(4),
         UNIT: i.unit,
-        RATE: i.rate.toFixed(2),
-        AMOUNT: i.amount.toFixed(2),
-        Rateoftax: i.rateOfTax?.toFixed(2) || "0.00",
+        RATE: Number(i.rate).toFixed(2),
+        AMOUNT: Number(i.amount).toFixed(2),
+        Rateoftax: Number(i.rateOfTax || 0).toFixed(2),
       })),
 
       LEDGERS: sale.ledgers.map((l) => ({
         LEDGERSNAME: l.ledgerName,
-        Percentage: l.percentage.toFixed(2),
-        Amount: l.amount.toFixed(2),
+        Percentage:
+          l.percentage != null ? Number(l.percentage).toFixed(2) : "0.00",
+        Amount: Number(l.amount).toFixed(2),
       })),
     }));
 
@@ -105,6 +98,8 @@ router.get("/fetch-sales", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
+
 
 /* ============================================================
    2) TALLY CALLBACK AFTER INSERTION (POST)
