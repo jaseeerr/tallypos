@@ -36,7 +36,8 @@ export default function AddSale() {
       setLoadingInventory(true);
 
       const res = await axios.get(
-        `${API_BASE}/inventory?companyName=${activeCompany}`
+        `${API_BASE}/inventory`,
+        { params: { companyName: activeCompany } }
       );
 
       setInventory(res.data.items || []);
@@ -66,14 +67,14 @@ export default function AddSale() {
     setLoadingCustomers(false);
   };
 
-  // Load data whenever company changes
   useEffect(() => {
     fetchInventory();
     fetchCustomers();
+    setSelectedItems([]);
   }, [activeCompany]);
 
   // =============================
-  //  SELECT ITEMS LOGIC
+  //  SELECT ITEMS
   // =============================
   const addItem = (item) => {
     const exists = selectedItems.find((i) => i.itemCode === item.itemCode);
@@ -89,7 +90,7 @@ export default function AddSale() {
         unit: item.unit,
         rate: item.avgRate || 0,
         amount: item.avgRate || 0,
-        rateOfTax: item.vatRate || 0,
+        rateOfTax: item.vatRate || 5, // DEFAULT VAT
       },
     ]);
   };
@@ -98,6 +99,7 @@ export default function AddSale() {
     const updated = [...selectedItems];
     updated[index][field] = value;
 
+    // Recalculate amount
     updated[index].amount =
       parseFloat(updated[index].qty) * parseFloat(updated[index].rate);
 
@@ -117,7 +119,9 @@ export default function AddSale() {
 
   const totalVat = saleData.includeVat
     ? selectedItems.reduce(
-        (sum, i) => sum + (Number(i.amount) * Number(i.rateOfTax || 0)) / 100,
+        (sum, i) =>
+          sum +
+          (Number(i.amount) * Number(i.rateOfTax || 0)) / 100,
         0
       )
     : 0;
@@ -159,9 +163,9 @@ export default function AddSale() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-
+      
       {/* =============================
-          COMPANY SELECTOR AT TOP
+          COMPANY SELECTOR
       ============================= */}
       <div className="flex gap-3 mb-6">
         {["ABC", "XYZ"].map((comp) => (
@@ -300,6 +304,7 @@ export default function AddSale() {
                 <th className="p-2 text-left">Item</th>
                 <th className="p-2 text-right">Qty</th>
                 <th className="p-2 text-right">Rate</th>
+                <th className="p-2 text-right">VAT %</th>
                 <th className="p-2 text-right">Amount</th>
                 <th className="p-2 text-center">Remove</th>
               </tr>
@@ -314,7 +319,9 @@ export default function AddSale() {
                     <input
                       type="number"
                       value={item.qty}
-                      onChange={(e) => updateItem(index, "qty", e.target.value)}
+                      onChange={(e) =>
+                        updateItem(index, "qty", e.target.value)
+                      }
                       className="border p-1 w-20 text-right rounded"
                     />
                   </td>
@@ -323,7 +330,21 @@ export default function AddSale() {
                     <input
                       type="number"
                       value={item.rate}
-                      onChange={(e) => updateItem(index, "rate", e.target.value)}
+                      onChange={(e) =>
+                        updateItem(index, "rate", e.target.value)
+                      }
+                      className="border p-1 w-20 text-right rounded"
+                    />
+                  </td>
+
+                  {/* VAT PERCENT INPUT */}
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      value={item.rateOfTax}
+                      onChange={(e) =>
+                        updateItem(index, "rateOfTax", e.target.value)
+                      }
                       className="border p-1 w-20 text-right rounded"
                     />
                   </td>
