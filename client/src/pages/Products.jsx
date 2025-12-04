@@ -1,258 +1,348 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import QRCode from "react-qr-code";
 import { API_BASE } from "../utils/url";
-import { Pencil } from "lucide-react"; // Edit icon
 
-export default function InventoryPage() {
+export default function AddSale() {
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [activeCompany, setActiveCompany] = useState("ALL");
+  const [selectedItems, setSelectedItems] = useState([]);
 
-  // Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalItem, setModalItem] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [saleData, setSaleData] = useState({
+    companyName: "",
+    billNo: "",
+    date: new Date().toISOString().split("T")[0],
+    reference: "",
+    remarks: "",
+    isCashSale: false,
+    cashLedgerName: "",
+    partyCode: "",
+    partyName: "",
+    partyVatNo: "",
+    partyAddress: "",
+  });
 
-  // ========= FETCH INVENTORY =========
+  const [loadingInventory, setLoadingInventory] = useState(true);
+
+  // Fetch inventory
   const fetchInventory = async () => {
     try {
-      setLoading(true);
-
-      const query =
-        activeCompany !== "ALL"
-          ? `?companyName=${encodeURIComponent(activeCompany)}`
-          : "";
-
-      const res = await axios.get(`${API_BASE}/inventory${query}`);
+      setLoadingInventory(true);
+      const res = await axios.get(`${API_BASE}/inventory`);
       setInventory(res.data.items || []);
+      setLoadingInventory(false);
     } catch (err) {
-      console.error("Inventory fetch error:", err);
+      console.error("Error fetching inventory:", err);
+      setLoadingInventory(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchInventory();
-  }, [activeCompany]);
+  }, []);
 
-  // ========= FILTER =========
-  const filteredList = inventory.filter((item) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      item.itemName?.toLowerCase().includes(q) ||
-      item.itemCode?.toLowerCase().includes(q) ||
-      item.itemGroup?.toLowerCase().includes(q)
-    );
-  });
+  // Add item to sale
+  const addItem = (item) => {
+    const exists = selectedItems.find((i) => i.itemCode === item.itemCode);
+    if (exists) return;
 
-  // ========= QR Download =========
-  const handleQRDownload = (svgElement, fileName, label) => {
-    if (!svgElement) return;
+    const rate = item.avgRate || 0;
+    const qty = 1;
+    const vatRate = item.vatRate || 0;
+    const amount = qty * rate;
+    const vatAmount = (amount * vatRate) / 100;
 
-    const svgData = new XMLSerializer().serializeToString(svgElement);
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
+    setSelectedItems([
+      ...selectedItems,
+      {
+        itemName: item.itemName,
+        itemCode: item.itemCode,
+        itemGroup: item.itemGroup,
+        description: item.description,
+        qty,
+        unit: item.unit,
+        rate,
+        amount,
+        rateOfTax: vatRate,
+        vatAmount,
+      },
+    ]);
+  };
 
-    const img = new Image();
-    img.onload = function () {
-      const canvas = document.createElement("canvas");
-      const padding = 15;
-      const textHeight = 24;
+  // Handle qty / rate / vat change
+  const updateItem = (index, field, value) => {
+    const updated = [...selectedItems];
+    updated[index][field] = value;
 
-      canvas.width = img.width + padding * 2;
-      canvas.height = img.height + textHeight + padding * 2;
+    const qty = parseFloat(updated[index].qty) || 0;
+    const rate = parseFloat(updated[index].rate) || 0;
+    const vatRate = parseFloat(updated[index].rateOfTax) || 0;
 
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, padding, padding);
-      ctx.font = "18px Arial";
-      ctx.fillStyle = "#000";
-      ctx.textAlign = "center";
-      ctx.fillText(label, canvas.width / 2, img.height + padding + textHeight);
+    updated[index].amount = qty * rate;
+    updated[index].vatAmount = (qty * rate * vatRate) / 100;
 
-      const pngUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = pngUrl;
-      link.download = `${fileName}.png`;
-      link.click();
+    setSelectedItems(updated);
+  };
 
-      URL.revokeObjectURL(url);
+  // Remove selected item
+  const removeItem = (index) => {
+    const updated = [...selectedItems];
+    updated.splice(index, 1);
+    setSelectedItems(updated);
+  };
+
+  // TOTALS
+  const totalAmount = selectedItems.reduce(
+    (sum, i) => sum + Number(i.amount || 0),
+    0
+  );
+
+  const totalVat = selectedItems.reduce(
+    (sum, i) => sum + Number(i.vatAmount || 0),
+    0
+  );
+
+  // Submit sale
+  const submitSale = async () => {
+    if (!saleData.companyName || !saleData.billNo) {
+      return alert("Company name & Bill No are required");
+    }
+
+    if (selectedItems.length === 0) {
+      return alert("Add at least one item");
+    }
+
+    // VAT Ledger
+    const vatLedger = {
+      ledgerName: `VAT@5%`,
+      percentage: 5,
+      amount: totalVat,
     };
 
-    img.src = url;
-  };
-
-  // ========= OPEN MODAL =========
-  const openModal = (item) => {
-    setModalItem(item);
-    setSelectedFile(null);
-    setPreview(item.imageUrl ? `${API_BASE}${item.imageUrl}` : null);
-    setModalOpen(true);
-  };
-
-  // ========= HANDLE FILE SELECT =========
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
-    setPreview(URL.createObjectURL(file));
-  };
-
-  // ========= UPLOAD IMAGE =========
-  const handleUpload = async () => {
-    if (!selectedFile) return alert("Select an image first!");
+    const payload = {
+      ...saleData,
+      partyAddress: saleData.partyAddress
+        ? saleData.partyAddress.split("\n")
+        : [],
+      items: selectedItems,
+      totalAmount: totalAmount + totalVat, // Tally requires VAT included in total
+      ledgers: [vatLedger],
+    };
 
     try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append("image", selectedFile);
-
-      await axios.put(
-        `${API_BASE}/inventory/update-image/${modalItem._id}`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
-      setUploading(false);
-      setModalOpen(false);
-      fetchInventory();
+      await axios.post(`${API_BASE}/add-sale`, payload);
+      alert("Sale created successfully!");
+      window.location.reload();
     } catch (err) {
-      console.error("Image upload error:", err);
-      setUploading(false);
+      console.error("Error adding sale:", err);
+      alert("Error saving sale");
     }
   };
 
-  // ========= REMOVE IMAGE =========
-  const handleRemoveImage = async () => {
-    try {
-      setUploading(true);
-
-      await axios.put(
-        `${API_BASE}/inventory/remove-image/${modalItem._id}`
-      );
-
-      setUploading(false);
-      setModalOpen(false);
-      fetchInventory();
-    } catch (err) {
-      console.error("Remove image error:", err);
-      setUploading(false);
-    }
-  };
+  // Filter inventory
+  const filteredInventory = inventory.filter((i) =>
+    i.itemName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
+      <h2 className="text-3xl font-semibold text-gray-800 mb-6">
+        Create New Sale
+      </h2>
 
-      {/* ===== Header ===== */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h2 className="text-3xl font-semibold text-gray-800">Inventory</h2>
+      {/* SALE INFO */}
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <input
+          type="text"
+          placeholder="Company Name"
+          className="border p-2 rounded"
+          value={saleData.companyName}
+          onChange={(e) =>
+            setSaleData({ ...saleData, companyName: e.target.value })
+          }
+        />
 
-        <div className="flex gap-2 mt-3 sm:mt-0">
-          {["ALL", "ABC", "XYZ"].map((c) => (
-            <button
-              key={c}
-              onClick={() => setActiveCompany(c)}
-              className={`px-4 py-2 rounded-md border font-semibold transition ${
-                activeCompany === c
-                  ? "bg-blue-600 text-white border-blue-700"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <input
+          type="text"
+          placeholder="Bill No"
+          className="border p-2 rounded"
+          value={saleData.billNo}
+          onChange={(e) =>
+            setSaleData({ ...saleData, billNo: e.target.value })
+          }
+        />
+
+        <input
+          type="date"
+          className="border p-2 rounded"
+          value={saleData.date}
+          onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
+        />
       </div>
 
-      {/* ===== Search ===== */}
-      <div className="flex gap-3 mb-6">
+      {/* CASH SALE */}
+      <div className="flex gap-4 mb-6">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={saleData.isCashSale}
+            onChange={(e) =>
+              setSaleData({ ...saleData, isCashSale: e.target.checked })
+            }
+          />
+          Cash Sale
+        </label>
+      </div>
+
+      {!saleData.isCashSale && (
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <input
+            type="text"
+            placeholder="Party Code"
+            className="border p-2 rounded"
+            value={saleData.partyCode}
+            onChange={(e) =>
+              setSaleData({ ...saleData, partyCode: e.target.value })
+            }
+          />
+
+          <input
+            type="text"
+            placeholder="Party Name"
+            className="border p-2 rounded"
+            value={saleData.partyName}
+            onChange={(e) =>
+              setSaleData({ ...saleData, partyName: e.target.value })
+            }
+          />
+
+          <input
+            type="text"
+            placeholder="VAT No"
+            className="border p-2 rounded"
+            value={saleData.partyVatNo}
+            onChange={(e) =>
+              setSaleData({ ...saleData, partyVatNo: e.target.value })
+            }
+          />
+
+          <textarea
+            placeholder="Address (each line separated)"
+            className="border p-2 rounded col-span-3"
+            rows="3"
+            value={saleData.partyAddress}
+            onChange={(e) =>
+              setSaleData({ ...saleData, partyAddress: e.target.value })
+            }
+          ></textarea>
+        </div>
+      )}
+
+      {/* INVENTORY SEARCH */}
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Select Items</h3>
         <input
           type="text"
           placeholder="Search items..."
+          className="border p-2 rounded w-full md:w-1/2"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-2 w-64"
         />
-
-        <button
-          onClick={fetchInventory}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          Refresh
-        </button>
       </div>
 
-      {/* ===== TABLE ===== */}
-      {loading ? (
-        <p>Loading…</p>
-      ) : (
-        <div className="overflow-x-auto bg-white shadow-sm border rounded-lg">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
+      {/* INVENTORY LIST */}
+      <div className="border rounded p-4 h-64 overflow-y-auto mb-6 bg-white">
+        {loadingInventory ? (
+          <p>Loading inventory...</p>
+        ) : filteredInventory.length === 0 ? (
+          <p>No products found.</p>
+        ) : (
+          filteredInventory.map((item) => (
+            <div
+              key={item._id}
+              className="p-3 border-b cursor-pointer hover:bg-gray-100"
+              onClick={() => addItem(item)}
+            >
+              <div className="font-medium">{item.itemName}</div>
+              <div className="text-sm text-gray-500">
+                Code: {item.itemCode} | Stock: {item.availableQty}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* SELECTED ITEMS TABLE */}
+      {selectedItems.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-3">Selected Items</h3>
+
+          <table className="w-full border-collapse bg-white rounded shadow">
+            <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="p-3">Image</th>
-                <th className="p-3">QR</th>
-                <th className="p-3 text-left">Item</th>
-                <th className="p-3 text-left">Code</th>
-                <th className="p-3 text-right">Qty</th>
-                <th className="p-3 text-center">Edit</th>
+                <th className="p-2 text-left">Item</th>
+                <th className="p-2 text-right">Qty</th>
+                <th className="p-2 text-right">Rate</th>
+                <th className="p-2 text-right">VAT %</th>
+                <th className="p-2 text-right">VAT Amt</th>
+                <th className="p-2 text-right">Amount</th>
+                <th className="p-2 text-center">Remove</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredList.map((item) => (
-                <tr key={item._id} className="border-t hover:bg-gray-50">
+              {selectedItems.map((item, index) => (
+                <tr key={index} className="border-t">
+                  <td className="p-2">{item.itemName}</td>
 
-                  {/* IMAGE */}
-                  <td className="p-3 text-center">
-                    {item.imageUrl ? (
-                      <img
-                        src={`${API_BASE}${item.imageUrl}`}
-                        className="h-14 w-14 object-cover rounded mx-auto"
-                      />
-                    ) : (
-                      <span className="text-xs text-gray-400">No Image</span>
-                    )}
-                  </td>
-
-                  {/* QR */}
-                  <td className="p-3 text-center">
-                    <div
-                      className="cursor-pointer inline-block"
-                      onDoubleClick={(e) =>
-                        handleQRDownload(
-                          e.currentTarget.querySelector("svg"),
-                          item.itemCode || item.itemName,
-                          item.itemName
-                        )
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      className="border p-1 w-20 text-right rounded"
+                      value={item.qty}
+                      onChange={(e) =>
+                        updateItem(index, "qty", e.target.value)
                       }
-                    >
-                      <QRCode value={item.itemName} size={70} />
-                      <p className="text-xs">{item.itemName}</p>
-                    </div>
+                    />
                   </td>
 
-                  {/* INFO */}
-                  <td className="p-3">{item.itemName}</td>
-                  <td className="p-3">{item.itemCode}</td>
-                  <td className="p-3 text-right">{item.availableQty}</td>
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      className="border p-1 w-20 text-right rounded"
+                      value={item.rate}
+                      onChange={(e) =>
+                        updateItem(index, "rate", e.target.value)
+                      }
+                    />
+                  </td>
 
-                  {/* EDIT ICON */}
-                  <td className="p-3 text-center">
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      className="border p-1 w-20 text-right rounded"
+                      value={item.rateOfTax}
+                      onChange={(e) =>
+                        updateItem(index, "rateOfTax", e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td className="p-2 text-right">
+                    {item.vatAmount.toFixed(2)}
+                  </td>
+
+                  <td className="p-2 text-right">
+                    {item.amount.toFixed(2)}
+                  </td>
+
+                  <td className="p-2 text-center">
                     <button
-                      onClick={() => openModal(item)}
-                      className="p-2 hover:bg-gray-200 rounded"
+                      className="text-red-500"
+                      onClick={() => removeItem(index)}
                     >
-                      <Pencil size={18} />
+                      ✖
                     </button>
                   </td>
-
                 </tr>
               ))}
             </tbody>
@@ -260,73 +350,24 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* ======================= IMAGE EDIT MODAL ======================= */}
-      {modalOpen && modalItem && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md relative">
+      {/* TOTALS */}
+      <div className="text-right text-xl font-semibold mb-2">
+        Subtotal: AED {totalAmount.toFixed(2)}
+      </div>
+      <div className="text-right text-xl font-semibold mb-2">
+        VAT: AED {totalVat.toFixed(2)}
+      </div>
+      <div className="text-right text-2xl font-bold mb-6">
+        Grand Total: AED {(totalAmount + totalVat).toFixed(2)}
+      </div>
 
-            {/* Close */}
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute right-3 top-3 text-gray-600 hover:text-black"
-            >
-              ✖
-            </button>
-
-            <h3 className="text-xl font-semibold mb-4">
-              Edit Image – {modalItem.itemName}
-            </h3>
-
-            {/* Preview */}
-            <div className="w-full flex justify-center mb-4">
-              {preview ? (
-                <img
-                  src={preview}
-                  className="h-40 w-40 object-cover rounded border"
-                />
-              ) : (
-                <div className="h-40 w-40 border rounded flex items-center justify-center text-gray-400">
-                  No Image
-                </div>
-              )}
-            </div>
-
-            {/* Select File */}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="border p-2 rounded w-full mb-4"
-            />
-
-            {/* Buttons */}
-            <div className="flex justify-between">
-
-              {/* REMOVE IMAGE */}
-              {modalItem.imageUrl && (
-                <button
-                  onClick={handleRemoveImage}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                  disabled={uploading}
-                >
-                  Remove Image
-                </button>
-              )}
-
-              {/* UPLOAD IMAGE */}
-              <button
-                onClick={handleUpload}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-auto"
-                disabled={uploading}
-              >
-                {uploading ? "Uploading…" : "Upload Image"}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+      {/* SUBMIT */}
+      <button
+        onClick={submitSale}
+        className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 transition"
+      >
+        Save Sale
+      </button>
     </div>
   );
 }
