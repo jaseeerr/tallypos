@@ -38,6 +38,16 @@ router.get('/', function(req, res, next) {
    ============================================================ */
 router.get("/fetch-sales", async (req, res) => {
   try {
+
+    const formatDate = (date) => {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+
     const company = req.query.company;
 
     if (!company) {
@@ -60,7 +70,7 @@ router.get("/fetch-sales", async (req, res) => {
     const vouchers = pendingSales.map((sale) => ({
       TYPE: "Sales Invoice",
       BILLNO: sale.billNo,
-      DATE: sale.date.toISOString().split("T")[0],
+  DATE: formatDate(sale.date),
       REFERENCE: sale.reference || "",
       TOTALAMOUNT: sale.totalAmount.toFixed(2),
       REMARKS: sale.remarks || "",
