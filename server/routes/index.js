@@ -464,7 +464,6 @@ router.post("/add-sale", async (req, res) => {
       date,
       reference,
       remarks,
-      totalAmount,
 
       isCashSale,
       cashLedgerName,
@@ -475,12 +474,11 @@ router.post("/add-sale", async (req, res) => {
       partyAddress,
 
       items,
-      ledgers,
+      ledgers = [],   // you can still manually add Discount etc.
 
       createdBy,
     } = data;
 
-    // Basic validation
     if (!companyName || !billNo || !date || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         ok: false,
@@ -497,28 +495,55 @@ router.post("/add-sale", async (req, res) => {
       });
     }
 
-    // Create sale object
+    // --- CALCULATE VAT LEDGERS ---
+    let vatGroups = {}; // { "5": amount, "12": amount }
+
+    items.forEach(i => {
+      const amount = Number(i.amount);
+      const vatPercent = Number(i.rateOfTax || 0);
+
+      if (!vatPercent) return;
+
+      const vatAmt = (amount * vatPercent) / 100;
+
+      if (!vatGroups[vatPercent]) vatGroups[vatPercent] = 0;
+      vatGroups[vatPercent] += vatAmt;
+    });
+
+    // Convert VAT groups into ledger entries
+    Object.keys(vatGroups).forEach(vat => {
+      ledgers.push({
+        ledgerName: `VAT@${vat}%`,
+        percentage: Number(vat),
+        amount: vatGroups[vat],
+      });
+    });
+
+    // Calculate totals
+    const subtotal = items.reduce((sum, i) => sum + Number(i.amount || 0), 0);
+    const totalVat = Object.values(vatGroups).reduce((a, b) => a + b, 0);
+    const totalAmount = subtotal + totalVat;
+
+    // CREATE SALE
     const newSale = new Sale({
       companyName,
-
       billNo,
       date,
       reference: reference || "",
       remarks: remarks || "",
       totalAmount,
 
-      // CASH SALE or CUSTOMER SALE
       isCashSale: !!isCashSale,
       cashLedgerName: cashLedgerName || "",
 
       partyCode: isCashSale ? "" : (partyCode || ""),
       partyName: isCashSale ? "" : (partyName || ""),
       partyVatNo: isCashSale ? "" : (partyVatNo || ""),
+
       partyAddress: isCashSale
         ? []
         : (partyAddress || []).map(a => ({ address: a })),
 
-      // ITEMS
       items: items.map(i => ({
         itemName: i.itemName,
         itemCode: i.itemCode,
@@ -531,14 +556,8 @@ router.post("/add-sale", async (req, res) => {
         rateOfTax: i.rateOfTax,
       })),
 
-      // LEDGERS
-      ledgers: ledgers ? ledgers.map(l => ({
-        ledgerName: l.ledgerName,
-        percentage: l.percentage,
-        amount: l.amount,
-      })) : [],
+      ledgers,  // includes VAT ledgers now
 
-      // SYNC STATUS
       status: "pending",
       syncAttempts: 0,
       syncError: "",
@@ -562,6 +581,7 @@ router.post("/add-sale", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
