@@ -31,6 +31,7 @@ export default function InventoryPage() {
 
       const res = await axiosInstance.get(`/inventory${query}`);
       setInventory(res.data.items || []);
+      console.log(res)
     } catch (err) {
       console.error("Inventory fetch error:", err);
     }
@@ -233,8 +234,8 @@ export default function InventoryPage() {
                         )
                       }
                     >
-                      <QRCode value={item.NAME} size={70} />
-                      <p className="text-xs">{item.NAME}</p>
+<QRCode value={String(item.NAME || "ITEM")} size={70} />
+                      {/* <p className="text-xs">{item.NAME}</p> */}
                     </div>
                   </td>
 

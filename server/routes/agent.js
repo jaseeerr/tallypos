@@ -137,7 +137,14 @@ router.post("/sales-callback", async (req, res) => {
 router.post("/inventory-sync", async (req, res) => {
   try {
     const { company, items } = req.body;
-    const companyName = company
+    const companyName = company;
+
+    console.log("\n===============================");
+    console.log("📦 NEW SYNC REQUEST");
+    console.log("Company:", companyName);
+    console.log("Items received:", items.length);
+    console.log("===============================\n");
+
     if (!companyName || !Array.isArray(items)) {
       return res.status(400).json({
         ok: false,
@@ -145,36 +152,70 @@ router.post("/inventory-sync", async (req, res) => {
       });
     }
 
-    for (const item of items) {
+    let inserted = 0;
+    let updated = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
       const {
-        itemName,      // → NAME
-        itemGroup,     // → GROUP
-        unit,          // → UNITS
-        closingQty,    // → CLOSINGQTY
-        salesPrice,    // (optional if available)
-        stdCost        // (optional if available)
+        itemName,
+        itemGroup,
+        unit,
+        closingQty,
+        salesPrice,
+        stdCost
       } = item;
 
-      await Inventory.findOneAndUpdate(
-        { companyName, NAME: itemName },   // Unique identifier
-        {
-          companyName,
-          NAME: itemName,
-          GROUP: itemGroup || "",
-          UNITS: unit || "",
-          CLOSINGQTY: closingQty || "",
-          SALESPRICE: salesPrice || "",
-          STDCOST: stdCost || "",
-          lastSyncedAt: new Date()
-        },
+      console.log(`\n▶ Processing item ${i + 1}/${items.length}`);
+      console.log("RAW ITEM:", JSON.stringify(item, null, 2));
+
+      if (!itemName || itemName.trim() === "") {
+        console.log("❌ Skipped: itemName is empty");
+        continue;
+      }
+
+      const updateQuery = {
+        companyName,
+        NAME: itemName.trim(),
+        GROUP: itemGroup || "",
+        UNITS: unit || "",
+        CLOSINGQTY: closingQty || "",
+        SALESPRICE: salesPrice || "",
+        STDCOST: stdCost || "",
+        lastSyncedAt: new Date()
+      };
+
+      console.log("⬆ UPSERT QUERY:", JSON.stringify(updateQuery, null, 2));
+
+      const result = await Inventory.findOneAndUpdate(
+        { companyName, NAME: itemName.trim() },
+        updateQuery,
         { upsert: true, new: true }
       );
+
+      if (result.createdAt === result.updatedAt) {
+        inserted++;
+      } else {
+        updated++;
+      }
+
+      console.log(`✅ Saved item → NAME: ${itemName.trim()}`);
     }
+
+    console.log("\n===============================");
+    console.log("🎉 SYNC COMPLETED");
+    console.log("Inserted:", inserted);
+    console.log("Updated:", updated);
+    console.log("Total Received:", items.length);
+    console.log("===============================\n");
 
     return res.json({
       ok: true,
       message: "Inventory synced successfully",
-      count: items.length
+      received: items.length,
+      inserted,
+      updated
     });
 
   } catch (error) {
@@ -182,6 +223,7 @@ router.post("/inventory-sync", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 /* ============================================================
