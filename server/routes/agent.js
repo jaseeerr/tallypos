@@ -133,8 +133,8 @@ router.post("/sales-callback", async (req, res) => {
    ============================================================ */
 router.post("/inventory-sync", async (req, res) => {
   try {
-    const { companyName, items } = req.body;
-
+    const { company, items } = req.body;
+    const companyName = company
     if (!companyName || !Array.isArray(items)) {
       return res.status(400).json({
         ok: false,
@@ -144,40 +144,25 @@ router.post("/inventory-sync", async (req, res) => {
 
     for (const item of items) {
       const {
-        itemName,
-        itemCode,
-        itemGroup,
-        description,
-        unit,
-        openingQty,
-        availableQty,
-        closingQty,
-        avgRate,
-        closingValue,
-        vatRate,
-        gstRate,
-        godowns,
+        itemName,      // → NAME
+        itemGroup,     // → GROUP
+        unit,          // → UNITS
+        closingQty,    // → CLOSINGQTY
+        salesPrice,    // (optional if available)
+        stdCost        // (optional if available)
       } = item;
 
-      // Upsert inventory item
       await Inventory.findOneAndUpdate(
-        { companyName, itemCode },
+        { companyName, NAME: itemName },   // Unique identifier
         {
           companyName,
-          itemName,
-          itemCode,
-          itemGroup,
-          description,
-          unit,
-          openingQty,
-          availableQty,
-          closingQty,
-          avgRate,
-          closingValue,
-          vatRate,
-          gstRate,
-          godowns: godowns || [],
-          lastSyncedAt: new Date(),
+          NAME: itemName,
+          GROUP: itemGroup || "",
+          UNITS: unit || "",
+          CLOSINGQTY: closingQty || "",
+          SALESPRICE: salesPrice || "",
+          STDCOST: stdCost || "",
+          lastSyncedAt: new Date()
         },
         { upsert: true, new: true }
       );
@@ -186,13 +171,15 @@ router.post("/inventory-sync", async (req, res) => {
     return res.json({
       ok: true,
       message: "Inventory synced successfully",
-      count: items.length,
+      count: items.length
     });
+
   } catch (error) {
     console.error("inventory-sync error:", error);
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 /* ============================================================
    2) CUSTOMER SYNC (LOCAL NODE → VPS)

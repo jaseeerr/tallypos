@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import QRCode from "react-qr-code";
-import { API_BASE } from "../utils/url";
-import { Pencil } from "lucide-react"; // Edit icon
+import { Pencil } from "lucide-react";
 import MyAxiosInstance from "../utils/axios";
+import { API_BASE } from "../utils/url";
+
 export default function InventoryPage() {
-  const axiosInstance = MyAxiosInstance()
+  const axiosInstance = MyAxiosInstance();
+
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,13 +46,12 @@ export default function InventoryPage() {
   const filteredList = inventory.filter((item) => {
     const q = searchQuery.toLowerCase();
     return (
-      item.itemName?.toLowerCase().includes(q) ||
-      item.itemCode?.toLowerCase().includes(q) ||
-      item.itemGroup?.toLowerCase().includes(q)
+      item.NAME?.toLowerCase().includes(q) ||
+      item.GROUP?.toLowerCase().includes(q)
     );
   });
 
-  // ========= QR Download =========
+  // ========= QR DOWNLOAD =========
   const handleQRDownload = (svgElement, fileName, label) => {
     if (!svgElement) return;
 
@@ -69,9 +69,10 @@ export default function InventoryPage() {
       canvas.height = img.height + textHeight + padding * 2;
 
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, padding, padding);
+
       ctx.font = "18px Arial";
       ctx.fillStyle = "#000";
       ctx.textAlign = "center";
@@ -97,7 +98,7 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
-  // ========= HANDLE FILE SELECT =========
+  // ========= FILE SELECT =========
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -134,9 +135,7 @@ export default function InventoryPage() {
     try {
       setUploading(true);
 
-      await axiosInstance.put(
-        `/inventory/remove-image/${modalItem._id}`
-      );
+      await axiosInstance.put(`/inventory/remove-image/${modalItem._id}`);
 
       setUploading(false);
       setModalOpen(false);
@@ -150,12 +149,12 @@ export default function InventoryPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
 
-      {/* ===== Header ===== */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 className="text-3xl font-semibold text-gray-800">Inventory</h2>
 
         <div className="flex gap-2 mt-3 sm:mt-0">
-          {["ALL", "ABC", "XYZ"].map((c) => (
+          {["ALL", "AMANA", "FANCYPALACE"].map((c) => (
             <button
               key={c}
               onClick={() => setActiveCompany(c)}
@@ -171,7 +170,7 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* ===== Search ===== */}
+      {/* Search */}
       <div className="flex gap-3 mb-6">
         <input
           type="text"
@@ -189,7 +188,7 @@ export default function InventoryPage() {
         </button>
       </div>
 
-      {/* ===== TABLE ===== */}
+      {/* Table */}
       {loading ? (
         <p>Loading…</p>
       ) : (
@@ -200,7 +199,7 @@ export default function InventoryPage() {
                 <th className="p-3">Image</th>
                 <th className="p-3">QR</th>
                 <th className="p-3 text-left">Item</th>
-                <th className="p-3 text-left">Code</th>
+                <th className="p-3 text-left">Group</th>
                 <th className="p-3 text-right">Qty</th>
                 <th className="p-3 text-center">Edit</th>
               </tr>
@@ -209,8 +208,8 @@ export default function InventoryPage() {
             <tbody>
               {filteredList.map((item) => (
                 <tr key={item._id} className="border-t hover:bg-gray-50">
-
-                  {/* IMAGE */}
+                  
+                  {/* Image */}
                   <td className="p-3 text-center">
                     {item.imageUrl ? (
                       <img
@@ -229,22 +228,26 @@ export default function InventoryPage() {
                       onDoubleClick={(e) =>
                         handleQRDownload(
                           e.currentTarget.querySelector("svg"),
-                          item.itemCode || item.itemName,
-                          item.itemName
+                          item.NAME,
+                          item.NAME
                         )
                       }
                     >
-                      <QRCode value={item.itemName} size={70} />
-                      <p className="text-xs">{item.itemName}</p>
+                      <QRCode value={item.NAME} size={70} />
+                      <p className="text-xs">{item.NAME}</p>
                     </div>
                   </td>
 
-                  {/* INFO */}
-                  <td className="p-3">{item.itemName}</td>
-                  <td className="p-3">{item.itemCode}</td>
-                  <td className="p-3 text-right">{item.availableQty}</td>
+                  {/* NAME */}
+                  <td className="p-3">{item.NAME}</td>
 
-                  {/* EDIT ICON */}
+                  {/* GROUP */}
+                  <td className="p-3">{item.GROUP || "-"}</td>
+
+                  {/* QTY */}
+                  <td className="p-3 text-right">{item.CLOSINGQTY}</td>
+
+                  {/* EDIT */}
                   <td className="p-3 text-center">
                     <button
                       onClick={() => openModal(item)}
@@ -261,12 +264,11 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* ======================= IMAGE EDIT MODAL ======================= */}
+      {/* ======================= IMAGE MODAL ======================= */}
       {modalOpen && modalItem && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md relative">
 
-            {/* Close */}
             <button
               onClick={() => setModalOpen(false)}
               className="absolute right-3 top-3 text-gray-600 hover:text-black"
@@ -275,10 +277,9 @@ export default function InventoryPage() {
             </button>
 
             <h3 className="text-xl font-semibold mb-4">
-              Edit Image – {modalItem.itemName}
+              Edit Image – {modalItem.NAME}
             </h3>
 
-            {/* Preview */}
             <div className="w-full flex justify-center mb-4">
               {preview ? (
                 <img
@@ -292,7 +293,6 @@ export default function InventoryPage() {
               )}
             </div>
 
-            {/* Select File */}
             <input
               type="file"
               accept="image/*"
@@ -300,10 +300,7 @@ export default function InventoryPage() {
               className="border p-2 rounded w-full mb-4"
             />
 
-            {/* Buttons */}
             <div className="flex justify-between">
-
-              {/* REMOVE IMAGE */}
               {modalItem.imageUrl && (
                 <button
                   onClick={handleRemoveImage}
@@ -314,7 +311,6 @@ export default function InventoryPage() {
                 </button>
               )}
 
-              {/* UPLOAD IMAGE */}
               <button
                 onClick={handleUpload}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ml-auto"

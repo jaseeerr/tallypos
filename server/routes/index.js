@@ -106,11 +106,10 @@ router.post("/login", async (req, res) => {
 /* ============================================================
    GET INVENTORY (From MongoDB — For MERN App)
    ============================================================ */
-router.get("/inventory",Auth.userAuth, async (req, res) => {
+router.get("/inventory", Auth.userAuth, async (req, res) => {
   try {
     const { companyName, search, page = 1, limit = 50 } = req.query;
 
-    // Basic query
     let query = {};
 
     // Filter by company
@@ -118,12 +117,11 @@ router.get("/inventory",Auth.userAuth, async (req, res) => {
       query.companyName = companyName;
     }
 
-    // Search filter
+    // Search filter (updated — no CODE anymore)
     if (search) {
       query.$or = [
-        { itemName: { $regex: search, $options: "i" } },
-        { itemCode: { $regex: search, $options: "i" } },
-        { itemGroup: { $regex: search, $options: "i" } }
+        { NAME: { $regex: search, $options: "i" } },
+        { GROUP: { $regex: search, $options: "i" } }
       ];
     }
 
@@ -133,7 +131,7 @@ router.get("/inventory",Auth.userAuth, async (req, res) => {
       .lean()
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ itemName: 1 });
+      .sort({ NAME: 1 });
 
     const total = await Inventory.countDocuments(query);
 
@@ -149,6 +147,7 @@ router.get("/inventory",Auth.userAuth, async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
@@ -472,7 +471,7 @@ router.get("/sale/:billNo",Auth.userAuth, async (req, res) => {
   }
 });
 
-router.put("/inventory/update-image/:id",Auth.userAuth, upload.single("image"), async (req, res) => {
+router.put("/inventory/update-image/:id", Auth.userAuth, upload.single("image"), async (req, res) => {
   try {
     const inventoryId = req.params.id;
 
@@ -480,25 +479,29 @@ router.put("/inventory/update-image/:id",Auth.userAuth, upload.single("image"), 
       return res.status(400).json({ ok: false, message: "Image file required" });
     }
 
-    const filePath = "/uploads/inventory/" + req.file.filename;
+    const newPath = "uploads/inventory/" + req.file.filename; // no leading slash
 
-    const inv = await Inventory.findByIdAndUpdate(
-      inventoryId,
-      { imageUrl: filePath },
-      { new: true }
-    ).lean();
+    const oldInv = await Inventory.findById(inventoryId);
 
-    if (!inv) {
-      // Delete uploaded file if item not found
-      fs.unlinkSync(req.file.path);
+    if (!oldInv) {
+      fs.unlinkSync(req.file.path); // cleanup uploaded file
       return res.status(404).json({ ok: false, message: "Inventory item not found" });
     }
+
+    // Delete old image from disk
+    if (oldInv.imageUrl) {
+      const oldFilePath = path.join(__dirname, "..", oldInv.imageUrl);
+      if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+    }
+
+    oldInv.imageUrl = newPath;
+    await oldInv.save();
 
     return res.json({
       ok: true,
       message: "Image updated successfully",
-      imageUrl: filePath,
-      inventory: inv,
+      imageUrl: newPath,
+      inventory: oldInv,
     });
   } catch (error) {
     console.error("Update inventory image error:", error);
@@ -507,7 +510,8 @@ router.put("/inventory/update-image/:id",Auth.userAuth, upload.single("image"), 
 });
 
 
-router.put("/inventory/remove-image/:id",Auth.userAuth, async (req, res) => {
+
+router.put("/inventory/remove-image/:id", Auth.userAuth, async (req, res) => {
   try {
     const inventoryId = req.params.id;
 
@@ -517,15 +521,11 @@ router.put("/inventory/remove-image/:id",Auth.userAuth, async (req, res) => {
       return res.status(404).json({ ok: false, message: "Inventory item not found" });
     }
 
-    // Remove file from disk
     if (inv.imageUrl) {
-      const filePath = path.join(__dirname, "..", inv.imageUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      const filePath = path.join(__dirname, "..", inv.imageUrl.replace(/^\//, ""));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
-    // Clear DB field
     inv.imageUrl = null;
     await inv.save();
 
@@ -533,11 +533,13 @@ router.put("/inventory/remove-image/:id",Auth.userAuth, async (req, res) => {
       ok: true,
       message: "Image removed successfully",
     });
+
   } catch (error) {
     console.error("Remove inventory image error:", error);
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
