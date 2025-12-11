@@ -1,13 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const Sale = require("../models/Sale");
-const Inventory = require('../models/Inventory');
-const Customer = require('../models/Customer');
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const argon2 = require('argon2')
+const jwt = require('jsonwebtoken')
+
+
+const Auth = require('../auth/auth')
+
+const Sale = require("../models/Sale");
+const Inventory = require('../models/Inventory');
+const Customer = require('../models/Customer');
 const SaleOrder = require('../models/SaleOrder')
 const Admin = require('../models/Admin')
+
+
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, "../uploads/inventory");
 if (!fs.existsSync(uploadDir)) {
@@ -77,8 +85,8 @@ router.post("/login", async (req, res) => {
 
     // generate JWT
     const token = jwt.sign(
-      { id: admin._id, username: admin.username },
-      JWT_SECRET,
+      { _id: admin._id, username: admin.username },
+      process.env.ACCESS_TOKEN_SECRET,
       { expiresIn: "1d" }
     );
 
@@ -98,7 +106,7 @@ router.post("/login", async (req, res) => {
 /* ============================================================
    GET INVENTORY (From MongoDB — For MERN App)
    ============================================================ */
-router.get("/inventory", async (req, res) => {
+router.get("/inventory",Auth.userAuth, async (req, res) => {
   try {
     const { companyName, search, page = 1, limit = 50 } = req.query;
 
@@ -152,7 +160,7 @@ router.get("/inventory", async (req, res) => {
    ADD SALE (MERN APP → SERVER)
    Users create a sale inside the web app. Stored as pending.
    ============================================================ */
-router.post("/add-sale", async (req, res) => {
+router.post("/add-sale",Auth.userAuth, async (req, res) => {
   try {
     const data = req.body;
 
@@ -303,7 +311,7 @@ router.post("/add-sale", async (req, res) => {
    LIST ALL SALES (MERN APP → SERVER)
    Supports: search, company filter, date filter, pagination
    ============================================================ */
-router.get("/list-sales", async (req, res) => {
+router.get("/list-sales",Auth.userAuth, async (req, res) => {
   try {
     let {
       companyName,
@@ -378,7 +386,7 @@ router.get("/list-sales", async (req, res) => {
    LIST ALL CUSTOMERS (GET)
    Supports: search, company filter, pagination
    ============================================================ */
-router.get("/customers", async (req, res) => {
+router.get("/customers", Auth.userAuth,async (req, res) => {
   try {
     let { page = 1, limit = 50, search = "", companyName = "" } = req.query;
 
@@ -431,7 +439,7 @@ router.get("/customers", async (req, res) => {
    GET SINGLE SALE (with full details + logs)
    /sale/:billNo
    ============================================================ */
-router.get("/sale/:billNo", async (req, res) => {
+router.get("/sale/:billNo",Auth.userAuth, async (req, res) => {
   try {
     const { billNo } = req.params;
 
@@ -464,7 +472,7 @@ router.get("/sale/:billNo", async (req, res) => {
   }
 });
 
-router.put("/inventory/update-image/:id", upload.single("image"), async (req, res) => {
+router.put("/inventory/update-image/:id",Auth.userAuth, upload.single("image"), async (req, res) => {
   try {
     const inventoryId = req.params.id;
 
@@ -499,7 +507,7 @@ router.put("/inventory/update-image/:id", upload.single("image"), async (req, re
 });
 
 
-router.put("/inventory/remove-image/:id", async (req, res) => {
+router.put("/inventory/remove-image/:id",Auth.userAuth, async (req, res) => {
   try {
     const inventoryId = req.params.id;
 
@@ -544,7 +552,7 @@ return res.status(500).json({ ok: false, error: error.message });
 EDIT SALE ORDER
 PUT /editSaleOrder/:id
 ============================= */
-router.put('/editSaleOrder/:id', async (req, res) => {
+router.put('/editSaleOrder/:id',Auth.userAuth, async (req, res) => {
 try {
 const { id } = req.params;
 const data = req.body;
@@ -570,7 +578,7 @@ return res.status(500).json({ ok: false, error: error.message });
 DELETE SALE ORDER
 DELETE /deleteSaleOrder/:id
 ============================= */
-router.delete('/deleteSaleOrder/:id', async (req, res) => {
+router.delete('/deleteSaleOrder/:id',Auth.userAuth, async (req, res) => {
 try {
 const { id } = req.params;
 
@@ -596,7 +604,7 @@ GET ALL SALE ORDERS
 GET /getAllSaleOrders
 Supports: search, companyName filters
 ============================= */
-router.get('/getAllSaleOrders', async (req, res) => {
+router.get('/getAllSaleOrders',Auth.userAuth, async (req, res) => {
 try {
 const { search, companyName } = req.query;
 
@@ -628,7 +636,7 @@ return res.status(500).json({ ok: false, error: error.message });
 
 
 // GET ONE SALE ORDER
-router.get("/sale-orders/:billNo", async (req, res) => {
+router.get("/sale-orders/:billNo",Auth.userAuth, async (req, res) => {
   try {
     const { billNo } = req.params;
 
@@ -662,7 +670,7 @@ router.get("/sale-orders/:billNo", async (req, res) => {
 });
 
 
-router.get("/getProductBasic", async (req, res) => {
+router.get("/getProductBasic",Auth.userAuth, async (req, res) => {
   try {
     const { companyName, itemName } = req.query;
 
@@ -709,7 +717,7 @@ router.get("/getProductBasic", async (req, res) => {
 
 
 
-router.get("/getAllCustomers", async (req, res) => {
+router.get("/getAllCustomers",Auth.userAuth, async (req, res) => {
   try {
     const { companyName } = req.query;
 
