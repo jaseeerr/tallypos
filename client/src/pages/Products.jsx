@@ -3,8 +3,9 @@ import axios from "axios";
 import QRCode from "react-qr-code";
 import { API_BASE } from "../utils/url";
 import { Pencil } from "lucide-react"; // Edit icon
-
+import MyAxiosInstance from "../utils/axios";
 export default function InventoryPage() {
+  const axiosInstance = MyAxiosInstance()
   const [inventory, setInventory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function InventoryPage() {
           ? `?companyName=${encodeURIComponent(activeCompany)}`
           : "";
 
-      const res = await axios.get(`${API_BASE}/inventory${query}`);
+      const res = await axiosInstance.get(`/inventory${query}`);
       setInventory(res.data.items || []);
     } catch (err) {
       console.error("Inventory fetch error:", err);
@@ -113,8 +114,8 @@ export default function InventoryPage() {
       const formData = new FormData();
       formData.append("image", selectedFile);
 
-      await axios.put(
-        `${API_BASE}/inventory/update-image/${modalItem._id}`,
+      await axiosInstance.put(
+        `/inventory/update-image/${modalItem._id}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -133,8 +134,8 @@ export default function InventoryPage() {
     try {
       setUploading(true);
 
-      await axios.put(
-        `${API_BASE}/inventory/remove-image/${modalItem._id}`
+      await axiosInstance.put(
+        `/inventory/remove-image/${modalItem._id}`
       );
 
       setUploading(false);

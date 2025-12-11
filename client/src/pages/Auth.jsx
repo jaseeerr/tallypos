@@ -21,6 +21,7 @@ export default function Auth() {
       if (isLogin) {
         localStorage.setItem("token", res.data.token);
         setMessage("Login successful!");
+        location.href='/'
       } else {
         setMessage("Signup successful!");
       }
