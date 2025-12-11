@@ -155,53 +155,47 @@ router.post("/inventory-sync", async (req, res) => {
     let inserted = 0;
     let updated = 0;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+   for (let i = 0; i < items.length; i++) {
+  const raw = items[i];
 
-      const {
-        itemName,
-        itemGroup,
-        unit,
-        closingQty,
-        salesPrice,
-        stdCost
-      } = item;
+  // Map Tally fields to expected fields
+  const itemName = raw.NAME;
+  const itemGroup = raw.GROUP;
+  const unit = raw.UNITS;
+  const closingQty = raw.CLOSINGQTY;
+  const salesPrice = raw.SALESPRICE;
+  const stdCost = raw.STDCOST;
 
-      console.log(`\n▶ Processing item ${i + 1}/${items.length}`);
-      console.log("RAW ITEM:", JSON.stringify(item, null, 2));
+  console.log(`\n▶ Processing item ${i + 1}/${items.length}`);
+  console.log("RAW ITEM:", JSON.stringify(raw, null, 2));
 
-      if (!itemName || itemName.trim() === "") {
-        console.log("❌ Skipped: itemName is empty");
-        continue;
-      }
+  if (!itemName || itemName.trim() === "") {
+    console.log("❌ Skipped: itemName is empty");
+    continue;
+  }
 
-      const updateQuery = {
-        companyName,
-        NAME: itemName.trim(),
-        GROUP: itemGroup || "",
-        UNITS: unit || "",
-        CLOSINGQTY: closingQty || "",
-        SALESPRICE: salesPrice || "",
-        STDCOST: stdCost || "",
-        lastSyncedAt: new Date()
-      };
+  const updateQuery = {
+    companyName,
+    NAME: itemName.trim(),
+    GROUP: itemGroup || "",
+    UNITS: unit || "",
+    CLOSINGQTY: closingQty || "",
+    SALESPRICE: salesPrice || "",
+    STDCOST: stdCost || "",
+    lastSyncedAt: new Date()
+  };
 
-      console.log("⬆ UPSERT QUERY:", JSON.stringify(updateQuery, null, 2));
+  console.log("⬆ UPSERT QUERY:", JSON.stringify(updateQuery, null, 2));
 
-      const result = await Inventory.findOneAndUpdate(
-        { companyName, NAME: itemName.trim() },
-        updateQuery,
-        { upsert: true, new: true }
-      );
+  await Inventory.findOneAndUpdate(
+    { companyName, NAME: itemName.trim() },
+    updateQuery,
+    { upsert: true, new: true }
+  );
 
-      if (result.createdAt === result.updatedAt) {
-        inserted++;
-      } else {
-        updated++;
-      }
+  console.log(`✅ Saved item → NAME: ${itemName.trim()}`);
+}
 
-      console.log(`✅ Saved item → NAME: ${itemName.trim()}`);
-    }
 
     console.log("\n===============================");
     console.log("🎉 SYNC COMPLETED");
