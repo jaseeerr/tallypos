@@ -155,7 +155,7 @@ export default function InventoryPage() {
         <h2 className="text-3xl font-semibold text-gray-800">Inventory</h2>
 
         <div className="flex gap-2 mt-3 sm:mt-0">
-          {["ALL", "AMANA", "FANCYPALACE"].map((c) => (
+          {["ALL", "AMANA", "FANCY-PALACE-TRADING-LLC"].map((c) => (
             <button
               key={c}
               onClick={() => setActiveCompany(c)}

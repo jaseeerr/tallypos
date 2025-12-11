@@ -168,7 +168,7 @@ export default function AddSale() {
           COMPANY SELECTOR
       ============================= */}
       <div className="flex gap-3 mb-6">
-        {["ABC", "XYZ"].map((comp) => (
+        {["ABC", "FANCY-PALACE-TRADING-LLC"].map((comp) => (
           <button
             key={comp}
             onClick={() => setActiveCompany(comp)}
