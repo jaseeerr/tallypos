@@ -1,13 +1,38 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 function Navbar() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // All routes stored in one array
+  const navList = [
+    { name: "Home", path: "/" },
+    { name: "New Order", path: "/addSaleOrder" },
+    { name: "Inventory", path: "/products" },
+    { name: "Add New Sale", path: "/sale" },
+    { name: "Customers", path: "/customers" },
+    { name: "API Documentation", path: "/api-doc" },
+    { name: "WorkFlow Documentation", path: "/workflow" },
+  ];
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/auth");
+  };
+
+  // Redirect if no token
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) navigate("/auth");
+  }, [navigate]);
 
   return (
     <nav className="bg-gray-800 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
+          
           {/* Logo */}
           <div className="flex items-center">
             <h2 className="text-2xl font-semibold">testApp</h2>
@@ -16,19 +41,23 @@ function Navbar() {
           {/* Desktop Menu */}
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
-              <Link to="/" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Home</Link>
-                                          <Link to="/addSaleOrder" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">New Order</Link>
+              {navList.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  {item.name}
+                </Link>
+              ))}
 
-              <Link to="/products" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Inventory</Link>
-              <Link to="/sale" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Add New Sale</Link>
-                            <Link to="/customers" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Customers</Link>
-
-                            {/* <Link to="/listSales" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Sales</Link> */}
-
-              {/* <Link to="/purchase" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">Purchases</Link> */}
-                            <Link to="/api-doc" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">API Documentation</Link>
-                            <Link to="/workflow" className="hover:bg-gray-700 px-3 py-2 rounded-md text-sm font-medium">WorkFlow Documentation</Link>
-
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded-md text-sm font-medium ml-4"
+              >
+                Logout
+              </button>
             </div>
           </div>
 
@@ -36,10 +65,9 @@ function Navbar() {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-700 focus:outline-none"
+              className="p-2 rounded-md hover:bg-gray-700 text-gray-300 hover:text-white"
             >
-              <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor">
                 {isOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 ) : (
@@ -51,21 +79,34 @@ function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Dropdown */}
       {isOpen && (
-        <div className="md:hidden px-2 pb-3 space-y-1 sm:px-3">
-          <Link to="/" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Home</Link>
-                   <Link to="/addSaleOrder" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">New Order</Link>
+        <div className="md:hidden px-2 pb-3 space-y-1">
+          {navList.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium"
+            >
+              {item.name}
+            </Link>
+          ))}
 
-          <Link to="/products" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Inventory</Link>
-          <Link to="/sale" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Add New Sale</Link>
-                <Link to="/api-doc" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">API Documentation</Link>
-                <Link to="/workflow" onClick={() => setIsOpen(false)} className="block hover:bg-gray-700 px-3 py-2 rounded-md text-base font-medium">Workflow</Link>
-
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              handleLogout();
+            }}
+            className="block w-full text-left bg-red-600 hover:bg-red-700 px-3 py-2 rounded-md text-base font-medium"
+          >
+            Logout
+          </button>
         </div>
       )}
     </nav>
-  )
+  );
 }
 
-export default Navbar
+export default Navbar;
