@@ -13,7 +13,7 @@ const InventorySchema = new mongoose.Schema(
 
     // ITEM BASIC DETAILS
     itemName: { type: String, required: true },
-    itemCode: { type: String, required: true }, // SKUs like TV1001
+    itemCode: { type: String, required: false }, // SKUs like TV1001
     itemGroup: { type: String, default: "" },
     description: { type: String, default: "" },
 
