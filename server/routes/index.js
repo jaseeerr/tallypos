@@ -108,17 +108,17 @@ router.post("/login", async (req, res) => {
    ============================================================ */
 router.get("/inventory", Auth.userAuth, async (req, res) => {
   try {
-    const { companyName, search, page = 1, limit = 50 } = req.query;
+    const { companyName, search = "", page = 1, limit = 50 } = req.query;
 
-    let query = {};
+    const query = {};
 
-    // Filter by company
-    if (companyName) {
+    // Company filter
+    if (companyName && companyName !== "ALL") {
       query.companyName = companyName;
     }
 
-    // Search filter (updated — no CODE anymore)
-    if (search) {
+    // Text search (NAME, GROUP)
+    if (search.trim() !== "") {
       query.$or = [
         { NAME: { $regex: search, $options: "i" } },
         { GROUP: { $regex: search, $options: "i" } }
@@ -127,6 +127,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+    // MAIN QUERY
     const items = await Inventory.find(query)
       .lean()
       .skip(skip)
@@ -138,8 +139,8 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
     return res.json({
       ok: true,
       total,
-      page: parseInt(page),
-      limit: parseInt(limit),
+      page: Number(page),
+      limit: Number(limit),
       items,
     });
   } catch (error) {
@@ -147,6 +148,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 

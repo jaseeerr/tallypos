@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE } from "../utils/url";
+import MyAxiosInstance from "../utils/axios";
 
 export default function AddSale() {
+  const axiosInstance = MyAxiosInstance();
+
   // =============================
   //  STATE
   // =============================
@@ -29,16 +32,15 @@ export default function AddSale() {
   const [loadingCustomers, setLoadingCustomers] = useState(true);
 
   // =============================
-  //  FETCH INVENTORY BY COMPANY
+  //  FETCH INVENTORY
   // =============================
   const fetchInventory = async () => {
     try {
       setLoadingInventory(true);
 
-      const res = await axios.get(
-        `${API_BASE}/inventory`,
-        { params: { companyName: activeCompany } }
-      );
+      const res = await axiosInstance.get(`/inventory`, {
+        params: { companyName: activeCompany },
+      });
 
       setInventory(res.data.items || []);
     } catch (err) {
@@ -49,13 +51,13 @@ export default function AddSale() {
   };
 
   // =============================
-  //  FETCH CUSTOMERS BY COMPANY
+  //  FETCH CUSTOMERS
   // =============================
   const fetchCustomers = async () => {
     try {
       setLoadingCustomers(true);
 
-      const res = await axios.get(`${API_BASE}/customers`, {
+      const res = await axiosInstance.get(`/customers`, {
         params: { companyName: activeCompany, limit: 9999 },
       });
 
@@ -77,20 +79,19 @@ export default function AddSale() {
   //  SELECT ITEMS
   // =============================
   const addItem = (item) => {
-    const exists = selectedItems.find((i) => i.itemCode === item.itemCode);
+    const exists = selectedItems.find((i) => i.NAME === item.NAME);
     if (exists) return;
 
     setSelectedItems([
       ...selectedItems,
       {
-        itemName: item.itemName,
-        itemCode: item.itemCode,
-        itemGroup: item.itemGroup,
+        NAME: item.NAME,
+        GROUP: item.GROUP,
+        unit: item.UNITS,
         qty: 1,
-        unit: item.unit,
-        rate: item.avgRate || 0,
-        amount: item.avgRate || 0,
-        rateOfTax: item.vatRate || 5, // DEFAULT VAT
+        rate: item.SALESPRICE || 0,
+        amount: item.SALESPRICE || 0,
+        rateOfTax: 5, // DEFAULT VAT
       },
     ]);
   };
@@ -99,7 +100,6 @@ export default function AddSale() {
     const updated = [...selectedItems];
     updated[index][field] = value;
 
-    // Recalculate amount
     updated[index].amount =
       parseFloat(updated[index].qty) * parseFloat(updated[index].rate);
 
@@ -113,15 +113,14 @@ export default function AddSale() {
   };
 
   // =============================
-  //  VAT CALCULATIONS
+  //  VAT CALCULATION
   // =============================
   const subtotal = selectedItems.reduce((sum, i) => sum + Number(i.amount), 0);
 
   const totalVat = saleData.includeVat
     ? selectedItems.reduce(
         (sum, i) =>
-          sum +
-          (Number(i.amount) * Number(i.rateOfTax || 0)) / 100,
+          sum + (Number(i.amount) * Number(i.rateOfTax || 0)) / 100,
         0
       )
     : 0;
@@ -145,7 +144,7 @@ export default function AddSale() {
     };
 
     try {
-      await axios.post(`${API_BASE}/add-sale`, payload);
+      await axiosInstance.post(`/add-sale`, payload);
       alert("Sale added successfully!");
       window.location.reload();
     } catch (err) {
@@ -158,15 +157,13 @@ export default function AddSale() {
   //  FILTER INVENTORY
   // =============================
   const filteredInventory = inventory.filter((i) =>
-    i.itemName.toLowerCase().includes(searchQuery.toLowerCase())
+    i.NAME?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      
-      {/* =============================
-          COMPANY SELECTOR
-      ============================= */}
+
+      {/* Company Selector */}
       <div className="flex gap-3 mb-6">
         {["ABC", "FANCY-PALACE-TRADING-LLC"].map((comp) => (
           <button
@@ -185,9 +182,7 @@ export default function AddSale() {
 
       <h2 className="text-3xl font-semibold mb-6">Create Sale</h2>
 
-      {/* =============================
-          SALE INFO
-      ============================= */}
+      {/* SALE INFO */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <input
           type="text"
@@ -206,7 +201,6 @@ export default function AddSale() {
           onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
         />
 
-        {/* VAT toggle */}
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -219,23 +213,18 @@ export default function AddSale() {
         </label>
       </div>
 
-      {/* =============================
-          CASH OR CUSTOMER
-      ============================= */}
-      <div className="flex gap-4 mb-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={saleData.isCashSale}
-            onChange={(e) =>
-              setSaleData({ ...saleData, isCashSale: e.target.checked })
-            }
-          />
-          Cash Sale
-        </label>
-      </div>
+      {/* CASH / CUSTOMER */}
+      <label className="flex items-center gap-2 mb-4">
+        <input
+          type="checkbox"
+          checked={saleData.isCashSale}
+          onChange={(e) =>
+            setSaleData({ ...saleData, isCashSale: e.target.checked })
+          }
+        />
+        Cash Sale
+      </label>
 
-      {/* CUSTOMER DROPDOWN */}
       {!saleData.isCashSale && (
         <div className="mb-6">
           <select
@@ -246,7 +235,6 @@ export default function AddSale() {
             }
           >
             <option value="">Select Customer</option>
-
             {customers.map((c) => (
               <option key={c._id} value={c._id}>
                 {c.partyName} — {c.partyCode}
@@ -256,22 +244,16 @@ export default function AddSale() {
         </div>
       )}
 
-      {/* =============================
-          INVENTORY SEARCH
-      ============================= */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search inventory..."
-          className="border p-2 rounded w-full md:w-1/2"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      {/* INVENTORY SEARCH */}
+      <input
+        type="text"
+        placeholder="Search inventory..."
+        className="border p-2 rounded w-full md:w-1/2 mb-4"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-      {/* =============================
-          INVENTORY LIST
-      ============================= */}
+      {/* INVENTORY LIST */}
       <div className="border rounded p-4 h-64 overflow-y-auto mb-6 bg-white">
         {loadingInventory ? (
           <p>Loading inventory...</p>
@@ -284,18 +266,16 @@ export default function AddSale() {
               className="p-3 border-b cursor-pointer hover:bg-gray-100"
               onClick={() => addItem(item)}
             >
-              <div className="font-medium">{item.itemName}</div>
+              <div className="font-medium">{item.NAME}</div>
               <div className="text-sm text-gray-500">
-                Code: {item.itemCode} | Stock: {item.availableQty}
+                Group: {item.GROUP} | Stock: {item.CLOSINGQTY}
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* =============================
-          SELECTED ITEMS TABLE
-      ============================= */}
+      {/* SELECTED ITEMS TABLE */}
       {selectedItems.length > 0 && (
         <div className="mb-6">
           <table className="w-full border-collapse bg-white rounded shadow">
@@ -313,7 +293,7 @@ export default function AddSale() {
             <tbody>
               {selectedItems.map((item, index) => (
                 <tr key={index} className="border-t">
-                  <td className="p-2">{item.itemName}</td>
+                  <td className="p-2">{item.NAME}</td>
 
                   <td className="p-2 text-right">
                     <input
@@ -337,7 +317,6 @@ export default function AddSale() {
                     />
                   </td>
 
-                  {/* VAT PERCENT INPUT */}
                   <td className="p-2 text-right">
                     <input
                       type="number"
@@ -349,9 +328,7 @@ export default function AddSale() {
                     />
                   </td>
 
-                  <td className="p-2 text-right">
-                    {item.amount.toFixed(2)}
-                  </td>
+                  <td className="p-2 text-right">{Number(item.amount)?.toFixed(2)}</td>
 
                   <td className="p-2 text-center">
                     <button
@@ -368,9 +345,7 @@ export default function AddSale() {
         </div>
       )}
 
-      {/* =============================
-          TOTALS
-      ============================= */}
+      {/* TOTALS */}
       <div className="text-right text-lg font-semibold mb-6">
         Subtotal: AED {subtotal.toFixed(2)} <br />
         VAT: AED {totalVat.toFixed(2)} <br />
@@ -379,9 +354,7 @@ export default function AddSale() {
         </span>
       </div>
 
-      {/* =============================
-          SUBMIT
-      ============================= */}
+      {/* SUBMIT */}
       <button
         onClick={submitSale}
         className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700"
