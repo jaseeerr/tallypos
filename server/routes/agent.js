@@ -1,5 +1,8 @@
 var express = require('express');
 var router = express.Router();
+const Customer = require('../models/Customer')
+const Inventory = require('../models/Inventory')
+const Sale = require('../models/Sale')
 
 /* GET users listing. */
 router.get('/', function(req, res, next) {
