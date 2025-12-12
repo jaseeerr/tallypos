@@ -226,57 +226,48 @@ router.post("/inventory-sync", async (req, res) => {
    ============================================================ */
 router.post("/customer-sync", async (req, res) => {
   try {
-    const { companyName, customers } = req.body;
+    const { customers } = req.body;
 
-    if (!companyName || !Array.isArray(customers)) {
+    if (!Array.isArray(customers)) {
       return res.status(400).json({
         ok: false,
-        message: "companyName and customers array required",
+        message: "customers array is required",
       });
     }
 
+    let syncedCount = 0;
+
     for (const cust of customers) {
-      const {
-        partyCode,
-        partyName,
-        partyVatNo,
-        address,
-        contactPerson,
-        phone,
-        email,
-        ledgerName,
-        ledgerGroup,
-      } = cust;
+      const { name, group, balance, address } = cust;
+
+      if (!name) continue; // must have a name
 
       await Customer.findOneAndUpdate(
-        { companyName, partyCode },
+        { name },  // use name as unique identifier
         {
-          companyName,
-          partyCode,
-          partyName,
-          partyVatNo,
-          address: address?.map((a) => ({ line: a })) || [],
-          contactPerson,
-          phone,
-          email,
-          ledgerName,
-          ledgerGroup,
-          lastSyncedAt: new Date(),
+          name,
+          group: group || "",
+          balance: balance || "",
+          address: Array.isArray(address) ? address : [],
         },
         { upsert: true, new: true }
       );
+
+      syncedCount++;
     }
 
     return res.json({
       ok: true,
       message: "Customers synced successfully",
-      count: customers.length,
+      count: syncedCount,
     });
+
   } catch (error) {
     console.error("customer-sync error:", error);
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
