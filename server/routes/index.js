@@ -383,57 +383,7 @@ router.get("/list-sales",Auth.userAuth, async (req, res) => {
 
 
 
-/* ============================================================
-   LIST ALL CUSTOMERS (GET)
-   Supports: search, company filter, pagination
-   ============================================================ */
-router.get("/customers", Auth.userAuth,async (req, res) => {
-  try {
-    let { page = 1, limit = 50, search = "", companyName = "" } = req.query;
 
-    page = Number(page);
-    limit = Number(limit);
-
-    const query = {};
-
-    // Optional filter by company
-    if (companyName) {
-      query.companyName = companyName;
-    }
-
-    // Optional search (partyName, partyCode, phone, email)
-    if (search) {
-      const regex = new RegExp(search, "i");
-      query.$or = [
-        { partyName: regex },
-        { partyCode: regex },
-        { phone: regex },
-        { email: regex }
-      ];
-    }
-
-    // Count total customers
-    const total = await Customer.countDocuments(query);
-
-    // Fetch paginated customers
-    const customers = await Customer.find(query)
-      .sort({ partyName: 1 }) // alphabetical
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
-
-    return res.json({
-      ok: true,
-      customers,
-      total,
-      page,
-      limit,
-    });
-  } catch (error) {
-    console.error("Error fetching customers:", error);
-    return res.status(500).json({ ok: false, error: error.message });
-  }
-});
 
 
 /* ============================================================
@@ -721,35 +671,74 @@ router.get("/getProductBasic",Auth.userAuth, async (req, res) => {
 
 
 
-router.get("/getAllCustomers",Auth.userAuth, async (req, res) => {
-  try {
-    const { companyName } = req.query;
 
-    if (!companyName) {
-      return res.status(400).json({
-        ok: false,
-        message: "companyName is required",
-      });
+
+
+// customer-apis
+
+router.get("/customers",Auth.userAuth, async (req, res) => {
+  try {
+    let {
+      page = 1,
+      limit = 50,
+      search = "",
+      companyName = "",
+    } = req.query;
+
+    page = Number(page);
+    limit = Number(limit);
+
+    const query = {};
+
+    // =============================
+    // COMPANY FILTER (optional)
+    // =============================
+    if (companyName) {
+      query.companyName = companyName;
     }
 
-    const customers = await Customer.find({ companyName }).lean();
+    // =============================
+    // SEARCH FILTER
+    // name, group, address
+    // =============================
+    if (search) {
+      const regex = new RegExp(search, "i");
+
+      query.$or = [
+        { name: regex },
+        { group: regex },
+        { address: regex }, // array search
+      ];
+    }
+
+    // =============================
+    // TOTAL COUNT (for infinite scroll)
+    // =============================
+    const total = await Customer.countDocuments(query);
+
+    // =============================
+    // PAGINATED FETCH
+    // =============================
+    const customers = await Customer.find(query)
+      .sort({ name: 1 }) // alphabetical
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
 
     return res.json({
       ok: true,
-      companyName,
-      count: customers.length,
       customers,
+      total,
+      page,
+      limit,
+      hasMore: page * limit < total,
     });
 
   } catch (error) {
     console.error("Error fetching customers:", error);
-    return res.status(500).json({
-      ok: false,
-      error: error.message,
-    });
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
-
 
 
 module.exports = router;

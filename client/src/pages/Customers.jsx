@@ -1,21 +1,28 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE } from "../utils/url";
+import MyAxiosInstance from "../utils/axios";
 
 export default function Customers() {
+  const axiosInstance = MyAxiosInstance()
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [loading, setLoading] = useState(true);
+
+  const [loading, setLoading] = useState(false);
 
   const [page, setPage] = useState(1);
   const [limit] = useState(50);
   const [total, setTotal] = useState(0);
 
+  // ============================
+  // FETCH CUSTOMERS
+  // ============================
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/customers`, {
+
+      const res = await axiosInstance.get(`/customers`, {
         params: {
           search,
           companyName,
@@ -27,6 +34,7 @@ export default function Customers() {
       setCustomers(res.data.customers || []);
       setTotal(res.data.total || 0);
       setLoading(false);
+
     } catch (error) {
       console.error("Error loading customers:", error);
       setLoading(false);
@@ -50,25 +58,30 @@ export default function Customers() {
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Customers</h1>
 
-      {/* Filters */}
+      {/* ============================
+          FILTERS
+      ============================ */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        
         <input
           type="text"
-          placeholder="Search by name, code, phone, email..."
+          placeholder="Search name, group, address..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleSearch}
           className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-72"
         />
 
-        <input
-          type="text"
-          placeholder="Filter by company (optional)"
+        <select
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
           onKeyDown={handleSearch}
           className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-60"
-        />
+        >
+          <option value="">All Companies</option>
+          <option value="ABC">ABC</option>
+          <option value="XYZ">XYZ</option>
+        </select>
 
         <button
           onClick={() => {
@@ -81,28 +94,30 @@ export default function Customers() {
         </button>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <p className="text-gray-600">Loading customers...</p>
-      )}
+      {/* ============================
+          LOADING
+      ============================ */}
+      {loading && <p className="text-gray-600">Loading customers...</p>}
 
-      {/* No results */}
+      {/* ============================
+          NO RESULTS
+      ============================ */}
       {!loading && customers.length === 0 && (
         <p className="text-gray-600">No customers found.</p>
       )}
 
-      {/* Table */}
+      {/* ============================
+          TABLE
+      ============================ */}
       {!loading && customers.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-gray-300 shadow-sm">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="p-3 text-left">Party Code</th>
-                <th className="p-3 text-left">Customer Name</th>
-                <th className="p-3 text-left">Phone</th>
-                <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Group</th>
+                <th className="p-3 text-left">Address</th>
                 <th className="p-3 text-left">Company</th>
-                <th className="p-3 text-left">Ledger</th>
                 <th className="p-3 text-left">Last Sync</th>
               </tr>
             </thead>
@@ -113,12 +128,17 @@ export default function Customers() {
                   key={cust._id}
                   className="border-t hover:bg-gray-50 transition"
                 >
-                  <td className="p-3">{cust.partyCode || "-"}</td>
-                  <td className="p-3">{cust.partyName}</td>
-                  <td className="p-3">{cust.phone || "-"}</td>
-                  <td className="p-3">{cust.email || "-"}</td>
-                  <td className="p-3">{cust.companyName}</td>
-                  <td className="p-3">{cust.ledgerName || "-"}</td>
+                  <td className="p-3">{cust.name}</td>
+                  <td className="p-3">{cust.group}</td>
+
+                  <td className="p-3">
+                    {cust.address && cust.address.length > 0
+                      ? cust.address.join(", ")
+                      : "-"}
+                  </td>
+
+                  <td className="p-3">{cust.companyName || "-"}</td>
+
                   <td className="p-3 text-gray-500">
                     {cust.lastSyncedAt
                       ? new Date(cust.lastSyncedAt).toLocaleString()
@@ -131,7 +151,9 @@ export default function Customers() {
         </div>
       )}
 
-      {/* Pagination */}
+      {/* ============================
+          PAGINATION
+      ============================ */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-6">
           <button
