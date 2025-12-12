@@ -226,12 +226,12 @@ router.post("/inventory-sync", async (req, res) => {
    ============================================================ */
 router.post("/customer-sync", async (req, res) => {
   try {
-    const { customers } = req.body;
+    const { companyName, customers } = req.body;
 
-    if (!Array.isArray(customers)) {
+    if (!companyName || !Array.isArray(customers)) {
       return res.status(400).json({
         ok: false,
-        message: "customers array is required",
+        message: "companyName and customers array are required",
       });
     }
 
@@ -240,15 +240,20 @@ router.post("/customer-sync", async (req, res) => {
     for (const cust of customers) {
       const { name, group, balance, address } = cust;
 
-      if (!name) continue; // must have a name
+      if (!name) continue; // Skip invalid records
 
       await Customer.findOneAndUpdate(
-        { name },  // use name as unique identifier
         {
+          companyName,
+          name, // customer name is unique within company
+        },
+        {
+          companyName,
           name,
           group: group || "",
           balance: balance || "",
           address: Array.isArray(address) ? address : [],
+          lastSyncedAt: new Date(),
         },
         { upsert: true, new: true }
       );
@@ -260,6 +265,7 @@ router.post("/customer-sync", async (req, res) => {
       ok: true,
       message: "Customers synced successfully",
       count: syncedCount,
+      companyName,
     });
 
   } catch (error) {
@@ -267,6 +273,7 @@ router.post("/customer-sync", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 

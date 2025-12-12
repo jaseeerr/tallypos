@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const CustomerSchema = new mongoose.Schema(
   {
+        companyName: { type: String, required: true }, // ABC / XYZ
+
     name: { type: String, required: true },   // Customer Name from Tally
     group: { type: String, default: "" },     // Usually "Sundry Debtors"
     balance: { type: String, default: "" },   // Tally provides this as a string
