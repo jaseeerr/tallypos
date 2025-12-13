@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 export default function AddSale() {
-  const axios = MyAxiosInstance()
+  const axiosInstance = MyAxiosInstance()
 
   // =============================
   // STATE
@@ -72,7 +72,7 @@ export default function AddSale() {
 
     setLoadingInventory(true)
     try {
-      const res = await axios.get("/inventory", {
+      const res = await axiosInstance.get("/inventory", {
         params: {
           companyName,
           search: inventorySearch,
@@ -101,7 +101,7 @@ export default function AddSale() {
   const fetchCustomers = async () => {
     setLoadingCustomers(true)
     try {
-      const res = await axios.get("/customers", {
+      const res = await axiosInstance.get("/customers", {
         params: {
           companyName,
           search: customerSearch,
@@ -264,7 +264,7 @@ export default function AddSale() {
 
     setSubmitting(true)
     try {
-      await axios.post("/add-sale", payload)
+      await axiosInstance.post("/add-sale", payload)
       showNotification("success", "Sale Created Successfully", `Bill #${sale.billNo} has been saved successfully.`)
 
       // Reset form after 2 seconds
