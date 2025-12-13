@@ -1,71 +1,67 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { API_BASE } from "../utils/url";
+import { useEffect, useState } from "react";
 import MyAxiosInstance from "../utils/axios";
 
 export default function AddSale() {
-  const axiosInstance = MyAxiosInstance();
+  const axios = MyAxiosInstance();
 
   // =============================
-  //  STATE
+  // STATE
   // =============================
-  const [activeCompany, setActiveCompany] = useState("ABC");
+  const [companyName, setCompanyName] = useState("ABC");
 
   const [inventory, setInventory] = useState([]);
   const [customers, setCustomers] = useState([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
 
   const [selectedItems, setSelectedItems] = useState([]);
 
-  const [saleData, setSaleData] = useState({
+  const [sale, setSale] = useState({
     billNo: "",
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString().slice(0, 10),
     reference: "",
     remarks: "",
     isCashSale: false,
+    cashLedgerName: "",
     customerId: "",
-    includeVat: true,
   });
 
-  const [loadingInventory, setLoadingInventory] = useState(true);
-  const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
 
   // =============================
-  //  FETCH INVENTORY
+  // FETCH INVENTORY
   // =============================
   const fetchInventory = async () => {
-    try {
-      setLoadingInventory(true);
-
-      const res = await axiosInstance.get(`/inventory`, {
-        params: { companyName: activeCompany },
-      });
-
-      setInventory(res.data.items || []);
-    } catch (err) {
-      console.error("Inventory fetch error:", err);
-    }
-
+    setLoadingInventory(true);
+    const res = await axios.get("/inventory", {
+      params: {
+        companyName,
+        search: inventorySearch,
+        page: 1,
+        limit: 50,
+        includeOutOfStock: false,
+      },
+    });
+    setInventory(res.data.items || []);
     setLoadingInventory(false);
   };
 
   // =============================
-  //  FETCH CUSTOMERS
+  // FETCH CUSTOMERS
   // =============================
   const fetchCustomers = async () => {
-    try {
-      setLoadingCustomers(true);
-
-      const res = await axiosInstance.get(`/customers`, {
-        params: { companyName: activeCompany, limit: 9999 },
-      });
-
-      setCustomers(res.data.customers || []);
-    } catch (err) {
-      console.error("Customer fetch error:", err);
-    }
-
+    setLoadingCustomers(true);
+    const res = await axios.get("/customers", {
+      params: {
+        companyName,
+        search: customerSearch,
+        page: 1,
+        limit: 50,
+      },
+    });
+    setCustomers(res.data.items || res.data.customers || []);
     setLoadingCustomers(false);
   };
 
@@ -73,292 +69,181 @@ export default function AddSale() {
     fetchInventory();
     fetchCustomers();
     setSelectedItems([]);
-  }, [activeCompany]);
+  }, [companyName]);
 
   // =============================
-  //  SELECT ITEMS
+  // ADD ITEM
   // =============================
   const addItem = (item) => {
-    const exists = selectedItems.find((i) => i.NAME === item.NAME);
-    if (exists) return;
+    if (selectedItems.find(i => i.itemId === item._id)) return;
 
-    setSelectedItems([
-      ...selectedItems,
+    setSelectedItems(prev => [
+      ...prev,
       {
-        NAME: item.NAME,
-        GROUP: item.GROUP,
-        unit: item.UNITS,
+        itemId: item._id,
+        name: item.NAME,
         qty: 1,
-        rate: item.SALESPRICE || 0,
-        amount: item.SALESPRICE || 0,
-        rateOfTax: 5, // DEFAULT VAT
+        rate: Number(item.SALESPRICE) || 0,
+        rateOfTax: 5,
+        amount: Number(item.SALESPRICE) || 0,
       },
     ]);
   };
 
   const updateItem = (index, field, value) => {
     const updated = [...selectedItems];
-    updated[index][field] = value;
-
-    updated[index].amount =
-      parseFloat(updated[index].qty) * parseFloat(updated[index].rate);
-
+    updated[index][field] = Number(value);
+    updated[index].amount = updated[index].qty * updated[index].rate;
     setSelectedItems(updated);
   };
 
   const removeItem = (index) => {
-    const updated = [...selectedItems];
-    updated.splice(index, 1);
-    setSelectedItems(updated);
+    setSelectedItems(prev => prev.filter((_, i) => i !== index));
   };
 
   // =============================
-  //  VAT CALCULATION
+  // TOTALS (DISPLAY ONLY)
   // =============================
-  const subtotal = selectedItems.reduce((sum, i) => sum + Number(i.amount), 0);
-
-  const totalVat = saleData.includeVat
-    ? selectedItems.reduce(
-        (sum, i) =>
-          sum + (Number(i.amount) * Number(i.rateOfTax || 0)) / 100,
-        0
-      )
-    : 0;
-
-  const finalTotal = subtotal + totalVat;
+  const subtotal = selectedItems.reduce((s, i) => s + i.amount, 0);
+  const vatAmount = selectedItems.reduce(
+    (s, i) => s + (i.amount * i.rateOfTax) / 100,
+    0
+  );
+  const total = subtotal + vatAmount;
 
   // =============================
-  //  SUBMIT SALE
+  // SUBMIT SALE
   // =============================
   const submitSale = async () => {
-    if (!saleData.billNo) return alert("Bill No is required");
-    if (selectedItems.length === 0) return alert("Add at least one item");
+    if (!sale.billNo) return alert("Bill number required");
+    if (!sale.isCashSale && !sale.customerId) return alert("Select customer");
+    if (sale.isCashSale && !sale.cashLedgerName)
+      return alert("Cash ledger name required");
+    if (selectedItems.length === 0) return alert("Add items");
 
     const payload = {
-      ...saleData,
-      companyName: activeCompany,
-      items: selectedItems,
-      subtotal,
-      vatAmount: totalVat,
-      totalAmount: finalTotal,
+      companyName,
+      billNo: sale.billNo,
+      date: sale.date,
+      reference: sale.reference,
+      remarks: sale.remarks,
+      isCashSale: sale.isCashSale,
+      cashLedgerName: sale.cashLedgerName,
+      customerId: sale.customerId || null,
+      items: selectedItems.map(i => ({
+        itemId: i.itemId,
+        qty: i.qty,
+        rate: i.rate,
+        rateOfTax: i.rateOfTax,
+      })),
     };
 
     try {
-      await axiosInstance.post(`/add-sale`, payload);
-      alert("Sale added successfully!");
+      await axios.post("/add-sale", payload);
+      alert("Sale created");
       window.location.reload();
-    } catch (err) {
-      console.error("Error saving sale:", err);
-      alert("Error saving sale");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save sale");
     }
   };
 
   // =============================
-  //  FILTER INVENTORY
+  // RENDER
   // =============================
-  const filteredInventory = inventory.filter((i) =>
-    i.NAME?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
 
-      {/* Company Selector */}
-      <div className="flex gap-3 mb-6">
-        {["ABC", "FANCY-PALACE-TRADING-LLC"].map((comp) => (
+      {/* COMPANY */}
+      <div className="flex gap-2">
+        {["ABC", "FANCY-PALACE-TRADING-LLC"].map(c => (
           <button
-            key={comp}
-            onClick={() => setActiveCompany(comp)}
-            className={`px-4 py-2 rounded-md border font-semibold transition ${
-              activeCompany === comp
-                ? "bg-blue-600 text-white border-blue-700"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-            }`}
+            key={c}
+            onClick={() => setCompanyName(c)}
+            className={`px-3 py-1 border ${companyName === c ? "bg-blue-600 text-white" : ""}`}
           >
-            {comp}
+            {c}
           </button>
         ))}
       </div>
 
-      <h2 className="text-3xl font-semibold mb-6">Create Sale</h2>
-
-      {/* SALE INFO */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <input
-          type="text"
-          placeholder="Bill No"
-          className="border p-2 rounded"
-          value={saleData.billNo}
-          onChange={(e) =>
-            setSaleData({ ...saleData, billNo: e.target.value })
-          }
-        />
-
-        <input
-          type="date"
-          className="border p-2 rounded"
-          value={saleData.date}
-          onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
-        />
-
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={saleData.includeVat}
-            onChange={(e) =>
-              setSaleData({ ...saleData, includeVat: e.target.checked })
-            }
-          />
-          Include VAT
+      {/* BASIC INFO */}
+      <div className="grid grid-cols-3 gap-4">
+        <input placeholder="Bill No" value={sale.billNo}
+          onChange={e => setSale({ ...sale, billNo: e.target.value })} />
+        <input type="date" value={sale.date}
+          onChange={e => setSale({ ...sale, date: e.target.value })} />
+        <label>
+          <input type="checkbox" checked={sale.isCashSale}
+            onChange={e => setSale({ ...sale, isCashSale: e.target.checked })} />
+          Cash Sale
         </label>
       </div>
 
-      {/* CASH / CUSTOMER */}
-      <label className="flex items-center gap-2 mb-4">
-        <input
-          type="checkbox"
-          checked={saleData.isCashSale}
-          onChange={(e) =>
-            setSaleData({ ...saleData, isCashSale: e.target.checked })
-          }
-        />
-        Cash Sale
-      </label>
-
-      {!saleData.isCashSale && (
-        <div className="mb-6">
+      {!sale.isCashSale && (
+        <>
+          <input
+            placeholder="Search customer"
+            value={customerSearch}
+            onChange={e => setCustomerSearch(e.target.value)}
+            onBlur={fetchCustomers}
+          />
           <select
-            className="border p-2 rounded w-full md:w-1/2"
-            value={saleData.customerId}
-            onChange={(e) =>
-              setSaleData({ ...saleData, customerId: e.target.value })
-            }
+            value={sale.customerId}
+            onChange={e => setSale({ ...sale, customerId: e.target.value })}
           >
-            <option value="">Select Customer</option>
-            {customers.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.partyName} — {c.partyCode}
-              </option>
+            <option value="">Select customer</option>
+            {customers.map(c => (
+              <option key={c._id} value={c._id}>{c.name}</option>
             ))}
           </select>
-        </div>
+        </>
       )}
 
-      {/* INVENTORY SEARCH */}
+      {sale.isCashSale && (
+        <input
+          placeholder="Cash Ledger Name"
+          value={sale.cashLedgerName}
+          onChange={e => setSale({ ...sale, cashLedgerName: e.target.value })}
+        />
+      )}
+
+      {/* INVENTORY */}
       <input
-        type="text"
-        placeholder="Search inventory..."
-        className="border p-2 rounded w-full md:w-1/2 mb-4"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search inventory"
+        value={inventorySearch}
+        onChange={e => setInventorySearch(e.target.value)}
+        onBlur={fetchInventory}
       />
 
-      {/* INVENTORY LIST */}
-      <div className="border rounded p-4 h-64 overflow-y-auto mb-6 bg-white">
-        {loadingInventory ? (
-          <p>Loading inventory...</p>
-        ) : filteredInventory.length === 0 ? (
-          <p>No products found.</p>
-        ) : (
-          filteredInventory.map((item) => (
-            <div
-              key={item._id}
-              className="p-3 border-b cursor-pointer hover:bg-gray-100"
-              onClick={() => addItem(item)}
-            >
-              <div className="font-medium">{item.NAME}</div>
-              <div className="text-sm text-gray-500">
-                Group: {item.GROUP} | Stock: {item.CLOSINGQTY}
-              </div>
-            </div>
-          ))
-        )}
+      <div className="border max-h-48 overflow-auto">
+        {inventory.map(i => (
+          <div key={i._id} onClick={() => addItem(i)} className="p-2 cursor-pointer">
+            {i.NAME}
+          </div>
+        ))}
       </div>
 
-      {/* SELECTED ITEMS TABLE */}
-      {selectedItems.length > 0 && (
-        <div className="mb-6">
-          <table className="w-full border-collapse bg-white rounded shadow">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2 text-left">Item</th>
-                <th className="p-2 text-right">Qty</th>
-                <th className="p-2 text-right">Rate</th>
-                <th className="p-2 text-right">VAT %</th>
-                <th className="p-2 text-right">Amount</th>
-                <th className="p-2 text-center">Remove</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {selectedItems.map((item, index) => (
-                <tr key={index} className="border-t">
-                  <td className="p-2">{item.NAME}</td>
-
-                  <td className="p-2 text-right">
-                    <input
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) =>
-                        updateItem(index, "qty", e.target.value)
-                      }
-                      className="border p-1 w-20 text-right rounded"
-                    />
-                  </td>
-
-                  <td className="p-2 text-right">
-                    <input
-                      type="number"
-                      value={item.rate}
-                      onChange={(e) =>
-                        updateItem(index, "rate", e.target.value)
-                      }
-                      className="border p-1 w-20 text-right rounded"
-                    />
-                  </td>
-
-                  <td className="p-2 text-right">
-                    <input
-                      type="number"
-                      value={item.rateOfTax}
-                      onChange={(e) =>
-                        updateItem(index, "rateOfTax", e.target.value)
-                      }
-                      className="border p-1 w-20 text-right rounded"
-                    />
-                  </td>
-
-                  <td className="p-2 text-right">{Number(item.amount)?.toFixed(2)}</td>
-
-                  <td className="p-2 text-center">
-                    <button
-                      className="text-red-500"
-                      onClick={() => removeItem(index)}
-                    >
-                      ✖
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* ITEMS */}
+      {selectedItems.map((i, idx) => (
+        <div key={idx} className="flex gap-2">
+          <span className="flex-1">{i.name}</span>
+          <input type="number" value={i.qty} onChange={e => updateItem(idx, "qty", e.target.value)} />
+          <input type="number" value={i.rate} onChange={e => updateItem(idx, "rate", e.target.value)} />
+          <input type="number" value={i.rateOfTax} onChange={e => updateItem(idx, "rateOfTax", e.target.value)} />
+          <span>{i.amount.toFixed(2)}</span>
+          <button onClick={() => removeItem(idx)}>✖</button>
         </div>
-      )}
+      ))}
 
       {/* TOTALS */}
-      <div className="text-right text-lg font-semibold mb-6">
-        Subtotal: AED {subtotal.toFixed(2)} <br />
-        VAT: AED {totalVat.toFixed(2)} <br />
-        <span className="text-xl font-bold">
-          Total: AED {finalTotal.toFixed(2)}
-        </span>
+      <div>
+        Subtotal: {subtotal.toFixed(2)} <br />
+        VAT: {vatAmount.toFixed(2)} <br />
+        <b>Total: {total.toFixed(2)}</b>
       </div>
 
-      {/* SUBMIT */}
-      <button
-        onClick={submitSale}
-        className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700"
-      >
+      <button onClick={submitSale} className="px-6 py-2 bg-green-600 text-white">
         Save Sale
       </button>
     </div>

@@ -258,44 +258,39 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
    ADD SALE (MERN APP → SERVER)
    Users create a sale inside the web app. Stored as pending.
    ============================================================ */
-router.post("/add-sale",Auth.userAuth, async (req, res) => {
+router.post("/add-sale", Auth.userAuth, async (req, res) => {
   try {
-    const data = req.body;
-
     const {
       companyName,
       billNo,
       date,
       reference = "",
       remarks = "",
-      subtotal = 0,
-      vatAmount = 0,
-      totalAmount = 0,
-      isCashSale,
+      isCashSale = false,
       cashLedgerName = "",
       customerId,
-      items
-    } = data;
+      items = [],
+    } = req.body;
 
-    // ----------------------------
-    // VALIDATION
-    // ----------------------------
+    // =============================
+    // BASIC VALIDATION
+    // =============================
     if (!companyName || !billNo || !date) {
       return res.status(400).json({
         ok: false,
-        message: "companyName, billNo, and date are required",
+        message: "companyName, billNo and date are required",
       });
     }
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         ok: false,
         message: "At least one item is required",
       });
     }
 
-    // Check duplicate bill for company
-    const exists = await Sale.findOne({ billNo, companyName });
+    // Unique bill per company
+    const exists = await Sale.findOne({ companyName, billNo });
     if (exists) {
       return res.status(400).json({
         ok: false,
@@ -303,59 +298,103 @@ router.post("/add-sale",Auth.userAuth, async (req, res) => {
       });
     }
 
-    // ----------------------------
-    // POPULATE CUSTOMER DETAILS
-    // ----------------------------
-    let partyCode = "";
+    // =============================
+    // CUSTOMER / CASH VALIDATION
+    // =============================
     let partyName = "";
-    let partyVatNo = "";
     let partyAddress = [];
 
-    if (!isCashSale && customerId) {
-      const customer = await Customer.findById(customerId).lean();
-
-      if (!customer) {
-        return res.status(400).json({ ok: false, message: "Customer not found" });
+    if (isCashSale) {
+      if (!cashLedgerName) {
+        return res.status(400).json({
+          ok: false,
+          message: "cashLedgerName is required for cash sale",
+        });
+      }
+    } else {
+      if (!customerId) {
+        return res.status(400).json({
+          ok: false,
+          message: "customerId is required for credit sale",
+        });
       }
 
-      partyCode = customer.partyCode || "";
-      partyName = customer.partyName || "";
-      partyVatNo = customer.vatNumber || "";
+      const customer = await Customer.findById(customerId).lean();
+      if (!customer || customer.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid customer for this company",
+        });
+      }
+
+      partyName = customer.name;
       partyAddress = (customer.address || []).map(a => ({ address: a }));
     }
 
-    // ----------------------------
-    // ITEMS (use VAT exactly as frontend sends)
-    // ----------------------------
-    const processedItems = items.map(i => ({
-      itemName: i.itemName,
-      itemCode: i.itemCode,
-      itemGroup: i.itemGroup || "",
-      description: i.description || "",
-      qty: Number(i.qty),
-      unit: i.unit,
-      rate: Number(i.rate),
-      amount: Number(i.amount),
-      rateOfTax: Number(i.rateOfTax), // ← directly from frontend (correct)
-    }));
+    // =============================
+    // PROCESS ITEMS
+    // =============================
+    let subtotal = 0;
+    let vatAmount = 0;
+    const processedItems = [];
 
-    // ----------------------------
-    // LEDGERS — AUTO VAT LEDGER
-    // ----------------------------
-    let ledgerList = [];
+    for (const i of items) {
+      const inventoryItem = await Inventory.findById(i.itemId).lean();
+      if (!inventoryItem || inventoryItem.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid inventory item for this company",
+        });
+      }
 
+      const qty = Number(i.qty);
+      const rate = Number(i.rate);
+      const rateOfTax = Number(i.rateOfTax || 0);
+
+      if (qty <= 0 || rate < 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid quantity or rate",
+        });
+      }
+
+      const amount = qty * rate;
+      const tax = (amount * rateOfTax) / 100;
+
+      subtotal += amount;
+      vatAmount += tax;
+
+      processedItems.push({
+        itemName: inventoryItem.NAME,
+        itemGroup: inventoryItem.GROUP || "",
+        unit: inventoryItem.UNITS || "PCS",
+        itemCode: "",
+        description: "",
+        qty,
+        rate,
+        amount,
+        rateOfTax,
+      });
+    }
+
+    const totalAmount = subtotal + vatAmount;
+
+    // =============================
+    // LEDGERS
+    // =============================
+    const ledgers = [];
     if (vatAmount > 0) {
-      ledgerList.push({
+      ledgers.push({
         ledgerName: "VAT",
-        percentage: null, // because items can have mixed VAT
+        percentage: 0,
         amount: vatAmount,
       });
     }
 
-    // ----------------------------
+    // =============================
     // SAVE SALE
-    // ----------------------------
-    const newSale = new Sale({
+    // =============================
+    const sale = new Sale({
       companyName,
       billNo,
       date,
@@ -369,37 +408,35 @@ router.post("/add-sale",Auth.userAuth, async (req, res) => {
       isCashSale,
       cashLedgerName,
 
-      partyCode,
       partyName,
-      partyVatNo,
       partyAddress,
 
       items: processedItems,
-      ledgers: ledgerList,
+      ledgers,
 
       status: "pending",
-      syncAttempts: 0,
-      syncError: "",
-      tallyInvoiceNumber: "",
-      tallyResponseLogs: [],
 
-      createdBy: data.createdBy || null,
-      updatedBy: data.createdBy || null,
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id,
     });
 
-    await newSale.save();
+    await sale.save();
 
     return res.json({
       ok: true,
       message: "Sale added successfully",
-      saleId: newSale._id,
+      saleId: sale._id,
     });
 
   } catch (error) {
     console.error("Error adding sale:", error);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
   }
 });
+
 
 
 
@@ -409,75 +446,97 @@ router.post("/add-sale",Auth.userAuth, async (req, res) => {
    LIST ALL SALES (MERN APP → SERVER)
    Supports: search, company filter, date filter, pagination
    ============================================================ */
-router.get("/list-sales",Auth.userAuth, async (req, res) => {
+router.get("/list-sales", Auth.userAuth, async (req, res) => {
   try {
     let {
       companyName,
-      search,
+      search = "",
       fromDate,
       toDate,
       page = 1,
       limit = 50,
     } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = Number(page);
+    limit = Number(limit);
 
-    let query = {};
+    if (!companyName) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName is required",
+      });
+    }
 
-    // Company filter
-    if (companyName) {
+    const query = {};
+
+    // =============================
+    // COMPANY FILTER
+    // =============================
+    if (companyName !== "ALL") {
       query.companyName = companyName;
     }
 
-    // Search filter
-    if (search) {
-      const regex = new RegExp(search, "i");
+    // =============================
+    // SEARCH FILTER
+    // =============================
+    if (search.trim() !== "") {
+      const regex = new RegExp(search.trim(), "i");
       query.$or = [
         { billNo: regex },
         { partyName: regex },
-        { partyCode: regex },
         { cashLedgerName: regex },
       ];
     }
 
-    // Date filter
+    // =============================
+    // DATE FILTER
+    // =============================
     if (fromDate || toDate) {
       query.date = {};
-      if (fromDate) query.date.$gte = new Date(fromDate);
+
+      if (fromDate) {
+        query.date.$gte = new Date(fromDate);
+      }
+
       if (toDate) {
-        let d = new Date(toDate);
-        d.setHours(23, 59, 59, 999);
-        query.date.$lte = d;
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        query.date.$lte = end;
       }
     }
 
     const skip = (page - 1) * limit;
 
-    // Fetch sales
-    const sales = await Sale.find(query)
-      .sort({ date: -1, createdAt: -1 }) // newest first
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // =============================
+    // FETCH DATA
+    // =============================
+    const [sales, total] = await Promise.all([
+      Sale.find(query)
+        .sort({ date: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    const total = await Sale.countDocuments(query);
+      Sale.countDocuments(query),
+    ]);
 
     return res.json({
       ok: true,
+      items: sales,
       total,
       page,
       limit,
-      sales,
+      hasMore: page * limit < total,
     });
+
   } catch (error) {
     console.error("Error fetching sales:", error);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
   }
 });
-
-
-
 
 
 
@@ -519,6 +578,12 @@ router.get("/sale/:billNo",Auth.userAuth, async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
 
 router.put("/inventory/update-image/:id", Auth.userAuth, upload.single("image"), async (req, res) => {
   try {
