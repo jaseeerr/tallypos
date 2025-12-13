@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE } from "../utils/url";
-
+import MyAxiosInstance from "../utils/axios";
 export default function ViewSale() {
+  const axiosInstance = MyAxiosInstance()
   const { billNo } = useParams();
   const navigate = useNavigate();
 
@@ -13,7 +14,7 @@ export default function ViewSale() {
 
   const fetchSale = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/sale/${billNo}`);
+      const res = await axiosInstance.get(`/sale/${billNo}`);
       setSale(res.data.sale);
       setLoading(false);
     } catch (error) {

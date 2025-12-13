@@ -15,9 +15,12 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+
 
 export default function SalesList() {
   const axiosInstance = MyAxiosInstance()
+const navigate = useNavigate()
 
   // State
   const [sales, setSales] = useState([])
@@ -51,6 +54,12 @@ export default function SalesList() {
     setNotification({ type, title, message })
     setTimeout(() => setNotification(null), 5000)
   }
+
+const goToSaleDetails = (billNo) => {
+  if (!billNo) return
+  navigate(`/sale/${billNo}`)
+}
+
 
   // Fetch sales
   const fetchSales = async () => {
@@ -352,6 +361,8 @@ export default function SalesList() {
             {sales.map((sale) => (
               <div
                 key={sale._id}
+                  onDoubleClick={() => goToSaleDetails(sale.billNo)}
+
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-center">
