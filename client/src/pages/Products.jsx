@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
+import { useEffect, useState, useRef } from "react"
 import QRCode from "react-qr-code"
 import { Search, X, Upload, Trash2, Download, Package, Grid3x3, List } from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
@@ -9,17 +9,13 @@ import { API_BASE } from "../utils/url"
 export default function InventoryPage() {
   const axiosInstance = MyAxiosInstance()
 
-  // =====================
-  // STATE
-  // =====================
+  // State
   const [inventory, setInventory] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [activeCompany, setActiveCompany] = useState("ALL")
   const [includeOutOfStock, setIncludeOutOfStock] = useState(false)
-  const [viewMode, setViewMode] = useState("grid") // grid or list
-
-  const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState("grid")
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -32,255 +28,195 @@ export default function InventoryPage() {
   const [preview, setPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
 
+  // Refs
   const loaderRef = useRef(null)
-  const searchTimeoutRef = useRef(null)
-  const loadedIdsRef = useRef(new Set()) // Track loaded IDs to prevent duplicates
+  const isFetchingRef = useRef(false)
+  const loadedIdsRef = useRef(new Set())
+  const pageRef = useRef(1)
+  const hasMoreRef = useRef(true)
+  const isMountedRef = useRef(false)
+  const firstLoadCompleteRef = useRef(false)
 
-  // =====================
-  // DEBOUNCED SEARCH
-  // =====================
+  // Debounce search input
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
     }, 300)
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
+    return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // =====================
-  // PARSE STOCK STRING → PIECES
-  // =====================
-  const parseStockToPieces = useCallback((str) => {
-    if (!str || typeof str !== "string") return 0
-
-    const UNIT_MAP = {
-      doz: 12,
-      dozen: 12,
-      pc: 1,
-      pcs: 1,
-      piece: 1,
-      pieces: 1,
-      gross: 144,
+  // Fetch inventory with proper guards to prevent multiple calls
+  async function fetchInventory(resetPage = false) {
+    // Guard: prevent concurrent requests
+    if (isFetchingRef.current) {
+      return
     }
 
-    const lower = str.toLowerCase()
-    const regex = /(\d+)\s*(doz|dozen|pc|pcs|piece|pieces|gross)/g
-
-    let total = 0
-    let match
-
-    while ((match = regex.exec(lower)) !== null) {
-      const qty = Number.parseInt(match[1], 10)
-      const unit = match[2]
-      total += qty * (UNIT_MAP[unit] || 1)
+    // Guard: check if more data available
+    if (!resetPage && !hasMoreRef.current) {
+      return
     }
 
-    return total
-  }, [])
+    const currentPage = resetPage ? 1 : pageRef.current
+    isFetchingRef.current = true
+    setLoading(true)
 
-  // =====================
-  // FETCH INVENTORY (PAGINATED)
-  // =====================
-  const fetchInventory = useCallback(
-    async (reset = false) => {
-      if (loading) return
+    try {
+      const res = await axiosInstance.get("/inventory", {
+        params: {
+          companyName: activeCompany,
+          search: debouncedSearch,
+          page: currentPage,
+          limit: 100,
+          includeOutOfStock: includeOutOfStock,
+        },
+      })
 
-      try {
-        setLoading(true)
+      const newItems = res.data.items || []
 
-        const currentPage = reset ? 1 : page
-
-        const res = await axiosInstance.get("/inventory", {
-          params: {
-            companyName: activeCompany,
-            search: debouncedSearch,
-            page: currentPage,
-            limit: 100,
-          },
-        })
-console.log(res)
-        const newItems = res.data.items || []
-
-        const uniqueNewItems = newItems.filter((item) => {
-          if (reset) return true // Allow all items on reset
-          if (loadedIdsRef.current.has(item._id)) {
-            return false // Skip duplicates
-          }
-          return true
-        })
-
-        if (reset) {
-          loadedIdsRef.current = new Set(uniqueNewItems.map((item) => item._id))
-          setInventory(uniqueNewItems)
-          setPage(2)
-        } else {
-          uniqueNewItems.forEach((item) => loadedIdsRef.current.add(item._id))
-          setInventory((prev) => [...prev, ...uniqueNewItems])
-          setPage((prev) => prev + 1)
-        }
-
-        setHasMore(newItems.length > 0)
-        setInitialLoading(false)
-      } catch (err) {
-        console.error("Inventory fetch error:", err)
-        setInitialLoading(false)
+      if (resetPage) {
+        // Full reset for new search/filter
+        loadedIdsRef.current = new Set(newItems.map((i) => i._id))
+        setInventory(newItems)
+        pageRef.current = 2
+      } else {
+        // Append for infinite scroll
+        const uniqueItems = newItems.filter((item) => !loadedIdsRef.current.has(item._id))
+        uniqueItems.forEach((item) => loadedIdsRef.current.add(item._id))
+        setInventory((prev) => [...prev, ...uniqueItems])
+        pageRef.current = currentPage + 1
       }
 
+      // Update hasMore
+      const moreDataAvailable = newItems.length === 100
+      hasMoreRef.current = moreDataAvailable
+      setHasMore(moreDataAvailable)
+
+      if (resetPage) {
+        setInitialLoading(false)
+        firstLoadCompleteRef.current = true
+      }
+    } catch (err) {
+      console.error("Inventory fetch error:", err)
+      setInitialLoading(false)
+      firstLoadCompleteRef.current = true
+    } finally {
       setLoading(false)
-    },
-    [loading, page, activeCompany, debouncedSearch, axiosInstance],
-  )
-
-  // =====================
-  // RESET & RELOAD ON FILTERS
-  // =====================
-  useEffect(() => {
-    setInventory([])
-    setPage(1)
-    setHasMore(true)
-    loadedIdsRef.current = new Set() // Reset loaded IDs tracker
-    fetchInventory(true)
-  }, [activeCompany, debouncedSearch])
-
-  // =====================
-  // INFINITE SCROLL OBSERVER
-  // =====================
-  const handleObserver = useCallback(
-    (entries) => {
-      const target = entries[0]
-      if (target.isIntersecting && hasMore && !loading && inventory.length > 0) {
-        fetchInventory(false)
-      }
-    },
-    [hasMore, loading, fetchInventory, inventory.length],
-  )
-
-  useEffect(() => {
-    const option = {
-      root: null,
-      rootMargin: "100px",
-      threshold: 0.1,
+      isFetchingRef.current = false
     }
-    const observer = new IntersectionObserver(handleObserver, option)
-    if (loaderRef.current) observer.observe(loaderRef.current)
+  }
 
-    return () => observer.disconnect()
-  }, [handleObserver])
-
-  // =====================
-  // FILTER FRONTEND (OUT-OF-STOCK)
-  // =====================
-  const filteredList = useMemo(() => {
-    return inventory.filter((item) => {
-      const stock = parseStockToPieces(item.CLOSINGQTY)
-      if (!includeOutOfStock && stock <= 0) return false
-      return true
-    })
-  }, [inventory, includeOutOfStock, parseStockToPieces])
-
-  // =====================
-  // QR DOWNLOAD - HIGH QUALITY, QR ONLY
-  // =====================
-  const handleQRDownload = useCallback((item) => {
-    const qrSize = 512
-    const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-    svgElement.setAttribute("width", qrSize)
-    svgElement.setAttribute("height", qrSize)
-    svgElement.setAttribute("viewBox", `0 0 ${qrSize} ${qrSize}`)
-
-    const tempContainer = document.createElement("div")
-    tempContainer.style.position = "absolute"
-    tempContainer.style.left = "-9999px"
-    document.body.appendChild(tempContainer)
-
-    const root = document.createElement("div")
-    tempContainer.appendChild(root)
-
-    // Use React to render QR code
-    const qrElement = React.createElement(QRCode, {
-      value: String(item.NAME || "ITEM"),
-      size: qrSize,
-      level: "H", // Highest error correction
-    })
-
-    const { createRoot } = require("react-dom/client")
-    const reactRoot = createRoot(root)
-    reactRoot.render(qrElement)
-
-    // Wait for render then download
-    setTimeout(() => {
-      const renderedSvg = root.querySelector("svg")
-      if (renderedSvg) {
-        const svgData = new XMLSerializer().serializeToString(renderedSvg)
-        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" })
-        const url = URL.createObjectURL(svgBlob)
-
-        const img = new Image()
-        img.onload = () => {
-          const canvas = document.createElement("canvas")
-          canvas.width = qrSize
-          canvas.height = qrSize
-
-          const ctx = canvas.getContext("2d")
-          ctx.fillStyle = "#ffffff"
-          ctx.fillRect(0, 0, qrSize, qrSize)
-          ctx.drawImage(img, 0, 0, qrSize, qrSize)
-
-          canvas.toBlob(
-            (blob) => {
-              const pngUrl = URL.createObjectURL(blob)
-              const link = document.createElement("a")
-              link.href = pngUrl
-              link.download = `QR-${item.NAME.replace(/[^a-zA-Z0-9]/g, "-")}.png`
-              link.click()
-
-              URL.revokeObjectURL(url)
-              URL.revokeObjectURL(pngUrl)
-            },
-            "image/png",
-            1.0,
-          )
-        }
-
-        img.src = url
-      }
-
-      document.body.removeChild(tempContainer)
-      reactRoot.unmount()
-    }, 100)
+  useEffect(() => {
+    fetchInventory(true)
+    isMountedRef.current = true
   }, [])
 
-  // =====================
-  // IMAGE MODAL FUNCTIONS
-  // =====================
-  const openModal = useCallback((item) => {
+  useEffect(() => {
+    // Guard: don't run on first render
+    if (!isMountedRef.current) {
+      return
+    }
+
+    // Full reset and fetch
+    setInventory([])
+    loadedIdsRef.current = new Set()
+    pageRef.current = 1
+    hasMoreRef.current = true
+    setHasMore(true)
+    isFetchingRef.current = false
+    firstLoadCompleteRef.current = false
+    setInitialLoading(true)
+
+    fetchInventory(true)
+  }, [activeCompany, debouncedSearch, includeOutOfStock])
+
+  // Infinite scroll observer
+  useEffect(() => {
+    // Guard: don't observe until first page is loaded
+    if (!firstLoadCompleteRef.current) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+
+        // Only fetch if: intersecting, has more data, not currently fetching, page > 1
+        if (entry.isIntersecting && hasMoreRef.current && !isFetchingRef.current && !loading && pageRef.current > 1) {
+          fetchInventory(false)
+        }
+      },
+      { root: null, rootMargin: "200px", threshold: 0 },
+    )
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current)
+    }
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [firstLoadCompleteRef.current, loading])
+
+  // QR Download - Fixed version
+  function handleQRDownload(item) {
+    const qrContainer = document.getElementById(`qr-${modalItem._id}`)
+    if (!qrContainer) return
+
+    const svgElement = qrContainer.querySelector("svg")
+    if (!svgElement) return
+
+    const svgData = new XMLSerializer().serializeToString(svgElement)
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    const img = new Image()
+
+    // Set high resolution
+    const scale = 4
+    canvas.width = 256 * scale
+    canvas.height = 256 * scale
+
+    img.onload = () => {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `QR-${item.NAME.replace(/[^a-zA-Z0-9]/g, "-")}.png`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, "image/png")
+    }
+
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
+  }
+
+  // Modal functions
+  function openModal(item) {
     setModalItem(item)
     setSelectedFile(null)
     setPreview(item.imageUrl ? `${API_BASE}/${item.imageUrl}` : null)
     setModalOpen(true)
-  }, [])
+  }
 
-  const openQRModal = useCallback((item) => {
+  function openQRModal(item) {
     setModalItem(item)
     setQrModalOpen(true)
-  }, [])
+  }
 
-  const handleFileChange = useCallback((e) => {
+  function handleFileChange(e) {
     const file = e.target.files[0]
     if (!file) return
     setSelectedFile(file)
     setPreview(URL.createObjectURL(file))
-  }, [])
+  }
 
-  const handleUpload = async () => {
+  async function handleUpload() {
     if (!selectedFile) {
       alert("Select an image first!")
       return
@@ -295,6 +231,14 @@ console.log(res)
 
       setUploading(false)
       setModalOpen(false)
+
+      setInventory([])
+      loadedIdsRef.current = new Set()
+      pageRef.current = 1
+      hasMoreRef.current = true
+      isFetchingRef.current = false
+      firstLoadCompleteRef.current = false
+      setInitialLoading(true)
       fetchInventory(true)
     } catch (err) {
       console.error("Image upload error:", err)
@@ -303,12 +247,20 @@ console.log(res)
     }
   }
 
-  const handleRemoveImage = async () => {
+  async function handleRemoveImage() {
     try {
       setUploading(true)
       await axiosInstance.put(`/inventory/remove-image/${modalItem._id}`)
       setUploading(false)
       setModalOpen(false)
+
+      setInventory([])
+      loadedIdsRef.current = new Set()
+      pageRef.current = 1
+      hasMoreRef.current = true
+      isFetchingRef.current = false
+      firstLoadCompleteRef.current = false
+      setInitialLoading(true)
       fetchInventory(true)
     } catch (err) {
       console.error("Remove image error:", err)
@@ -317,9 +269,6 @@ console.log(res)
     }
   }
 
-  // =====================
-  // RENDER UI
-  // =====================
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm">
@@ -333,7 +282,7 @@ console.log(res)
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   Inventory
                 </h1>
-                <p className="text-xs text-slate-500">{filteredList.length} items</p>
+                <p className="text-xs text-slate-500">{inventory.length} items</p>
               </div>
             </div>
 
@@ -415,7 +364,6 @@ console.log(res)
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {initialLoading ? (
-          // Skeleton loading
           <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-4 shadow-sm animate-pulse">
@@ -425,8 +373,7 @@ console.log(res)
               </div>
             ))}
           </div>
-        ) : filteredList.length === 0 ? (
-          // Empty state
+        ) : inventory.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
               <Package className="text-slate-400" size={40} />
@@ -436,16 +383,14 @@ console.log(res)
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredList.map((item) => {
-              const stock = parseStockToPieces(item.CLOSINGQTY)
-              const isOutOfStock = stock <= 0
+            {inventory.map((item) => {
+              const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
                 <div
                   key={item._id}
                   className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100"
                 >
-                  {/* Image section */}
                   <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
                     {item.imageUrl ? (
                       <img
@@ -464,7 +409,6 @@ console.log(res)
                         Out of Stock
                       </div>
                     )}
-                    {/* Quick actions overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                       <button
                         onClick={() => openQRModal(item)}
@@ -483,7 +427,6 @@ console.log(res)
                     </div>
                   </div>
 
-                  {/* Content section */}
                   <div className="p-4">
                     <h3 className="font-semibold text-slate-800 mb-1 line-clamp-2" title={item.NAME}>
                       {item.NAME}
@@ -492,19 +435,13 @@ console.log(res)
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-xs text-slate-500">Stock</div>
-                        <div className={`text-sm font-bold ${isOutOfStock ? "text-red-600" : "text-green-600"}`}>
+                        <span className={`text-sm font-semibold ${isOutOfStock ? "text-red-600" : "text-green-600"}`}>
                           {item.CLOSINGQTY || "0"}
-                        </div>
-                        <div className="text-xs text-slate-400">{stock} pcs</div>
+                        </span>
+                        {item.closingQtyPieces !== undefined && (
+                          <span className="text-xs text-slate-400 ml-2">({item.closingQtyPieces} pcs)</span>
+                        )}
                       </div>
-
-                      <button
-                        onClick={() => openQRModal(item)}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:scale-105 transition-all"
-                      >
-                        QR Code
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -513,16 +450,14 @@ console.log(res)
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredList.map((item) => {
-              const stock = parseStockToPieces(item.CLOSINGQTY)
-              const isOutOfStock = stock <= 0
+            {inventory.map((item) => {
+              const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
                 <div
                   key={item._id}
                   className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 flex items-center gap-3 border border-slate-100"
                 >
-                  {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden flex-shrink-0">
                     {item.imageUrl ? (
                       <img
@@ -538,7 +473,6 @@ console.log(res)
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-800 truncate text-sm">{item.NAME}</h3>
                     <p className="text-xs text-slate-500">{item.GROUP || "Uncategorized"}</p>
@@ -546,11 +480,12 @@ console.log(res)
                       <span className={`text-xs font-semibold ${isOutOfStock ? "text-red-600" : "text-green-600"}`}>
                         {item.CLOSINGQTY || "0"}
                       </span>
-                      <span className="text-xs text-slate-400">({stock} pcs)</span>
+                      {item.closingQtyPieces !== undefined && (
+                        <span className="text-xs text-slate-400">({item.closingQtyPieces} pcs)</span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => openQRModal(item)}
@@ -574,13 +509,12 @@ console.log(res)
         )}
 
         <div ref={loaderRef} className="py-8 flex justify-center">
-          {loading && (
+          {!initialLoading && loading && (
             <div className="flex items-center gap-2 text-slate-500">
               <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm font-medium">Loading more...</span>
             </div>
           )}
-          {!hasMore && filteredList.length > 0 && <p className="text-sm text-slate-400">You've reached the end</p>}
         </div>
       </main>
 
@@ -593,8 +527,8 @@ console.log(res)
             className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl transform animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800">QR Code</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800">QR Code</h2>
               <button
                 onClick={() => setQrModalOpen(false)}
                 className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
@@ -604,20 +538,19 @@ console.log(res)
             </div>
 
             <div className="bg-white p-6 rounded-2xl border-2 border-slate-100 mb-4">
-              <QRCode value={String(modalItem.NAME || "ITEM")} size={256} level="H" className="w-full h-auto" />
+              <div id={`qr-${modalItem._id}`} className="flex justify-center">
+                <QRCode value={modalItem._id} size={200} />
+              </div>
             </div>
 
-            <p className="text-sm text-slate-600 text-center mb-4 font-medium">{modalItem.NAME}</p>
+            <p className="text-sm text-slate-600 mb-4 text-center line-clamp-2">{modalItem.NAME}</p>
 
             <button
-              onClick={() => {
-                handleQRDownload(modalItem)
-                setQrModalOpen(false)
-              }}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              onClick={() => handleQRDownload(modalItem)}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
             >
-              <Download size={20} />
-              Download High Quality QR
+              <Download size={18} />
+              Download QR
             </button>
           </div>
         </div>
@@ -629,11 +562,11 @@ console.log(res)
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl transform animate-scaleIn"
+            className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl transform animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800">Edit Image</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800">Edit Image</h2>
               <button
                 onClick={() => setModalOpen(false)}
                 className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
@@ -642,69 +575,74 @@ console.log(res)
               </button>
             </div>
 
-            <p className="text-sm text-slate-600 mb-4 font-medium">{modalItem.NAME}</p>
-
-            {/* Image preview */}
-            <div className="w-full aspect-square bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden mb-4 border-2 border-slate-100">
-              {preview ? (
-                <img src={preview || "/placeholder.svg"} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Package className="text-slate-300" size={80} />
-                </div>
-              )}
+            <div className="mb-4">
+              <p className="font-semibold text-slate-800 mb-1">{modalItem.NAME}</p>
+              <p className="text-sm text-slate-500">{modalItem.GROUP || "Uncategorized"}</p>
             </div>
 
-            {/* File input */}
-            <label className="block w-full mb-4">
-              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="file-upload" />
-              <div className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
-                <Upload className="inline-block mr-2 text-slate-500" size={20} />
-                <span className="text-sm font-medium text-slate-600">
-                  {selectedFile ? selectedFile.name : "Choose Image"}
-                </span>
+            <div className="mb-4">
+              <div className="relative w-full h-64 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden border-2 border-dashed border-slate-200">
+                {preview ? (
+                  <img src={preview || "/placeholder.svg"} alt="Preview" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                    <Package size={48} />
+                    <p className="text-sm mt-2">No image available</p>
+                  </div>
+                )}
               </div>
-            </label>
+            </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              {modalItem.imageUrl && (
+            <div className="flex gap-2 mb-4">
+              <label className="flex-1 px-4 py-3 bg-blue-50 text-blue-600 font-medium rounded-xl hover:bg-blue-100 transition-colors cursor-pointer flex items-center justify-center gap-2">
+                <Upload size={18} />
+                Choose File
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+              </label>
+
+              {preview && (
                 <button
                   onClick={handleRemoveImage}
                   disabled={uploading}
-                  className="flex-1 py-3 bg-red-100 text-red-600 rounded-xl font-semibold hover:bg-red-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="px-4 py-3 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <Trash2 size={18} />
                   Remove
                 </button>
               )}
+            </div>
 
+            {selectedFile && (
               <button
                 onClick={handleUpload}
-                disabled={uploading || !selectedFile}
-                className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                disabled={uploading}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {uploading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Uploading...
                   </>
                 ) : (
                   <>
                     <Upload size={18} />
-                    Upload
+                    Upload Image
                   </>
                 )}
               </button>
-            </div>
+            )}
           </div>
         </div>
       )}
 
       <style jsx>{`
         @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
         @keyframes scaleIn {

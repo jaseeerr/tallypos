@@ -102,13 +102,56 @@ router.post("/login", async (req, res) => {
 
 
 
+// helper for inventory filters
+function parseClosingQtyToPieces(closingQty = "") {
+  if (!closingQty || typeof closingQty !== "string") return 0;
+
+  const UNIT_MULTIPLIER = {
+    PCS: 1,
+    DOZEN: 12,
+    GROSS: 144,
+    PAIR: 2,
+  };
+
+  let total = 0;
+  const str = closingQty.toLowerCase();
+
+  // Match patterns like "2 doz", "3 p", "1 gross"
+  const regex = /(-?\d+)\s*(doz|dozen|dz|p|pc|pcs|gross|pair)?/g;
+  let match;
+
+  while ((match = regex.exec(str)) !== null) {
+    const qty = parseInt(match[1], 10);
+    const rawUnit = (match[2] || "p").toLowerCase();
+
+    const normalizedUnit =
+      UNIT_NORMALIZATION_MAP[rawUnit] || "PCS";
+
+    const multiplier =
+      UNIT_MULTIPLIER[normalizedUnit] || 1;
+
+    total += qty * multiplier;
+  }
+
+  return total;
+}
 
 /* ============================================================
    GET INVENTORY (From MongoDB — For MERN App)
    ============================================================ */
 router.get("/inventory", Auth.userAuth, async (req, res) => {
   try {
-    const { companyName, search = "", page = 1, limit = 50 } = req.query;
+    const {
+      companyName,
+      search = "",
+      page = 1,
+      limit = 100,
+      includeOutOfStock = "false",
+    } = req.query;
+
+    const parsedLimit = Math.min(parseInt(limit, 10), 200);
+    const parsedPage = Math.max(parseInt(page, 10), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
 
     const query = {};
 
@@ -117,37 +160,62 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       query.companyName = companyName;
     }
 
-    // Text search (NAME, GROUP)
-    if (search.trim() !== "") {
+    // Text search
+    if (search.trim()) {
       query.$or = [
         { NAME: { $regex: search, $options: "i" } },
-        { GROUP: { $regex: search, $options: "i" } }
+        { GROUP: { $regex: search, $options: "i" } },
       ];
     }
 
-    const skip = (page - 1) * limit;
-
-    // MAIN QUERY
-    const items = await Inventory.find(query)
+    // Fetch raw items first (lean for speed)
+    const rawItems = await Inventory.find(query)
       .lean()
-      .skip(skip)
-      .limit(parseInt(limit))
       .sort({ NAME: 1 });
 
-    const total = await Inventory.countDocuments(query);
+    // Parse + normalize stock
+    const processedItems = rawItems.map((item) => {
+      const closingQtyPieces = parseClosingQtyToPieces(
+        item.CLOSINGQTY
+      );
+
+      return {
+        ...item,
+        closingQtyPieces,
+        isOutOfStock: closingQtyPieces <= 0,
+      };
+    });
+
+    // Stock filter (BACKEND)
+    const filteredItems =
+      includeOutOfStock === "true"
+        ? processedItems
+        : processedItems.filter((i) => i.closingQtyPieces > 0);
+
+    const total = filteredItems.length;
+
+    // Pagination AFTER filtering
+    const paginatedItems = filteredItems.slice(
+      skip,
+      skip + parsedLimit
+    );
 
     return res.json({
       ok: true,
       total,
-      page: Number(page),
-      limit: Number(limit),
-      items,
+      page: parsedPage,
+      limit: parsedLimit,
+      items: paginatedItems,
     });
   } catch (error) {
     console.error("Error fetching inventory:", error);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
   }
 });
+
 
 
 
