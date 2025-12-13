@@ -1,21 +1,35 @@
-import { useEffect, useState } from "react";
-import MyAxiosInstance from "../utils/axios";
+"use client"
+
+import { useEffect, useState, useRef } from "react"
+import MyAxiosInstance from "../utils/axios"
+import {
+  X,
+  Plus,
+  Search,
+  Package,
+  Users,
+  Calendar,
+  FileText,
+  DollarSign,
+  Trash2,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react"
 
 export default function AddSale() {
-  const axios = MyAxiosInstance();
+  const axios = MyAxiosInstance()
 
   // =============================
   // STATE
   // =============================
-  const [companyName, setCompanyName] = useState("ABC");
-
-  const [inventory, setInventory] = useState([]);
-  const [customers, setCustomers] = useState([]);
-
-  const [inventorySearch, setInventorySearch] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
-
-  const [selectedItems, setSelectedItems] = useState([]);
+  const [companyName, setCompanyName] = useState("ABC")
+  const [inventory, setInventory] = useState([])
+  const [customers, setCustomers] = useState([])
+  const [inventorySearch, setInventorySearch] = useState("")
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [selectedItems, setSelectedItems] = useState([])
+  const [includeVAT, setIncludeVAT] = useState(true)
 
   const [sale, setSale] = useState({
     billNo: "",
@@ -25,59 +39,126 @@ export default function AddSale() {
     isCashSale: false,
     cashLedgerName: "",
     customerId: "",
-  });
+  })
 
-  const [loadingInventory, setLoadingInventory] = useState(false);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [loadingInventory, setLoadingInventory] = useState(false)
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Error/Success notifications
+  const [notification, setNotification] = useState(null)
+  const [showInventoryDropdown, setShowInventoryDropdown] = useState(false)
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+
+  const inventorySearchRef = useRef(null)
+  const customerSearchRef = useRef(null)
+
+  // =============================
+  // NOTIFICATION HANDLER
+  // =============================
+  const showNotification = (type, title, message) => {
+    setNotification({ type, title, message })
+    setTimeout(() => setNotification(null), 5000)
+  }
 
   // =============================
   // FETCH INVENTORY
   // =============================
   const fetchInventory = async () => {
-    setLoadingInventory(true);
-    const res = await axios.get("/inventory", {
-      params: {
-        companyName,
-        search: inventorySearch,
-        page: 1,
-        limit: 50,
-        includeOutOfStock: false,
-      },
-    });
-    setInventory(res.data.items || []);
-    setLoadingInventory(false);
-  };
+    if (!inventorySearch.trim()) {
+      setInventory([])
+      return
+    }
+
+    setLoadingInventory(true)
+    try {
+      const res = await axios.get("/inventory", {
+        params: {
+          companyName,
+          search: inventorySearch,
+          page: 1,
+          limit: 50,
+          includeOutOfStock: false,
+        },
+      })
+      setInventory(res.data.items || [])
+      setShowInventoryDropdown(true)
+    } catch (error) {
+      showNotification(
+        "error",
+        "Failed to load inventory",
+        error.response?.data?.message || "Unable to fetch inventory items. Please try again.",
+      )
+      setInventory([])
+    } finally {
+      setLoadingInventory(false)
+    }
+  }
 
   // =============================
   // FETCH CUSTOMERS
   // =============================
   const fetchCustomers = async () => {
-    setLoadingCustomers(true);
-    const res = await axios.get("/customers", {
-      params: {
-        companyName,
-        search: customerSearch,
-        page: 1,
-        limit: 50,
-      },
-    });
-    setCustomers(res.data.items || res.data.customers || []);
-    setLoadingCustomers(false);
-  };
+    setLoadingCustomers(true)
+    try {
+      const res = await axios.get("/customers", {
+        params: {
+          companyName,
+          search: customerSearch,
+          page: 1,
+          limit: 50,
+        },
+      })
+      setCustomers(res.data.items || res.data.customers || [])
+      if (customerSearch) {
+        setShowCustomerDropdown(true)
+      }
+    } catch (error) {
+      showNotification(
+        "error",
+        "Failed to load customers",
+        error.response?.data?.message || "Unable to fetch customers. Please try again.",
+      )
+      setCustomers([])
+    } finally {
+      setLoadingCustomers(false)
+    }
+  }
 
   useEffect(() => {
-    fetchInventory();
-    fetchCustomers();
-    setSelectedItems([]);
-  }, [companyName]);
+    fetchCustomers()
+    setSelectedItems([])
+  }, [companyName])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (inventorySearchRef.current && !inventorySearchRef.current.contains(event.target)) {
+        setShowInventoryDropdown(false)
+      }
+      if (customerSearchRef.current && !customerSearchRef.current.contains(event.target)) {
+        setShowCustomerDropdown(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   // =============================
   // ADD ITEM
   // =============================
   const addItem = (item) => {
-    if (selectedItems.find(i => i.itemId === item._id)) return;
+    if (selectedItems.find((i) => i.itemId === item._id)) {
+      showNotification(
+        "warning",
+        "Item already added",
+        `${item.NAME} is already in the list. You can update its quantity.`,
+      )
+      return
+    }
 
-    setSelectedItems(prev => [
+    setSelectedItems((prev) => [
       ...prev,
       {
         itemId: item._id,
@@ -87,39 +168,82 @@ export default function AddSale() {
         rateOfTax: 5,
         amount: Number(item.SALESPRICE) || 0,
       },
-    ]);
-  };
+    ])
+
+    setInventorySearch("")
+    setInventory([])
+    setShowInventoryDropdown(false)
+    showNotification("success", "Item added", `${item.NAME} has been added to the sale.`)
+  }
 
   const updateItem = (index, field, value) => {
-    const updated = [...selectedItems];
-    updated[index][field] = Number(value);
-    updated[index].amount = updated[index].qty * updated[index].rate;
-    setSelectedItems(updated);
-  };
+    const updated = [...selectedItems]
+    updated[index][field] = Number(value) || 0
+    updated[index].amount = updated[index].qty * updated[index].rate
+    setSelectedItems(updated)
+  }
 
   const removeItem = (index) => {
-    setSelectedItems(prev => prev.filter((_, i) => i !== index));
-  };
+    const itemName = selectedItems[index].name
+    setSelectedItems((prev) => prev.filter((_, i) => i !== index))
+    showNotification("info", "Item removed", `${itemName} has been removed from the sale.`)
+  }
 
   // =============================
-  // TOTALS (DISPLAY ONLY)
+  // TOTALS
   // =============================
-  const subtotal = selectedItems.reduce((s, i) => s + i.amount, 0);
-  const vatAmount = selectedItems.reduce(
-    (s, i) => s + (i.amount * i.rateOfTax) / 100,
-    0
-  );
-  const total = subtotal + vatAmount;
+  const subtotal = selectedItems.reduce((s, i) => s + i.amount, 0)
+  const vatAmount = includeVAT ? selectedItems.reduce((s, i) => s + (i.amount * i.rateOfTax) / 100, 0) : 0
+  const total = subtotal + vatAmount
+
+  // =============================
+  // VALIDATION
+  // =============================
+  const validateSale = () => {
+    if (!sale.billNo.trim()) {
+      showNotification("error", "Validation Error", "Bill number is required. Please enter a valid bill number.")
+      return false
+    }
+
+    if (!sale.isCashSale && !sale.customerId) {
+      showNotification("error", "Validation Error", "Please select a customer for credit sale or enable cash sale.")
+      return false
+    }
+
+    if (sale.isCashSale && !sale.cashLedgerName.trim()) {
+      showNotification("error", "Validation Error", "Cash ledger name is required for cash sales.")
+      return false
+    }
+
+    if (selectedItems.length === 0) {
+      showNotification("error", "Validation Error", "Please add at least one item to the sale.")
+      return false
+    }
+
+    for (let i = 0; i < selectedItems.length; i++) {
+      const item = selectedItems[i]
+      if (item.qty <= 0) {
+        showNotification(
+          "error",
+          "Validation Error",
+          `Invalid quantity for ${item.name}. Quantity must be greater than 0.`,
+        )
+        return false
+      }
+      if (item.rate < 0) {
+        showNotification("error", "Validation Error", `Invalid rate for ${item.name}. Rate cannot be negative.`)
+        return false
+      }
+    }
+
+    return true
+  }
 
   // =============================
   // SUBMIT SALE
   // =============================
   const submitSale = async () => {
-    if (!sale.billNo) return alert("Bill number required");
-    if (!sale.isCashSale && !sale.customerId) return alert("Select customer");
-    if (sale.isCashSale && !sale.cashLedgerName)
-      return alert("Cash ledger name required");
-    if (selectedItems.length === 0) return alert("Add items");
+    if (!validateSale()) return
 
     const payload = {
       companyName,
@@ -130,123 +254,483 @@ export default function AddSale() {
       isCashSale: sale.isCashSale,
       cashLedgerName: sale.cashLedgerName,
       customerId: sale.customerId || null,
-      items: selectedItems.map(i => ({
+      items: selectedItems.map((i) => ({
         itemId: i.itemId,
         qty: i.qty,
         rate: i.rate,
-        rateOfTax: i.rateOfTax,
+        rateOfTax: includeVAT ? i.rateOfTax : 0,
       })),
-    };
-
-    try {
-      await axios.post("/add-sale", payload);
-      alert("Sale created");
-      window.location.reload();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to save sale");
     }
-  };
+
+    setSubmitting(true)
+    try {
+      await axios.post("/add-sale", payload)
+      showNotification("success", "Sale Created Successfully", `Bill #${sale.billNo} has been saved successfully.`)
+
+      // Reset form after 2 seconds
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "An unexpected error occurred while saving the sale."
+      const errorDetails = error.response?.data?.details || ""
+
+      showNotification(
+        "error",
+        "Failed to Create Sale",
+        `${errorMessage}${errorDetails ? ` Details: ${errorDetails}` : ""}`,
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   // =============================
   // RENDER
   // =============================
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-
-      {/* COMPANY */}
-      <div className="flex gap-2">
-        {["ABC", "FANCY-PALACE-TRADING-LLC"].map(c => (
-          <button
-            key={c}
-            onClick={() => setCompanyName(c)}
-            className={`px-3 py-1 border ${companyName === c ? "bg-blue-600 text-white" : ""}`}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* NOTIFICATION */}
+        {notification && (
+          <div
+            className={`fixed top-4 right-4 z-50 max-w-md w-full bg-white rounded-lg shadow-2xl border-l-4 ${
+              notification.type === "success"
+                ? "border-green-500"
+                : notification.type === "error"
+                  ? "border-red-500"
+                  : notification.type === "warning"
+                    ? "border-yellow-500"
+                    : "border-blue-500"
+            } p-4 animate-in slide-in-from-right duration-300`}
           >
-            {c}
-          </button>
-        ))}
-      </div>
-
-      {/* BASIC INFO */}
-      <div className="grid grid-cols-3 gap-4">
-        <input placeholder="Bill No" value={sale.billNo}
-          onChange={e => setSale({ ...sale, billNo: e.target.value })} />
-        <input type="date" value={sale.date}
-          onChange={e => setSale({ ...sale, date: e.target.value })} />
-        <label>
-          <input type="checkbox" checked={sale.isCashSale}
-            onChange={e => setSale({ ...sale, isCashSale: e.target.checked })} />
-          Cash Sale
-        </label>
-      </div>
-
-      {!sale.isCashSale && (
-        <>
-          <input
-            placeholder="Search customer"
-            value={customerSearch}
-            onChange={e => setCustomerSearch(e.target.value)}
-            onBlur={fetchCustomers}
-          />
-          <select
-            value={sale.customerId}
-            onChange={e => setSale({ ...sale, customerId: e.target.value })}
-          >
-            <option value="">Select customer</option>
-            {customers.map(c => (
-              <option key={c._id} value={c._id}>{c.name}</option>
-            ))}
-          </select>
-        </>
-      )}
-
-      {sale.isCashSale && (
-        <input
-          placeholder="Cash Ledger Name"
-          value={sale.cashLedgerName}
-          onChange={e => setSale({ ...sale, cashLedgerName: e.target.value })}
-        />
-      )}
-
-      {/* INVENTORY */}
-      <input
-        placeholder="Search inventory"
-        value={inventorySearch}
-        onChange={e => setInventorySearch(e.target.value)}
-        onBlur={fetchInventory}
-      />
-
-      <div className="border max-h-48 overflow-auto">
-        {inventory.map(i => (
-          <div key={i._id} onClick={() => addItem(i)} className="p-2 cursor-pointer">
-            {i.NAME}
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                {notification.type === "success" && <CheckCircle className="w-5 h-5 text-green-500" />}
+                {notification.type === "error" && <XCircle className="w-5 h-5 text-red-500" />}
+                {notification.type === "warning" && <AlertCircle className="w-5 h-5 text-yellow-500" />}
+                {notification.type === "info" && <AlertCircle className="w-5 h-5 text-blue-500" />}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 text-sm">{notification.title}</h4>
+                <p className="text-gray-600 text-sm mt-1">{notification.message}</p>
+              </div>
+              <button onClick={() => setNotification(null)} className="flex-shrink-0 text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* ITEMS */}
-      {selectedItems.map((i, idx) => (
-        <div key={idx} className="flex gap-2">
-          <span className="flex-1">{i.name}</span>
-          <input type="number" value={i.qty} onChange={e => updateItem(idx, "qty", e.target.value)} />
-          <input type="number" value={i.rate} onChange={e => updateItem(idx, "rate", e.target.value)} />
-          <input type="number" value={i.rateOfTax} onChange={e => updateItem(idx, "rateOfTax", e.target.value)} />
-          <span>{i.amount.toFixed(2)}</span>
-          <button onClick={() => removeItem(idx)}>✖</button>
+        {/* HEADER */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Create New Sale
+              </h1>
+              <p className="text-gray-500 mt-1">Enter sale details and add items to the invoice</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500 font-medium">Company:</span>
+              <div className="flex gap-2">
+                {["ABC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCompanyName(c)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      companyName === c
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {c === "ABC" ? "ABC" : "Fancy Palace"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      ))}
 
-      {/* TOTALS */}
-      <div>
-        Subtotal: {subtotal.toFixed(2)} <br />
-        VAT: {vatAmount.toFixed(2)} <br />
-        <b>Total: {total.toFixed(2)}</b>
+        {/* SALE DETAILS */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            Sale Information
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bill Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter bill number"
+                value={sale.billNo}
+                onChange={(e) => setSale({ ...sale, billNo: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={sale.date}
+                onChange={(e) => setSale({ ...sale, date: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reference</label>
+              <input
+                type="text"
+                placeholder="Optional reference"
+                value={sale.reference}
+                onChange={(e) => setSale({ ...sale, reference: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+            <textarea
+              placeholder="Optional remarks or notes"
+              value={sale.remarks}
+              onChange={(e) => setSale({ ...sale, remarks: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+            />
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <input
+              type="checkbox"
+              id="cashSale"
+              checked={sale.isCashSale}
+              onChange={(e) => setSale({ ...sale, isCashSale: e.target.checked, customerId: "" })}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+            />
+            <label htmlFor="cashSale" className="text-sm font-medium text-gray-700 cursor-pointer">
+              This is a cash sale
+            </label>
+          </div>
+        </div>
+
+        {/* CUSTOMER SELECTION */}
+        {!sale.isCashSale && (
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              Customer Details
+            </h2>
+
+            <div className="relative" ref={customerSearchRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search Customer <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Type to search customers..."
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value)
+                    fetchCustomers()
+                  }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                />
+              </div>
+
+              {showCustomerDropdown && customers.length > 0 && (
+                <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                  {customers.map((customer) => (
+                    <div
+                      key={customer._id}
+                      onClick={() => {
+                        setSale({ ...sale, customerId: customer._id })
+                        setCustomerSearch(customer.name)
+                        setShowCustomerDropdown(false)
+                      }}
+                      className={`p-3 hover:bg-blue-50 cursor-pointer transition-colors ${
+                        sale.customerId === customer._id ? "bg-blue-100" : ""
+                      }`}
+                    >
+                      <div className="font-medium text-gray-800">{customer.name}</div>
+                      {customer.contact && <div className="text-sm text-gray-500">{customer.contact}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {sale.customerId && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">Customer selected</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CASH LEDGER */}
+        {sale.isCashSale && (
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-blue-600" />
+              Cash Sale Details
+            </h2>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cash Ledger Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter cash ledger name"
+                value={sale.cashLedgerName}
+                onChange={(e) => setSale({ ...sale, cashLedgerName: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* INVENTORY SEARCH */}
+        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-600" />
+            Add Items to Sale
+          </h2>
+
+          <div className="relative" ref={inventorySearchRef}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Inventory</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Type to search inventory items..."
+                value={inventorySearch}
+                onChange={(e) => {
+                  setInventorySearch(e.target.value)
+                  if (e.target.value.trim()) {
+                    fetchInventory()
+                  } else {
+                    setInventory([])
+                    setShowInventoryDropdown(false)
+                  }
+                }}
+                onFocus={() => inventorySearch && setShowInventoryDropdown(true)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            {showInventoryDropdown && inventory.length > 0 && (
+              <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-80 overflow-y-auto">
+                {inventory.map((item) => (
+                  <div
+                    key={item._id}
+                    onClick={() => addItem(item)}
+                    className="p-4 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-800">{item.NAME}</div>
+                        <div className="text-sm text-gray-500 mt-1">Stock: {item.closingQtyPieces || 0} pcs</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-blue-600">AED {Number(item.SALESPRICE || 0).toFixed(2)}</div>
+                        <button className="mt-1 px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1">
+                          <Plus className="w-3 h-3" />
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {loadingInventory && (
+              <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl p-4 text-center text-gray-500">
+                Loading inventory...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SELECTED ITEMS */}
+        {selectedItems.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
+                Selected Items ({selectedItems.length})
+              </h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Rate
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Tax %
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {selectedItems.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-800">{item.name}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.qty}
+                          onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.rate}
+                          onChange={(e) => updateItem(idx, "rate", e.target.value)}
+                          className="w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={item.rateOfTax}
+                          onChange={(e) => updateItem(idx, "rateOfTax", e.target.value)}
+                          disabled={!includeVAT}
+                          className="w-20 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 disabled:text-gray-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-semibold text-gray-800">AED {item.amount.toFixed(2)}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => removeItem(idx)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove item"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* TOTALS SECTION */}
+            <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-6 border-t border-gray-200">
+              <div className="max-w-md ml-auto space-y-3">
+                {/* VAT Toggle */}
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                  <span className="text-sm font-medium text-gray-700">Include VAT in calculation</span>
+                  <button
+                    onClick={() => setIncludeVAT(!includeVAT)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      includeVAT ? "bg-blue-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        includeVAT ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-semibold text-gray-800">AED {subtotal.toFixed(2)}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span className="text-gray-600">VAT:</span>
+                  <span className="font-semibold text-gray-800">
+                    {includeVAT ? `AED ${vatAmount.toFixed(2)}` : "N/A"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg px-4">
+                  <span className="text-white font-bold text-lg">Total:</span>
+                  <span className="text-white font-bold text-2xl">AED {total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUBMIT BUTTON */}
+        <div className="flex justify-end gap-4">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            disabled={submitting}
+          >
+            Reset Form
+          </button>
+          <button
+            onClick={submitSale}
+            disabled={submitting || selectedItems.length === 0}
+            className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Save Sale
+              </>
+            )}
+          </button>
+        </div>
       </div>
-
-      <button onClick={submitSale} className="px-6 py-2 bg-green-600 text-white">
-        Save Sale
-      </button>
     </div>
-  );
+  )
 }
-// ss
