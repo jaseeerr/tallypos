@@ -103,6 +103,35 @@ router.post("/login", async (req, res) => {
 
 
 // helper for inventory filters
+const UNIT_NORMALIZATION_MAP = {
+  p: "PCS",
+  pc: "PCS",
+  pcs: "PCS",
+  nos: "PCS",
+  piece: "PCS",
+
+  doz: "DOZEN",
+  dozen: "DOZEN",
+  dz: "DOZEN",
+  "doz of 12 p": "DOZEN",
+
+  gross: "GROSS",
+
+  pair: "PAIR",
+
+  box: "PCS",
+  pack: "PCS",
+  bundle: "PCS",
+  ctn: "PCS",
+  set: "PCS",
+
+  roll: "PCS",
+  card: "PCS",
+
+  mtr: "UNKNOWN",
+  yrd: "UNKNOWN",
+};
+
 function parseClosingQtyToPieces(closingQty = "") {
   if (!closingQty || typeof closingQty !== "string") return 0;
 
