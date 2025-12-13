@@ -773,69 +773,63 @@ router.get("/getProductBasic",Auth.userAuth, async (req, res) => {
 
 // customer-apis
 
-router.get("/customers",Auth.userAuth, async (req, res) => {
+router.get("/customers", Auth.userAuth, async (req, res) => {
   try {
     let {
       page = 1,
-      limit = 50,
+      limit = 100,
       search = "",
       companyName = "",
     } = req.query;
 
-    page = Number(page);
-    limit = Number(limit);
+    page = Math.max(Number(page), 1);
+    limit = Math.min(Number(limit), 200);
+    const skip = (page - 1) * limit;
 
     const query = {};
 
-    // =============================
-    // COMPANY FILTER (optional)
-    // =============================
-    if (companyName) {
+    // Company filter
+    if (companyName && companyName !== "ALL") {
       query.companyName = companyName;
     }
 
-    // =============================
-    // SEARCH FILTER
-    // name, group, address
-    // =============================
-    if (search) {
-      const regex = new RegExp(search, "i");
-
+    // Search filter
+    if (search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
       query.$or = [
         { name: regex },
         { group: regex },
-        { address: regex }, // array search
+        { address: regex }, // works for array fields
       ];
     }
 
-    // =============================
-    // TOTAL COUNT (for infinite scroll)
-    // =============================
+    // Total count
     const total = await Customer.countDocuments(query);
 
-    // =============================
-    // PAGINATED FETCH
-    // =============================
-    const customers = await Customer.find(query)
-      .sort({ name: 1 }) // alphabetical
-      .skip((page - 1) * limit)
+    // Paginated fetch
+    const items = await Customer.find(query)
+      .sort({ name: 1 })
+      .skip(skip)
       .limit(limit)
       .lean();
 
     return res.json({
       ok: true,
-      customers,
+      items,
       total,
       page,
       limit,
-      hasMore: page * limit < total,
+      hasMore: skip + items.length < total,
     });
-
   } catch (error) {
     console.error("Error fetching customers:", error);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
   }
 });
+
 
 
 module.exports = router;

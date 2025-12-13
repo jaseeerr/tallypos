@@ -1,182 +1,246 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { API_BASE } from "../utils/url";
-import MyAxiosInstance from "../utils/axios";
+"use client"
 
-export default function Customers() {
+import { useEffect, useRef, useState } from "react"
+import { Search, X, Users, Grid3x3, List } from "lucide-react"
+import MyAxiosInstance from "../utils/axios"
+
+export default function CustomersPage() {
   const axiosInstance = MyAxiosInstance()
-  const [customers, setCustomers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [companyName, setCompanyName] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  // =====================
+  // STATE
+  // =====================
+  const [customers, setCustomers] = useState([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [activeCompany, setActiveCompany] = useState("ALL")
+  const [viewMode, setViewMode] = useState("grid")
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
 
-  const [page, setPage] = useState(1);
-  const [limit] = useState(50);
-  const [total, setTotal] = useState(0);
+  // =====================
+  // REFS (pagination guards)
+  // =====================
+  const loaderRef = useRef(null)
+  const pageRef = useRef(1)
+  const hasMoreRef = useRef(true)
+  const isFetchingRef = useRef(false)
+  const isMountedRef = useRef(false)
 
-  // ============================
-  // FETCH CUSTOMERS
-  // ============================
-  const fetchCustomers = async () => {
-    try {
-      setLoading(true);
-
-      const res = await axiosInstance.get(`/customers`, {
-        params: {
-          search,
-          companyName,
-          page,
-          limit,
-        },
-      });
-
-      setCustomers(res.data.customers || []);
-      setTotal(res.data.total || 0);
-      setLoading(false);
-
-    } catch (error) {
-      console.error("Error loading customers:", error);
-      setLoading(false);
-    }
-  };
-
+  // =====================
+  // DEBOUNCE SEARCH
+  // =====================
   useEffect(() => {
-    fetchCustomers();
-  }, [page]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
-  const handleSearch = (e) => {
-    if (e.key === "Enter") {
-      setPage(1);
-      fetchCustomers();
+  // =====================
+  // FETCH
+  // =====================
+  async function fetchCustomers(reset = false) {
+    if (isFetchingRef.current) return
+    if (!reset && !hasMoreRef.current) return
+
+    isFetchingRef.current = true
+    setLoading(true)
+
+    const currentPage = reset ? 1 : pageRef.current
+
+    try {
+      const res = await axiosInstance.get("/customers", {
+        params: {
+          page: currentPage,
+          limit: 100,
+          search: debouncedSearch,
+          companyName: activeCompany === "ALL" ? "" : activeCompany,
+        },
+      })
+
+      const items = res.data.items || []
+
+      if (reset) {
+        setCustomers(items)
+        pageRef.current = 2
+      } else {
+        setCustomers((prev) => [...prev, ...items])
+        pageRef.current += 1
+      }
+
+      hasMoreRef.current = res.data.hasMore
+      setInitialLoading(false)
+    } catch (err) {
+      console.error("Error fetching customers:", err)
+      setInitialLoading(false)
+    } finally {
+      setLoading(false)
+      isFetchingRef.current = false
     }
-  };
+  }
 
-  const totalPages = Math.ceil(total / limit);
+  // =====================
+  // INITIAL LOAD
+  // =====================
+  useEffect(() => {
+    fetchCustomers(true)
+    isMountedRef.current = true
+  }, [])
 
+  // =====================
+  // RESET ON FILTER CHANGE
+  // =====================
+  useEffect(() => {
+    if (!isMountedRef.current) return
+
+    pageRef.current = 1
+    hasMoreRef.current = true
+    setCustomers([])
+    setInitialLoading(true)
+
+    fetchCustomers(true)
+  }, [debouncedSearch, activeCompany])
+
+  // =====================
+  // INFINITE SCROLL
+  // =====================
+  useEffect(() => {
+    if (initialLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (
+          entry.isIntersecting &&
+          hasMoreRef.current &&
+          !isFetchingRef.current
+        ) {
+          fetchCustomers(false)
+        }
+      },
+      { rootMargin: "200px" }
+    )
+
+    if (loaderRef.current) observer.observe(loaderRef.current)
+    return () => observer.disconnect()
+  }, [initialLoading])
+
+  // =====================
+  // UI
+  // =====================
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Customers</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* ================= HEADER ================= */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                <Users className="text-white" size={20} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Customers
+                </h1>
+                <p className="text-xs text-slate-500">{customers.length} loaded</p>
+              </div>
+            </div>
 
-      {/* ============================
-          FILTERS
-      ============================ */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        
-        <input
-          type="text"
-          placeholder="Search name, group, address..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleSearch}
-          className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-72"
-        />
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md ${
+                  viewMode === "grid"
+                    ? "bg-white shadow-sm text-blue-600"
+                    : "text-slate-400"
+                }`}
+              >
+                <Grid3x3 size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md ${
+                  viewMode === "list"
+                    ? "bg-white shadow-sm text-blue-600"
+                    : "text-slate-400"
+                }`}
+              >
+                <List size={18} />
+              </button>
+            </div>
+          </div>
 
-        <select
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-          onKeyDown={handleSearch}
-          className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-60"
-        >
-          <option value="">All Companies</option>
-          <option value="ABC">ABC</option>
-          <option value="XYZ">XYZ</option>
-        </select>
-
-        <button
-          onClick={() => {
-            setPage(1);
-            fetchCustomers();
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Apply
-        </button>
-      </div>
-
-      {/* ============================
-          LOADING
-      ============================ */}
-      {loading && <p className="text-gray-600">Loading customers...</p>}
-
-      {/* ============================
-          NO RESULTS
-      ============================ */}
-      {!loading && customers.length === 0 && (
-        <p className="text-gray-600">No customers found.</p>
-      )}
-
-      {/* ============================
-          TABLE
-      ============================ */}
-      {!loading && customers.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-300 shadow-sm">
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left">Group</th>
-                <th className="p-3 text-left">Address</th>
-                <th className="p-3 text-left">Company</th>
-                <th className="p-3 text-left">Last Sync</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {customers.map((cust) => (
-                <tr
-                  key={cust._id}
-                  className="border-t hover:bg-gray-50 transition"
-                >
-                  <td className="p-3">{cust.name}</td>
-                  <td className="p-3">{cust.group}</td>
-
-                  <td className="p-3">
-                    {cust.address && cust.address.length > 0
-                      ? cust.address.join(", ")
-                      : "-"}
-                  </td>
-
-                  <td className="p-3">{cust.companyName || "-"}</td>
-
-                  <td className="p-3 text-gray-500">
-                    {cust.lastSyncedAt
-                      ? new Date(cust.lastSyncedAt).toLocaleString()
-                      : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* SEARCH */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search name, group, address..."
+              className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </header>
 
-      {/* ============================
-          PAGINATION
-      ============================ */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-6">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40"
-          >
-            Prev
-          </button>
+      {/* ================= MAIN ================= */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {initialLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
+                <div className="h-5 bg-slate-200 rounded w-2/3 mb-2" />
+                <div className="h-3 bg-slate-200 rounded w-1/2 mb-1" />
+                <div className="h-3 bg-slate-200 rounded w-3/4" />
+              </div>
+            ))}
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="text-center py-20 text-slate-500">
+            No customers found
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {customers.map((c) => (
+              <div key={c._id} className="bg-white rounded-2xl p-4 shadow-sm border">
+                <h3 className="font-semibold text-slate-800">{c.name}</h3>
+                <p className="text-xs text-slate-500">{c.group || "—"}</p>
+                <p className="text-xs text-slate-600 mt-2 line-clamp-2">
+                  {Array.isArray(c.address) ? c.address.join(", ") : "-"}
+                </p>
+                <div className="text-xs text-slate-400 mt-3">
+                  {c.companyName || "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {customers.map((c) => (
+              <div key={c._id} className="bg-white rounded-xl p-3 border">
+                <div className="font-semibold">{c.name}</div>
+                <div className="text-xs text-slate-500">{c.group || "—"}</div>
+                <div className="text-xs text-slate-600">
+                  {Array.isArray(c.address) ? c.address.join(", ") : "-"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-          <span className="text-gray-700">
-            Page {page} of {totalPages}
-          </span>
-
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40"
-          >
-            Next
-          </button>
+        <div ref={loaderRef} className="py-6 text-center">
+          {loading && <span className="text-slate-500">Loading more...</span>}
         </div>
-      )}
+      </main>
     </div>
-  );
+  )
 }
