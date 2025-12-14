@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const argon2 = require('argon2')
 const jwt = require('jsonwebtoken')
+const mongoose = require('mongoose');
 
 
 const Auth = require('../auth/auth')
