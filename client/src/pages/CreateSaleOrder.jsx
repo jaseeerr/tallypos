@@ -1,155 +1,331 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { API_BASE } from "../utils/url";
 import QRBarcodeScanner from "react-qr-barcode-scanner";
-
+import { API_BASE } from "../utils/url";
+import MyAxiosInstance from "../utils/axios";
 export default function CreateSaleOrder() {
+  const axiosInstance = MyAxiosInstance()
   const [activeCompany, setActiveCompany] = useState("ABC");
-  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const [scannedValue, setScannedValue] = useState(null);
-  const [product, setProduct] = useState(null);
+  /* =======================
+     CUSTOMER STATE
+  ======================= */
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  /* =======================
+     PRODUCT STATE
+  ======================= */
+  const [productSearch, setProductSearch] = useState("");
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const [items, setItems] = useState([]);
+
+  /* =======================
+     SCANNER STATE
+  ======================= */
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [autoAdd, setAutoAdd] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(false);
 
-  // ---- FETCH PRODUCT USING NEW API ----
-  const fetchProduct = async (itemName) => {
-    try {
-      setLoadingProduct(true);
-      setProduct(null);
+  /* =======================
+     FETCH CUSTOMERS
+  ======================= */
+  useEffect(() => {
+    if (!customerSearch) return;
 
-      const res = await axios.get(`${API_BASE}/getProductBasic`, {
+    const fetchCustomers = async () => {
+      const res = await axios.get(`${API_BASE}/customers`, {
         params: {
+          search: customerSearch,
           companyName: activeCompany,
-          itemName,
         },
       });
 
+      if (res.data.ok) setCustomers(res.data.items);
+    };
+
+    fetchCustomers();
+  }, [customerSearch, activeCompany]);
+
+  /* =======================
+     FETCH PRODUCTS (SEARCH)
+  ======================= */
+  useEffect(() => {
+    if (!productSearch) return;
+
+    const fetchProducts = async () => {
+      const res = await axiosInstance.get(`/inventory`, {
+        params: {
+          search: productSearch,
+          companyName: activeCompany,
+        },
+      });
+
+      if (res.data.ok) setProducts(res.data.items);
+    };
+
+    fetchProducts();
+  }, [productSearch, activeCompany]);
+
+  /* =======================
+     FETCH PRODUCT BY ID
+  ======================= */
+  const fetchProductById = async (id) => {
+    try {
+      setLoadingProduct(true);
+      setSelectedProduct(null);
+
+      const res = await axios.post(
+        `${API_BASE}/inventory/${id}`,
+        { companyName: activeCompany }
+      );
+
       if (res.data.ok) {
-        setProduct(res.data.item);
-      } else {
-        setProduct(null);
+        const prod = res.data.product;
+        setSelectedProduct(prod);
+
+        if (autoAdd && !prod.disable) {
+          addItem(prod);
+        }
       }
     } catch (err) {
-      console.error("Fetch product error:", err);
-      setProduct(null);
+      console.error(err);
+    } finally {
+      setLoadingProduct(false);
     }
-
-    setLoadingProduct(false);
   };
 
-  // ---- HANDLE SCAN RESULT ----
+  /* =======================
+     ADD ITEM TO LIST
+  ======================= */
+  const addItem = (prod) => {
+    setItems((prev) => [
+      ...prev,
+      {
+        productId: prod._id,
+        name: prod.NAME,
+        group: prod.GROUP,
+        qty: 1,
+        rate: 0,
+        amount: 0,
+      },
+    ]);
+    setSelectedProduct(null);
+    setScannerOpen(false);
+  };
+
+  /* =======================
+     SCAN HANDLER
+  ======================= */
   const handleScan = (data) => {
-    if (!data?.text) return;
-
-    const text = data.text.trim();
-    console.log("📦 SCANNED:", text);
-
-    if (text !== scannedValue) {
-      setScannedValue(text);
-      fetchProduct(text);
+    if (data?.text) {
+      fetchProductById(data.text.trim());
     }
-  };
-
-  const handleError = (err) => {
-    console.error("Scanner Error:", err);
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      {/* PAGE TITLE */}
-      <h2 className="text-3xl font-bold mb-6">Create Sale Order</h2>
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <h2 className="text-3xl font-bold">Create Sale Order</h2>
 
-      {/* COMPANY SELECTOR */}
-      <div className="flex gap-4 mb-6">
-        {["ABC", "FANCY-PALACE-TRADING-LLC"].map((comp) => (
+      {/* =======================
+         COMPANY SELECT
+      ======================= */}
+      <div className="flex gap-3">
+        {["ABC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
           <button
-            key={comp}
-            onClick={() => setActiveCompany(comp)}
-            className={`px-4 py-2 rounded-md font-semibold border transition ${
-              activeCompany === comp
-                ? "bg-blue-600 text-white border-blue-700"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+            key={c}
+            onClick={() => setActiveCompany(c)}
+            className={`px-4 py-2 rounded ${
+              activeCompany === c
+                ? "bg-blue-600 text-white"
+                : "border"
             }`}
           >
-            {comp}
+            {c}
           </button>
         ))}
       </div>
 
-      {/* OPEN SCANNER */}
-      <button
-        onClick={() => {
-          setScannerOpen(true);
-          setScannedValue(null);
-          setProduct(null);
-        }}
-        className="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700"
-      >
-        Open QR Scanner
-      </button>
+      {/* =======================
+         CUSTOMER SEARCH
+      ======================= */}
+      <div>
+        <label className="font-semibold">Customer</label>
+        <input
+          value={customerSearch}
+          onChange={(e) => setCustomerSearch(e.target.value)}
+          placeholder="Search customer..."
+          className="w-full border p-2 rounded"
+        />
 
-      {/* CAMERA MODAL */}
-      {scannerOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40">
-          <div className="bg-white p-5 rounded-lg w-full max-w-md relative">
+        {customers.length > 0 && (
+          <div className="border mt-2 rounded bg-white max-h-40 overflow-auto">
+            {customers.map((c) => (
+              <div
+                key={c._id}
+                onClick={() => {
+                  setSelectedCustomer(c);
+                  setCustomerSearch(c.name);
+                  setCustomers([]);
+                }}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+              >
+                {c.name}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-            {/* CLOSE BUTTON */}
+      {/* =======================
+         PRODUCT SEARCH
+      ======================= */}
+      <div>
+        <label className="font-semibold">Product</label>
+        <div className="flex gap-2">
+          <input
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            placeholder="Search product..."
+            className="flex-1 border p-2 rounded"
+          />
+          <button
+            onClick={() => setScannerOpen(true)}
+            className="bg-green-600 text-white px-4 rounded"
+          >
+            Scan QR
+          </button>
+        </div>
+
+        {products.length > 0 && (
+          <div className="border mt-2 rounded bg-white max-h-40 overflow-auto">
+            {products.map((p) => (
+              <div
+                key={p._id}
+                onClick={() => fetchProductById(p._id)}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+              >
+                {p.NAME} ({p.GROUP})
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* =======================
+         ITEMS LIST
+      ======================= */}
+      <div>
+        <h3 className="font-semibold mb-2">Items</h3>
+        {items.length === 0 && (
+          <p className="text-gray-500">No items added</p>
+        )}
+
+        {items.map((item, i) => (
+          <div key={i} className="grid grid-cols-5 gap-2 mb-2">
+            <input value={item.name} disabled className="border p-2" />
+            <input
+              type="number"
+              value={item.qty}
+              onChange={(e) => {
+                const qty = Number(e.target.value);
+                setItems((prev) =>
+                  prev.map((it, idx) =>
+                    idx === i
+                      ? {
+                          ...it,
+                          qty,
+                          amount: qty * it.rate,
+                        }
+                      : it
+                  )
+                );
+              }}
+              className="border p-2"
+            />
+            <input
+              type="number"
+              value={item.rate}
+              onChange={(e) => {
+                const rate = Number(e.target.value);
+                setItems((prev) =>
+                  prev.map((it, idx) =>
+                    idx === i
+                      ? {
+                          ...it,
+                          rate,
+                          amount: rate * it.qty,
+                        }
+                      : it
+                  )
+                );
+              }}
+              className="border p-2"
+            />
+            <input value={item.amount} disabled className="border p-2" />
             <button
-              onClick={() => setScannerOpen(false)}
-              className="absolute top-2 right-2 text-gray-600 hover:text-black"
+              onClick={() =>
+                setItems((prev) => prev.filter((_, idx) => idx !== i))
+              }
+              className="text-red-600"
             >
               ✖
             </button>
+          </div>
+        ))}
+      </div>
 
-            <h3 className="text-lg font-semibold mb-4">Scan Product QR</h3>
+      {/* =======================
+         SCANNER MODAL
+      ======================= */}
+      {scannerOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded w-full max-w-md">
+            <h3 className="font-semibold mb-2">Scan Product</h3>
 
-            {/* SCANNER COMPONENT */}
-            <div className="w-full h-64 bg-black rounded overflow-hidden border">
-              <QRBarcodeScanner
-                onUpdate={(err, data) => {
-                  if (err) handleError(err);
-                  if (data) handleScan(data);
-                }}
-                style={{ width: "100%", height: "100%" }}
+            <label className="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={autoAdd}
+                onChange={() => setAutoAdd(!autoAdd)}
               />
-            </div>
+              Auto add to items
+            </label>
 
-            {/* LOADING */}
-            {loadingProduct && (
-              <p className="text-center text-gray-600 mt-3">Searching...</p>
-            )}
+            <QRBarcodeScanner
+              onUpdate={(err, data) => {
+                if (data) handleScan(data);
+              }}
+              style={{ width: "100%" }}
+            />
 
-            {/* PRODUCT FOUND */}
-            {product && (
-              <div className="mt-4 bg-gray-50 border rounded p-4">
-                <h4 className="font-semibold text-lg mb-2 text-gray-800">
-                  Product Found
-                </h4>
+            {loadingProduct && <p>Loading...</p>}
 
-                <p><strong>Name:</strong> {product.itemName}</p>
-                <p><strong>Code:</strong> {product.itemCode}</p>
-                <p><strong>Available Qty:</strong> {product.availableQty}</p>
-                <p><strong>Opening Qty:</strong> {product.openingQty}</p>
-                <p><strong>Closing Qty:</strong> {product.closingQty}</p>
+            {selectedProduct && !autoAdd && (
+              <div className="mt-3 border p-3 rounded">
+                <p><b>Name:</b> {selectedProduct.NAME}</p>
+                <p><b>Group:</b> {selectedProduct.GROUP}</p>
+                <p><b>Company:</b> {selectedProduct.companyName}</p>
 
-                {product.imageUrl && (
-                  <img
-                    src={`${API_BASE}${product.imageUrl}`}
-                    alt="product"
-                    className="h-24 w-24 rounded mt-3 object-cover"
-                  />
-                )}
+                <button
+                  disabled={selectedProduct.disable}
+                  onClick={() => addItem(selectedProduct)}
+                  className="mt-2 bg-blue-600 text-white px-3 py-1 rounded disabled:bg-gray-400"
+                >
+                  Add Item
+                </button>
               </div>
             )}
 
-            {/* PRODUCT NOT FOUND */}
-            {!loadingProduct && scannedValue && !product && (
-              <p className="text-red-600 text-center mt-4">
-                No product found for:
-                <br />
-                <span className="font-bold">{scannedValue}</span>
-              </p>
-            )}
+            <button
+              onClick={() => setScannerOpen(false)}
+              className="mt-3 text-red-600"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

@@ -362,7 +362,7 @@ const goToSaleDetails = (billNo) => {
               <div
                 key={sale._id}
                   onDoubleClick={() => goToSaleDetails(sale.billNo)}
-
+                  onClick={() => goToSaleDetails(sale.billNo)}
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-center">

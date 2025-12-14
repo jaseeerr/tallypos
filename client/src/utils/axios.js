@@ -26,7 +26,7 @@ const MyAxiosInstance = (opt) => {
         if (opt == 1) {
           localStorage.removeItem("guardToken");
         } else {
-          localStorage.removeItem("adminToken");
+          localStorage.removeItem("token");
         }
 
         // 🔁 Refresh the page
