@@ -336,7 +336,7 @@ router.post(
       }
 
       const product = await Inventory.findById(id).lean();
-
+console.log(product)
       if (!product) {
         return res.status(404).json({
           ok: false,
