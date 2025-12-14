@@ -167,19 +167,50 @@ export default function ViewSale() {
         )}
 
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-slate-700 hover:text-slate-900"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-medium">Back</span>
-          </button>
+   <div className="mb-6 flex items-center justify-between">
+  {/* Back */}
+  <button
+    onClick={() => navigate(-1)}
+    className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-slate-700 hover:text-slate-900"
+  >
+    <ArrowLeft className="w-4 h-4" />
+    <span className="font-medium">Back</span>
+  </button>
 
-          <div className={`px-4 py-2 rounded-lg border-2 font-semibold text-sm ${getStatusColor(sale.status)}`}>
-            {sale.status?.toUpperCase() || "UNKNOWN"}
-          </div>
-        </div>
+  {/* Actions */}
+  <div className="flex items-center gap-3">
+    {/* Edit Sale */}
+    {sale.status && (
+   <button
+  disabled={sale.status !== "pending"}
+  onClick={() => {
+    if (sale.status === "pending") {
+      navigate(`/editSale/${billNo}`)
+    }
+  }}
+  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+    sale.status === "pending"
+      ? "bg-blue-600 text-white hover:bg-blue-700"
+      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+  }`}
+>
+  Edit Sale
+</button>
+
+
+    )}
+
+    {/* Status */}
+    <div
+      className={`px-4 py-2 rounded-lg border-2 font-semibold text-sm ${getStatusColor(
+        sale.status
+      )}`}
+    >
+      {sale.status?.toUpperCase() || "UNKNOWN"}
+    </div>
+  </div>
+</div>
+
 
         {/* Sale Header Card */}
         <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl shadow-xl p-6 sm:p-8 mb-6 text-white">
@@ -303,6 +334,7 @@ export default function ViewSale() {
               <thead>
                 <tr className="border-b-2 border-slate-200">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Item Name</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Unit</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Quantity</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Rate</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">VAT %</th>
@@ -313,6 +345,7 @@ export default function ViewSale() {
                 {sale.items?.map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                     <td className="py-3 px-4 font-medium text-slate-900">{item.itemName}</td>
+                    <td className="py-3 px-4 text-center text-slate-700">{item.unit || "pcs"}</td>
                     <td className="py-3 px-4 text-right text-slate-700">{item.qty}</td>
                     <td className="py-3 px-4 text-right text-slate-700">AED {item.rate?.toFixed(2) || "0.00"}</td>
                     <td className="py-3 px-4 text-right text-slate-700">{item.rateOfTax || 0}%</td>

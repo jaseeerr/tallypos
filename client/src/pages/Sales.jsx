@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 export default function AddSale() {
-  const axiosInstance = MyAxiosInstance()
+  const axios = MyAxiosInstance()
 
   // =============================
   // STATE
@@ -72,7 +72,7 @@ export default function AddSale() {
 
     setLoadingInventory(true)
     try {
-      const res = await axiosInstance.get("/inventory", {
+      const res = await axios.get("/inventory", {
         params: {
           companyName,
           search: inventorySearch,
@@ -101,7 +101,7 @@ export default function AddSale() {
   const fetchCustomers = async () => {
     setLoadingCustomers(true)
     try {
-      const res = await axiosInstance.get("/customers", {
+      const res = await axios.get("/customers", {
         params: {
           companyName,
           search: customerSearch,
@@ -158,11 +158,30 @@ export default function AddSale() {
       return
     }
 
+    // Parse unit from UNITS field (e.g., "Doz of 12 P" -> "Doz")
+    let unitDisplay = "pcs"
+    if (item.UNITS) {
+      const unitMatch = item.UNITS.split(" of ")[0]
+      unitDisplay = unitMatch || "pcs"
+    }
+
+    const extractPiecesPerUnit = (unitsString) => {
+      if (!unitsString) return 1
+      const match = unitsString.match(/of (\d+)/)
+      return match ? Number.parseInt(match[1]) : 1
+    }
+
+    const piecesPerUnit = extractPiecesPerUnit(item.UNITS)
+
     setSelectedItems((prev) => [
       ...prev,
       {
         itemId: item._id,
         name: item.NAME,
+        stock: item.closingQtyPieces || 0,
+        stockFormatted: item.CLOSINGQTY || "0",
+        unit: unitDisplay,
+        piecesPerUnit: piecesPerUnit, // Store pieces per unit for validation
         qty: 1,
         rate: Number(item.SALESPRICE) || 0,
         rateOfTax: 5,
@@ -178,7 +197,32 @@ export default function AddSale() {
 
   const updateItem = (index, field, value) => {
     const updated = [...selectedItems]
-    updated[index][field] = Number(value) || 0
+    const numValue = Number(value) || 0
+
+    // Validate quantity doesn't exceed available stock
+    if (field === "qty") {
+      const item = updated[index]
+      const qtyInPieces = numValue * (item.piecesPerUnit || 1)
+      const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
+
+      if (qtyInPieces > item.stock) {
+        showNotification(
+          "error",
+          "Insufficient Stock",
+          `Cannot add ${numValue} ${item.unit} (${qtyInPieces} pcs). Only ${maxQtyInUnits} ${item.unit} (${item.stock} pcs) available for ${item.name}.`,
+        )
+        updated[index][field] = maxQtyInUnits
+        updated[index].amount = maxQtyInUnits * updated[index].rate
+        setSelectedItems(updated)
+        return
+      }
+      if (numValue <= 0) {
+        showNotification("warning", "Invalid Quantity", `Quantity must be at least 1.`)
+        return
+      }
+    }
+
+    updated[index][field] = numValue
     updated[index].amount = updated[index].qty * updated[index].rate
     setSelectedItems(updated)
   }
@@ -215,8 +259,16 @@ export default function AddSale() {
       return false
     }
 
+    if (!validateItems()) {
+      return false
+    }
+
+    return true
+  }
+
+  const validateItems = () => {
     if (selectedItems.length === 0) {
-      showNotification("error", "Validation Error", "Please add at least one item to the sale.")
+      showNotification("warning", "No Items", "Please add at least one item to the sale.")
       return false
     }
 
@@ -227,6 +279,17 @@ export default function AddSale() {
           "error",
           "Validation Error",
           `Invalid quantity for ${item.name}. Quantity must be greater than 0.`,
+        )
+        return false
+      }
+      const qtyInPieces = item.qty * (item.piecesPerUnit || 1)
+      const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
+
+      if (qtyInPieces > item.stock) {
+        showNotification(
+          "error",
+          "Stock Exceeded",
+          `Cannot sell ${item.qty} ${item.unit} (${qtyInPieces} pcs) of ${item.name}. Only ${maxQtyInUnits} ${item.unit} (${item.stock} pcs) available in stock.`,
         )
         return false
       }
@@ -264,7 +327,7 @@ export default function AddSale() {
 
     setSubmitting(true)
     try {
-      await axiosInstance.post("/add-sale", payload)
+      await axios.post("/add-sale", payload)
       showNotification("success", "Sale Created Successfully", `Bill #${sale.billNo} has been saved successfully.`)
 
       // Reset form after 2 seconds
@@ -396,7 +459,7 @@ export default function AddSale() {
                 placeholder="Optional reference"
                 value={sale.reference}
                 onChange={(e) => setSale({ ...sale, reference: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
           </div>
@@ -408,7 +471,7 @@ export default function AddSale() {
               value={sale.remarks}
               onChange={(e) => setSale({ ...sale, remarks: e.target.value })}
               rows={2}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
             />
           </div>
 
@@ -449,7 +512,7 @@ export default function AddSale() {
                     fetchCustomers()
                   }}
                   onFocus={() => setShowCustomerDropdown(true)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
 
@@ -549,7 +612,12 @@ export default function AddSale() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-medium text-gray-800">{item.NAME}</div>
-                        <div className="text-sm text-gray-500 mt-1">Stock: {item.closingQtyPieces || 0} pcs</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          Stock: {item.CLOSINGQTY || "0"}
+                          {item.closingQtyPieces !== undefined && (
+                            <span className="text-xs text-gray-400 ml-1">({item.closingQtyPieces} pcs)</span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-blue-600">AED {Number(item.SALESPRICE || 0).toFixed(2)}</div>
@@ -590,6 +658,9 @@ export default function AddSale() {
                       Item
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Unit
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Quantity
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -611,16 +682,35 @@ export default function AddSale() {
                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-800">{item.name}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Stock: {item.stockFormatted}
+                          {item.stock !== undefined && (
+                            <span className="text-xs text-gray-400 ml-1">({item.stock} pcs)</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm font-medium text-gray-600">{item.unit}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={item.qty}
-                          onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
+                        <div className="flex flex-col items-center gap-1">
+                          <input
+                            type="number"
+                            min="1"
+                            max={Math.floor(item.stock / (item.piecesPerUnit || 1))}
+                            step="1"
+                            value={item.qty}
+                            onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                            className={`w-24 px-3 py-1.5 border rounded-lg text-center focus:ring-2 focus:ring-blue-500 outline-none ${
+                              item.qty * (item.piecesPerUnit || 1) > item.stock
+                                ? "border-red-500 bg-red-50"
+                                : "border-gray-300"
+                            }`}
+                          />
+                          {item.qty * (item.piecesPerUnit || 1) > item.stock && (
+                            <span className="text-xs text-red-600 font-medium">Exceeds stock!</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <input

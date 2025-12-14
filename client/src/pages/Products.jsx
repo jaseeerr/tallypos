@@ -73,6 +73,7 @@ export default function InventoryPage() {
       })
 
       const newItems = res.data.items || []
+      console.log(newItems)
 
       if (resetPage) {
         // Full reset for new search/filter

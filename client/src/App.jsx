@@ -14,6 +14,7 @@ import Customers from './pages/Customers'
 import ViewSale from './pages/ViewSale'
 import CreateSaleOrder from './pages/CreateSaleOrder'
 import Auth from './pages/Auth'
+import EditSale from './pages/EditSale'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -59,6 +60,10 @@ function App() {
             <Route
               path="/sale/:billNo"
               element={isAuthed ? <ViewSale /> : <Navigate to="/auth" replace />}
+            />
+             <Route
+              path="/editSale/:billNo"
+              element={isAuthed ? <EditSale /> : <Navigate to="/auth" replace />}
             />
 
             <Route
