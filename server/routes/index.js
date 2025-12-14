@@ -440,6 +440,212 @@ partyAddress = (customer.address || [])
 });
 
 
+router.put("/edit-sale/:saleId", Auth.userAuth, async (req, res) => {
+  try {
+    const { saleId } = req.params;
+    const {
+      companyName,
+      billNo,
+      date,
+      reference = "",
+      remarks = "",
+      isCashSale = false,
+      cashLedgerName = "",
+      customerId,
+      items = [],
+    } = req.body;
+
+    // =============================
+    // FETCH SALE
+    // =============================
+    const sale = await Sale.findById(saleId);
+    if (!sale) {
+      return res.status(404).json({
+        ok: false,
+        message: "Sale not found",
+      });
+    }
+
+    // =============================
+    // EDIT RULES
+    // =============================
+    if (!["pending", "error"].includes(sale.status)) {
+      return res.status(400).json({
+        ok: false,
+        message: "Only pending or error sales can be edited",
+      });
+    }
+
+    if (sale.companyName !== companyName) {
+      return res.status(400).json({
+        ok: false,
+        message: "Company mismatch",
+      });
+    }
+
+    // =============================
+    // BILL NO CHANGE CHECK
+    // =============================
+    if (billNo !== sale.billNo) {
+      const exists = await Sale.findOne({
+        companyName,
+        billNo,
+        _id: { $ne: saleId },
+      });
+      if (exists) {
+        return res.status(400).json({
+          ok: false,
+          message: "Bill number already exists for this company",
+        });
+      }
+    }
+
+    // =============================
+    // CUSTOMER / CASH
+    // =============================
+    let partyName = "";
+    let partyAddress = [];
+
+    if (isCashSale) {
+      if (!cashLedgerName) {
+        return res.status(400).json({
+          ok: false,
+          message: "cashLedgerName is required for cash sale",
+        });
+      }
+    } else {
+      if (!customerId) {
+        return res.status(400).json({
+          ok: false,
+          message: "customerId is required for credit sale",
+        });
+      }
+
+      const customer = await Customer.findById(customerId).lean();
+      if (!customer || customer.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid customer for this company",
+        });
+      }
+
+      partyName = customer.name;
+      partyAddress = (customer.address || [])
+        .filter(a => typeof a === "string" && a.trim() !== "")
+        .map(a => ({ address: a.trim() }));
+    }
+
+    // =============================
+    // PROCESS ITEMS
+    // =============================
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "At least one item is required",
+      });
+    }
+
+    let subtotal = 0;
+    let vatAmount = 0;
+    const processedItems = [];
+
+    for (const i of items) {
+      const inventoryItem = await Inventory.findById(i.itemId).lean();
+      if (!inventoryItem || inventoryItem.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid inventory item for this company",
+        });
+      }
+
+      const qty = Number(i.qty);
+      const rate = Number(i.rate);
+      const rateOfTax = Number(i.rateOfTax || 0);
+
+      if (qty <= 0 || rate < 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid quantity or rate",
+        });
+      }
+
+      const amount = qty * rate;
+      const tax = (amount * rateOfTax) / 100;
+
+      subtotal += amount;
+      vatAmount += tax;
+
+      processedItems.push({
+        itemName: inventoryItem.NAME,
+        itemGroup: inventoryItem.GROUP || "",
+        unit: inventoryItem.UNITS || "PCS",
+        itemCode: "",
+        description: "",
+        qty,
+        rate,
+        amount,
+        rateOfTax,
+      });
+    }
+
+    const totalAmount = subtotal + vatAmount;
+
+    // =============================
+    // LEDGERS
+    // =============================
+    const ledgers = [];
+    if (vatAmount > 0) {
+      ledgers.push({
+        ledgerName: "VAT",
+        percentage: 0,
+        amount: vatAmount,
+      });
+    }
+
+    // =============================
+    // UPDATE SALE
+    // =============================
+    sale.billNo = billNo;
+    sale.date = date;
+    sale.reference = reference;
+    sale.remarks = remarks;
+
+    sale.isCashSale = isCashSale;
+    sale.cashLedgerName = isCashSale ? cashLedgerName : "";
+
+    sale.partyName = partyName;
+    sale.partyAddress = partyAddress;
+
+    sale.items = processedItems;
+    sale.ledgers = ledgers;
+
+    sale.subtotal = subtotal;
+    sale.vatAmount = vatAmount;
+    sale.totalAmount = totalAmount;
+
+    // Reset sync state
+    sale.status = "pending";
+    sale.syncAttempts = 0;
+    sale.syncError = "";
+
+    sale.updatedBy = req.user?._id;
+
+    await sale.save();
+
+    return res.json({
+      ok: true,
+      message: "Sale updated successfully",
+      saleId: sale._id,
+    });
+
+  } catch (error) {
+    console.error("Error editing sale:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 
 
 
@@ -582,6 +788,212 @@ router.get("/sale/:billNo",Auth.userAuth, async (req, res) => {
 });
 
 
+router.put("/edit-sale/:saleId", Auth.userAuth, async (req, res) => {
+  try {
+    const { saleId } = req.params;
+    const {
+      companyName,
+      billNo,
+      date,
+      reference = "",
+      remarks = "",
+      isCashSale = false,
+      cashLedgerName = "",
+      customerId,
+      items = [],
+    } = req.body;
+
+    // =============================
+    // FETCH SALE
+    // =============================
+    const sale = await Sale.findById(billNo);
+    if (!sale) {
+      return res.status(404).json({
+        ok: false,
+        message: "Sale not found",
+      });
+    }
+
+    // =============================
+    // EDIT RULES
+    // =============================
+    if (!["pending", "error"].includes(sale.status)) {
+      return res.status(400).json({
+        ok: false,
+        message: "Only pending or error sales can be edited",
+      });
+    }
+
+    if (sale.companyName !== companyName) {
+      return res.status(400).json({
+        ok: false,
+        message: "Company mismatch",
+      });
+    }
+
+    // =============================
+    // BILL NO CHANGE CHECK
+    // =============================
+    if (billNo !== sale.billNo) {
+      const exists = await Sale.findOne({
+        companyName,
+        billNo,
+        _id: { $ne: saleId },
+      });
+      if (exists) {
+        return res.status(400).json({
+          ok: false,
+          message: "Bill number already exists for this company",
+        });
+      }
+    }
+
+    // =============================
+    // CUSTOMER / CASH
+    // =============================
+    let partyName = "";
+    let partyAddress = [];
+
+    if (isCashSale) {
+      if (!cashLedgerName) {
+        return res.status(400).json({
+          ok: false,
+          message: "cashLedgerName is required for cash sale",
+        });
+      }
+    } else {
+      if (!customerId) {
+        return res.status(400).json({
+          ok: false,
+          message: "customerId is required for credit sale",
+        });
+      }
+
+      const customer = await Customer.findById(customerId).lean();
+      if (!customer || customer.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid customer for this company",
+        });
+      }
+
+      partyName = customer.name;
+      partyAddress = (customer.address || [])
+        .filter(a => typeof a === "string" && a.trim() !== "")
+        .map(a => ({ address: a.trim() }));
+    }
+
+    // =============================
+    // PROCESS ITEMS
+    // =============================
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "At least one item is required",
+      });
+    }
+
+    let subtotal = 0;
+    let vatAmount = 0;
+    const processedItems = [];
+
+    for (const i of items) {
+      const inventoryItem = await Inventory.findById(i.itemId).lean();
+      if (!inventoryItem || inventoryItem.companyName !== companyName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid inventory item for this company",
+        });
+      }
+
+      const qty = Number(i.qty);
+      const rate = Number(i.rate);
+      const rateOfTax = Number(i.rateOfTax || 0);
+
+      if (qty <= 0 || rate < 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid quantity or rate",
+        });
+      }
+
+      const amount = qty * rate;
+      const tax = (amount * rateOfTax) / 100;
+
+      subtotal += amount;
+      vatAmount += tax;
+
+      processedItems.push({
+        itemName: inventoryItem.NAME,
+        itemGroup: inventoryItem.GROUP || "",
+        unit: inventoryItem.UNITS || "PCS",
+        itemCode: "",
+        description: "",
+        qty,
+        rate,
+        amount,
+        rateOfTax,
+      });
+    }
+
+    const totalAmount = subtotal + vatAmount;
+
+    // =============================
+    // LEDGERS
+    // =============================
+    const ledgers = [];
+    if (vatAmount > 0) {
+      ledgers.push({
+        ledgerName: "VAT",
+        percentage: 0,
+        amount: vatAmount,
+      });
+    }
+
+    // =============================
+    // UPDATE SALE
+    // =============================
+    sale.billNo = billNo;
+    sale.date = date;
+    sale.reference = reference;
+    sale.remarks = remarks;
+
+    sale.isCashSale = isCashSale;
+    sale.cashLedgerName = isCashSale ? cashLedgerName : "";
+
+    sale.partyName = partyName;
+    sale.partyAddress = partyAddress;
+
+    sale.items = processedItems;
+    sale.ledgers = ledgers;
+
+    sale.subtotal = subtotal;
+    sale.vatAmount = vatAmount;
+    sale.totalAmount = totalAmount;
+
+    // Reset sync state
+    sale.status = "pending";
+    sale.syncAttempts = 0;
+    sale.syncError = "";
+
+    sale.updatedBy = req.user?._id;
+
+    await sale.save();
+
+    return res.json({
+      ok: true,
+      message: "Sale updated successfully",
+      saleId: sale._id,
+    });
+
+  } catch (error) {
+    console.error("Error editing sale:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 
 
 

@@ -82,7 +82,6 @@ const SaleSchema = new mongoose.Schema(
     syncAttempts: { type: Number, default: 0 },
     syncError: { type: String, default: "" },
 
-    tallyInvoiceNumber: { type: String, default: "" },
     tallyResponseLogs: [TallyResponseSchema],
 
     // =============================
