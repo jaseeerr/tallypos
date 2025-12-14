@@ -37,7 +37,7 @@ export default function CreateSaleOrder() {
     if (!customerSearch) return;
 
     const fetchCustomers = async () => {
-      const res = await axios.get(`${API_BASE}/customers`, {
+      const res = await axiosInstance.get(`${API_BASE}/customers`, {
         params: {
           search: customerSearch,
           companyName: activeCompany,
@@ -78,7 +78,7 @@ export default function CreateSaleOrder() {
       setLoadingProduct(true);
       setSelectedProduct(null);
 
-      const res = await axios.post(
+      const res = await axiosInstance.post(
         `${API_BASE}/inventory/${id}`,
         { companyName: activeCompany }
       );
