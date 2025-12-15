@@ -15,7 +15,7 @@ export default function InventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [activeCompany, setActiveCompany] = useState("ALL")
   const [includeOutOfStock, setIncludeOutOfStock] = useState(false)
-  const [viewMode, setViewMode] = useState("grid")
+  const [viewMode, setViewMode] = useState("list")
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -471,55 +471,82 @@ const [activeCardId, setActiveCardId] = useState(null)
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
-                <div
-                  key={item._id}
-                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 flex items-center gap-3 border border-slate-100"
-                >
-                  <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden flex-shrink-0">
-                    {item.imageUrl ? (
-                      <img
-                        src={`${API_BASE}/${item.imageUrl}`}
-                        alt={item.NAME}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="text-slate-300" size={24} />
-                      </div>
-                    )}
-                  </div>
+          <div
+  key={item._id}
+  className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+>
+  {/* IMAGE */}
+  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
+    {item.imageUrl ? (
+      <img
+        src={`${API_BASE}/${item.imageUrl}`}
+        alt={item.NAME}
+        className="w-full h-full object-cover rounded-md"
+        loading="lazy"
+      />
+    ) : (
+      <Package className="text-slate-400" size={20} />
+    )}
+  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-800 truncate text-sm">{item.NAME}</h3>
-                    <p className="text-xs text-slate-500">{item.GROUP || "Uncategorized"}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs font-semibold ${isOutOfStock ? "text-red-600" : "text-green-600"}`}>
-                        {item.CLOSINGQTY || "0"}
-                      </span>
-                      {item.closingQtyPieces !== undefined && (
-                        <span className="text-xs text-slate-400">({item.closingQtyPieces} pcs)</span>
-                      )}
-                    </div>
-                  </div>
+  {/* MAIN INFO */}
+  <div className="flex-1 min-w-0">
+    <h3 className="text-sm font-semibold text-slate-900 truncate">
+      {item.NAME}
+    </h3>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openQRModal(item)}
-                      className="w-9 h-9 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
-                      title="View QR"
-                    >
-                      <Download size={16} className="text-blue-600" />
-                    </button>
-                    <button
-                      onClick={() => openModal(item)}
-                      className="w-9 h-9 rounded-lg bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-colors"
-                      title="Edit"
-                    >
-                      <Upload size={16} className="text-slate-600" />
-                    </button>
-                  </div>
-                </div>
+    <p className="text-xs text-slate-500">
+      {item.GROUP || "Uncategorized"}
+    </p>
+
+    <div className="flex items-center gap-2 mt-1">
+      <span
+        className={`text-xs font-semibold ${
+          isOutOfStock ? "text-red-600" : "text-emerald-600"
+        }`}
+      >
+        {item.CLOSINGQTY || "0"}
+      </span>
+
+      {item.closingQtyPieces !== undefined && (
+        <span className="text-xs text-slate-400">
+          ({item.closingQtyPieces} pcs)
+        </span>
+      )}
+
+      {isOutOfStock && (
+        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+          OUT
+        </span>
+      )}
+    </div>
+  </div>
+
+  {/* PRICE + ACTIONS */}
+  <div className="flex items-center gap-3 shrink-0">
+    <span className="text-sm font-bold text-blue-600 whitespace-nowrap">
+      AED {Number(item.SALESPRICE || 0).toFixed(2)}
+    </span>
+
+    <button
+      onClick={() => openQRModal(item)}
+      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+      title="View QR"
+    >
+      <Download size={14} className="text-slate-600" />
+    </button>
+
+    <button
+      onClick={() => openModal(item)}
+      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+      title="Edit"
+    >
+      <Upload size={14} className="text-slate-600" />
+    </button>
+  </div>
+</div>
+
+
               )
             })}
           </div>
