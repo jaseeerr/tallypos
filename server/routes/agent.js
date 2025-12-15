@@ -250,6 +250,7 @@ router.post("/customer-sync", async (req, res) => {
         {
           companyName,
           name,
+          trn,
           group: group || "",
           balance: balance || "",
           address: Array.isArray(address) ? address : [],
