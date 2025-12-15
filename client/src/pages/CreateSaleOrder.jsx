@@ -73,24 +73,24 @@ export default function CreateSaleOrder() {
     return units.split(" of ")[0] || "pcs"
   }
 
- const UNIT_MULTIPLIER = {
-  PCS: 1,
-  DOZEN: 12,
-  GROSS: 144,
-  PAIR: 2,
-}
+  const UNIT_MULTIPLIER = {
+    PCS: 1,
+    DOZEN: 12,
+    GROSS: 144,
+    PAIR: 2,
+  }
 
-const normalizeUnit = (units = "") => {
-  if (!units) return { display: "pcs", multiplier: 1 }
+  const normalizeUnit = (units = "") => {
+    if (!units) return { display: "pcs", multiplier: 1 }
 
-  const u = units.toLowerCase()
+    const u = units.toLowerCase()
 
-  if (u.includes("doz")) return { display: "Doz", multiplier: 12 }
-  if (u.includes("gross")) return { display: "Gross", multiplier: 144 }
-  if (u.includes("pair")) return { display: "Pair", multiplier: 2 }
+    if (u.includes("doz")) return { display: "Doz", multiplier: 12 }
+    if (u.includes("gross")) return { display: "Gross", multiplier: 144 }
+    if (u.includes("pair")) return { display: "Pair", multiplier: 2 }
 
-  return { display: "pcs", multiplier: 1 }
-}
+    return { display: "pcs", multiplier: 1 }
+  }
 
   // =============================
   // FETCH INVENTORY
@@ -192,10 +192,20 @@ const normalizeUnit = (units = "") => {
         const product = res.data.product
         setScannedProduct(product)
 
-        if (autoAdd && !product.disable) {
-          addItem(product)
-          setScannerOpen(false)
-          showNotification("success", "Product Scanned", `${product.NAME} has been added to the sale order.`)
+        if (autoAdd) {
+          if (product.companyName !== companyName) {
+            showNotification(
+              "warning",
+              "Company Mismatch",
+              `The scanned product "${product.NAME}" belongs to ${product.companyName}, but you have selected ${companyName}. Please check your selection.`,
+            )
+            return
+          }
+
+          if (!product.disable) {
+            addItem(product)
+            showNotification("success", "Product Scanned", `${product.NAME} has been added to the sale order.`)
+          }
         }
       }
     } catch (err) {
@@ -221,22 +231,21 @@ const normalizeUnit = (units = "") => {
 
     const { display: unit, multiplier: piecesPerUnit } = normalizeUnit(item.UNITS)
 
-
-   setSelectedItems((prev) => [
-  ...prev,
-  {
-    itemId: item._id,
-    name: item.NAME,
-    stock: item.closingQtyPieces || 0, // PCS (source of truth)
-    stockFormatted: item.CLOSINGQTY || "0", // display only
-    unit,
-    piecesPerUnit, // 12 for Doz
-    qty: 1,
-    rate: Number(item.SALESPRICE) || 0,
-    rateOfTax: 5,
-    amount: Number(item.SALESPRICE) || 0,
-  },
-])
+    setSelectedItems((prev) => [
+      ...prev,
+      {
+        itemId: item._id,
+        name: item.NAME,
+        stock: item.closingQtyPieces || 0, // PCS (source of truth)
+        stockFormatted: item.CLOSINGQTY || "0", // display only
+        unit,
+        piecesPerUnit, // 12 for Doz
+        qty: 1,
+        rate: Number(item.SALESPRICE) || 0,
+        rateOfTax: 5,
+        amount: Number(item.SALESPRICE) || 0,
+      },
+    ])
 
     setInventorySearch("")
     setInventory([])
@@ -592,8 +601,7 @@ const normalizeUnit = (units = "") => {
                       <div>
                         <div className="font-medium text-gray-800">{item.NAME}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                         Stock: {item.stockFormatted}
-({item.stock} pcs)
+                          Stock: {item.stockFormatted}({item.stock} pcs)
                         </div>
                       </div>
                       <div className="text-right">
@@ -833,10 +841,22 @@ const normalizeUnit = (units = "") => {
 
                 {scannedProduct && !autoAdd && (
                   <div className="mt-4 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
+                    {scannedProduct.productImage && (
+                      <div className="mb-3 flex justify-center">
+                        <img
+                          src={scannedProduct.productImage || "/placeholder.svg"}
+                          alt={scannedProduct.NAME}
+                          className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
+                        />
+                      </div>
+                    )}
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">{scannedProduct.NAME}</p>
                         <p className="text-sm text-gray-600 mt-1">Company: {scannedProduct.companyName}</p>
+                        <p className="text-sm font-semibold text-green-600 mt-1">
+                          Price: AED {Number(scannedProduct.SALESPRICE || 0).toFixed(2)}
+                        </p>
                         <p className="text-sm text-gray-600">
                           Stock: {scannedProduct.CLOSINGQTY || "0"}
                           {scannedProduct.closingQtyPieces !== undefined && (
@@ -864,68 +884,58 @@ const normalizeUnit = (units = "") => {
         )}
       </div>
       {/* COMPANY SELECTION MODAL */}
-{/* COMPANY SELECTION MODAL */}
-{!companyName && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900/60 via-blue-900/60 to-indigo-900/60 backdrop-blur-sm p-4">
-    <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in duration-200">
-      
-      {/* Header */}
-      <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
-        <h2 className="text-2xl font-bold text-white">
-          Select Company
-        </h2>
-       
-      </div>
-
-      {/* Body */}
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* AMANA */}
-        <button
-          onClick={() => setCompanyName("AMANA-FIRST-TRADING-LLC")}
-          className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-blue-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-blue-50"
-        >
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-lg bg-blue-600 text-white shadow-md">
-              <Package className="w-6 h-6" />
+      {!companyName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900/60 via-blue-900/60 to-indigo-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <h2 className="text-2xl font-bold text-white">Select Company</h2>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600">
-                AMANA FIRST TRADING LLC
-              </h3>
-             
+
+            {/* Body */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* AMANA */}
+              <button
+                onClick={() => setCompanyName("AMANA-FIRST-TRADING-LLC")}
+                className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-blue-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-blue-50"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-blue-600 text-white shadow-md">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600">
+                      AMANA FIRST TRADING LLC
+                    </h3>
+                  </div>
+                </div>
+              </button>
+
+              {/* FANCY PALACE */}
+              <button
+                onClick={() => setCompanyName("FANCY-PALACE-TRADING-LLC")}
+                className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-indigo-50"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-indigo-600 text-white shadow-md">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600">
+                      FANCY PALACE TRADING LLC
+                    </h3>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-sm text-gray-600 text-center">
+              You must select a company before continuing
             </div>
           </div>
-        </button>
-
-        {/* FANCY PALACE */}
-        <button
-          onClick={() => setCompanyName("FANCY-PALACE-TRADING-LLC")}
-          className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-indigo-50"
-        >
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-lg bg-indigo-600 text-white shadow-md">
-              <Package className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600">
-                FANCY PALACE TRADING LLC
-              </h3>
-             
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Footer */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-sm text-gray-600 text-center">
-        You must select a company before continuing
-      </div>
-    </div>
-  </div>
-)}
-
-
+        </div>
+      )}
     </div>
   )
 }
