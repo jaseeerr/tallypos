@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Home, ShoppingCart, Package, LogOut, Plus, Eye,Menu, ChevronDown } from "lucide-react"
+import { Home, ShoppingCart, Package, LogOut,BadgeDollarSign,ScrollText, Plus,FilePlusCorner, Eye,Menu, ChevronDown } from "lucide-react"
 
 function BottomNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -157,11 +157,11 @@ function BottomNavbar() {
         <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 shadow-sm">
           <div className="h-16 flex items-center justify-around max-w-md mx-auto px-8">
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/sale")}
               className="flex flex-col items-center gap-1 text-slate-500 hover:text-blue-600 transition"
             >
-              <Home className="w-5 h-5" />
-              <span className="text-[11px] font-medium">Dashboard</span>
+              <Plus className="w-5 h-5" />
+              <span className="text-[11px] font-medium">New Sale</span>
             </button>
 
             <div className="absolute left-1/2 -translate-x-1/2 -top-7">
@@ -178,11 +178,11 @@ function BottomNavbar() {
             </div>
 
             <button
-              onClick={() => navigate("/products")}
+              onClick={() => navigate("/addSaleOrder")}
               className="flex flex-col items-center gap-1 text-slate-500 hover:text-blue-600 transition"
             >
-              <Package className="w-5 h-5" />
-              <span className="text-[11px] font-medium">Inventory</span>
+              <FilePlusCorner className="w-5 h-5" />
+              <span className="text-[11px] font-medium">New Order</span>
             </button>
           </div>
         </div>

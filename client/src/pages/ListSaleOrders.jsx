@@ -126,7 +126,7 @@ export default function SaleOrdersList() {
                 onChange={(e) => setCompanyName(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
               >
-                <option value="ABC">ABC</option>
+                <option value="AMANA-FIRST-TRADING-LLC">AMANA FIRST</option>
                 <option value="FANCY-PALACE-TRADING-LLC">Fancy Palace</option>
                 <option value="ALL">All Companies</option>
               </select>
