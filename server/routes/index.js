@@ -1148,7 +1148,8 @@ router.get("/customers", Auth.userAuth, async (req, res) => {
       query.$or = [
         { name: regex },
         { group: regex },
-        { address: regex }, // works for array fields
+        { address: regex },
+         { trn: regex }, // works for array fields
       ];
     }
 

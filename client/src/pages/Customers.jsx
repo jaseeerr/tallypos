@@ -209,37 +209,51 @@ console.log(res.data)
                 : customer.address || "No address provided"
 
               return (
-                <div
-                  key={customer._id}
-                  className="group bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-200 transition-all duration-300 hover:-translate-y-1"
-                >
-                  {/* Customer Name */}
-                  <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">
-                    {customer.name}
-                  </h3>
+             <div
+  key={customer._id}
+  className="group bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-200 transition-all duration-300 hover:-translate-y-1"
+>
+  {/* Customer Name */}
+  <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
+    {customer.name}
+  </h3>
 
-                  {/* Group Badge */}
-                  {customer.group && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 mb-3">
-                      <Phone size={12} className="text-blue-600" />
-                      <span className="text-xs font-medium text-blue-700">{customer.group}</span>
-                    </div>
-                  )}
+  {/* TRN */}
+  {customer.trn && (
+    <p className="text-xs font-medium text-slate-500 mb-2">
+      TRN: <span className="text-slate-700">{customer.trn}</span>
+    </p>
+  )}
 
-                  {/* Address */}
-                  <div className="flex items-start gap-2 mb-3 min-h-[44px]">
-                    <MapPin size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">{addressText}</p>
-                  </div>
+  {/* Group Badge */}
+  {customer.group && (
+    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 mb-3">
+      <Phone size={12} className="text-blue-600" />
+      <span className="text-xs font-medium text-blue-700">
+        {customer.group}
+      </span>
+    </div>
+  )}
 
-                  {/* Company */}
-                  {customer.companyName && (
-                    <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                      <Building2 size={14} className="text-slate-400" />
-                      <span className="text-xs font-medium text-slate-500">{customer.companyName}</span>
-                    </div>
-                  )}
-                </div>
+  {/* Address */}
+  <div className="flex items-start gap-2 mb-3 min-h-[44px]">
+    <MapPin size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />
+    <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+      {addressText}
+    </p>
+  </div>
+
+  {/* Company */}
+  {customer.companyName && (
+    <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+      <Building2 size={14} className="text-slate-400" />
+      <span className="text-xs font-medium text-slate-500">
+        {customer.companyName}
+      </span>
+    </div>
+  )}
+</div>
+
               )
             })}
           </div>
