@@ -6,7 +6,7 @@ const AddressSchema = new mongoose.Schema({
 
 const ItemSchema = new mongoose.Schema({
   itemName: { type: String, required: true },
-  itemCode: { type: String, required: true },
+  itemCode: { type: String,  },
   itemGroup: { type: String },
   description: { type: String },
   qty: { type: Number, required: true },
