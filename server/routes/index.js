@@ -265,16 +265,16 @@ router.post(
         });
       }
 
-      const product = await Inventory.findById(id).lean();
-      const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
+     const product = await Inventory.findById(id).lean();
 
-console.log(product)
-      if (!product) {
-        return res.status(404).json({
-          ok: false,
-          message: "Product not found",
-        });
-      }
+if (!product) {
+  return res.status(404).json({
+    ok: false,
+    message: "Product not found",
+  });
+}
+
+const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
 
       const isCompanyMismatch =
         companyName && product.companyName !== companyName;
