@@ -15,6 +15,8 @@ import ViewSale from './pages/ViewSale'
 import CreateSaleOrder from './pages/CreateSaleOrder'
 import Auth from './pages/Auth'
 import EditSale from './pages/EditSale'
+import SaleOrdersList from './pages/ListSaleOrders'
+import ViewOrder from './pages/ViewSaleOrder'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -69,6 +71,16 @@ function App() {
             <Route
               path="/listSales"
               element={isAuthed ? <SalesList /> : <Navigate to="/auth" replace />}
+            />
+
+             <Route
+              path="/listSaleOrders"
+              element={isAuthed ? <SaleOrdersList /> : <Navigate to="/auth" replace />}
+            />
+
+              <Route
+              path="/viewOrder/:id"
+              element={isAuthed ? <ViewOrder /> : <Navigate to="/auth" replace />}
             />
 
             <Route

@@ -11,6 +11,8 @@ function BottomNavbar() {
   const navList = [
     { name: "Home", path: "/", icon: Home },
     { name: "New Order", path: "/addSaleOrder", icon: ShoppingCart },
+        { name: "Sale Orders", path: "/listSaleOrders", icon: ShoppingCart },
+
     { name: "Inventory", path: "/products", icon: Package },
     { name: "Add New Sale", path: "/sale", icon: Plus },
     { name: "Customers", path: "/customers", icon: Users },
