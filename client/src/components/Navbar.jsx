@@ -28,7 +28,7 @@ function BottomNavbar() {
       name: "Sales",
       icon: ShoppingCart,
       subItems: [
-        { name: "View Sales", path: "/sales/view", icon: Eye },
+        { name: "View Sales", path: "/listSales", icon: Eye },
         { name: "Add Sale", path: "/sale", icon: Plus },
       ],
     },
