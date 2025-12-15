@@ -170,18 +170,44 @@ const [activeCardId, setActiveCardId] = useState(null)
 
     const svgData = new XMLSerializer().serializeToString(svgElement)
     const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
+const ctx = canvas.getContext("2d", { alpha: false })
+ctx.imageSmoothingEnabled = false
     const img = new Image()
 
     // Set high resolution
-    const scale = 4
-    canvas.width = 256 * scale
-    canvas.height = 256 * scale
+  const scale = 4
+
+const qrSize = 256 * scale
+const padding = 32 * scale      // quiet zone around QR
+const textHeight = 40 * scale   // space for "Scan Item"
+
+canvas.width = qrSize + padding * 2
+canvas.height = qrSize + padding * 2 + textHeight
+
 
     img.onload = () => {
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+     ctx.fillStyle = "#ffffff"
+ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+// Draw QR centered with padding
+ctx.drawImage(
+  img,
+  padding,
+  padding,
+  qrSize,
+  qrSize
+)
+
+ctx.fillStyle = "#000000"
+ctx.font = `${18 * scale}px Arial`
+ctx.textAlign = "center"
+ctx.textBaseline = "middle"
+
+ctx.fillText(
+  "Scan Item",
+  canvas.width / 2,
+  padding + qrSize + textHeight / 2
+)
 
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob)
