@@ -73,11 +73,24 @@ export default function CreateSaleOrder() {
     return units.split(" of ")[0] || "pcs"
   }
 
-  const extractPiecesPerUnit = (units = "") => {
-    if (!units) return 1
-    const match = units.match(/of (\d+)/i)
-    return match ? Number(match[1]) : 1
-  }
+ const UNIT_MULTIPLIER = {
+  PCS: 1,
+  DOZEN: 12,
+  GROSS: 144,
+  PAIR: 2,
+}
+
+const normalizeUnit = (units = "") => {
+  if (!units) return { display: "pcs", multiplier: 1 }
+
+  const u = units.toLowerCase()
+
+  if (u.includes("doz")) return { display: "Doz", multiplier: 12 }
+  if (u.includes("gross")) return { display: "Gross", multiplier: 144 }
+  if (u.includes("pair")) return { display: "Pair", multiplier: 2 }
+
+  return { display: "pcs", multiplier: 1 }
+}
 
   // =============================
   // FETCH INVENTORY
@@ -206,24 +219,24 @@ export default function CreateSaleOrder() {
       return
     }
 
-    const unit = extractUnit(item.UNITS)
-    const piecesPerUnit = extractPiecesPerUnit(item.UNITS)
+    const { display: unit, multiplier: piecesPerUnit } = normalizeUnit(item.UNITS)
 
-    setSelectedItems((prev) => [
-      ...prev,
-      {
-        itemId: item._id,
-        name: item.NAME,
-        stock: item.closingQtyPieces || 0,
-        stockFormatted: item.CLOSINGQTY || "0",
-        unit: unit,
-        piecesPerUnit: piecesPerUnit,
-        qty: 1,
-        rate: Number(item.SALESPRICE) || 0,
-        rateOfTax: 5,
-        amount: Number(item.SALESPRICE) || 0,
-      },
-    ])
+
+   setSelectedItems((prev) => [
+  ...prev,
+  {
+    itemId: item._id,
+    name: item.NAME,
+    stock: item.closingQtyPieces || 0, // PCS (source of truth)
+    stockFormatted: item.CLOSINGQTY || "0", // display only
+    unit,
+    piecesPerUnit, // 12 for Doz
+    qty: 1,
+    rate: Number(item.SALESPRICE) || 0,
+    rateOfTax: 5,
+    amount: Number(item.SALESPRICE) || 0,
+  },
+])
 
     setInventorySearch("")
     setInventory([])
@@ -579,10 +592,8 @@ export default function CreateSaleOrder() {
                       <div>
                         <div className="font-medium text-gray-800">{item.NAME}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                          Stock: {item.CLOSINGQTY || "0"}
-                          {item.closingQtyPieces !== undefined && (
-                            <span className="text-xs text-gray-400 ml-1">({item.closingQtyPieces} pcs)</span>
-                          )}
+                         Stock: {item.stockFormatted}
+({item.stock} pcs)
                         </div>
                       </div>
                       <div className="text-right">

@@ -246,6 +246,56 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET PRODUCT BY ID
+ * body: { companyName: String }
+ */
+router.post(
+  "/inventory/:id",
+  Auth.userAuth, // optional
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { companyName } = req.body;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid product id",
+        });
+      }
+
+      const product = await Inventory.findById(id).lean();
+      const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
+
+console.log(product)
+      if (!product) {
+        return res.status(404).json({
+          ok: false,
+          message: "Product not found",
+        });
+      }
+
+      const isCompanyMismatch =
+        companyName && product.companyName !== companyName;
+
+      return res.json({
+        ok: true,
+        product: {
+          ...product,
+          closingQtyPieces,
+          disable: isCompanyMismatch,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching product by id:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+  }
+);
 
 
 router.put("/inventory/update-image/:id", Auth.userAuth, upload.single("image"), async (req, res) => {
@@ -317,53 +367,7 @@ router.put("/inventory/remove-image/:id", Auth.userAuth, async (req, res) => {
   }
 });
 
-/**
- * GET PRODUCT BY ID
- * body: { companyName: String }
- */
-router.post(
-  "/inventory/:id",
-  Auth.userAuth, // optional
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { companyName } = req.body;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          ok: false,
-          message: "Invalid product id",
-        });
-      }
-
-      const product = await Inventory.findById(id).lean();
-console.log(product)
-      if (!product) {
-        return res.status(404).json({
-          ok: false,
-          message: "Product not found",
-        });
-      }
-
-      const isCompanyMismatch =
-        companyName && product.companyName !== companyName;
-
-      return res.json({
-        ok: true,
-        product: {
-          ...product,
-          disable: isCompanyMismatch,
-        },
-      });
-    } catch (error) {
-      console.error("Error fetching product by id:", error);
-      return res.status(500).json({
-        ok: false,
-        error: error.message,
-      });
-    }
-  }
-);
 
 
 
