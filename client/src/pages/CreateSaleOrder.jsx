@@ -31,6 +31,9 @@ export default function CreateSaleOrder() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [selectedItems, setSelectedItems] = useState([])
   const [includeVAT, setIncludeVAT] = useState(true)
+  const [notification, setNotification] = useState(null)
+  const [showInventoryDropdown, setShowInventoryDropdown] = useState(false)
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
 
   const [saleOrder, setSaleOrder] = useState({
     billNo: "",
@@ -48,11 +51,7 @@ export default function CreateSaleOrder() {
   const [autoAdd, setAutoAdd] = useState(true)
   const [scannedProduct, setScannedProduct] = useState(null)
   const [loadingScan, setLoadingScan] = useState(false)
-
-  // Error/Success notifications
-  const [notification, setNotification] = useState(null)
-  const [showInventoryDropdown, setShowInventoryDropdown] = useState(false)
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [scannerError, setScannerError] = useState(null)
 
   const inventorySearchRef = useRef(null)
   const customerSearchRef = useRef(null)
@@ -183,6 +182,7 @@ export default function CreateSaleOrder() {
     try {
       setLoadingScan(true)
       setScannedProduct(null)
+      setScannerError(null)
 
       const res = await axios.post(`/inventory/${id}`, {
         companyName,
@@ -194,22 +194,26 @@ export default function CreateSaleOrder() {
 
         if (autoAdd) {
           if (product.companyName !== companyName) {
-            showNotification(
-              "warning",
-              "Company Mismatch",
-              `The scanned product "${product.NAME}" belongs to ${product.companyName}, but you have selected ${companyName}. Please check your selection.`,
-            )
+            setScannerError({
+              type: "warning",
+              message: `The scanned product "${product.NAME}" belongs to ${product.companyName}, but you have selected ${companyName}. Item not added.`,
+            })
             return
           }
 
           if (!product.disable) {
             addItem(product)
+            setScannedProduct(null)
+            setScannerError(null)
             showNotification("success", "Product Scanned", `${product.NAME} has been added to the sale order.`)
           }
         }
       }
     } catch (err) {
-      showNotification("error", "Product Not Found", "Unable to find the scanned product. Please try again.")
+      setScannerError({
+        type: "error",
+        message: "Unable to find the scanned product. Please try again.",
+      })
       console.error(err)
     } finally {
       setLoadingScan(false)
@@ -835,6 +839,29 @@ export default function CreateSaleOrder() {
                     <div className="flex items-center justify-center gap-2 text-blue-700">
                       <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                       <span className="font-medium">Loading product...</span>
+                    </div>
+                  </div>
+                )}
+
+                {scannerError && (
+                  <div
+                    className={`mt-4 p-4 rounded-lg border-2 ${
+                      scannerError.type === "error" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {scannerError.type === "error" ? (
+                        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <p
+                        className={`text-sm font-medium ${
+                          scannerError.type === "error" ? "text-red-800" : "text-yellow-800"
+                        }`}
+                      >
+                        {scannerError.message}
+                      </p>
                     </div>
                   </div>
                 )}
