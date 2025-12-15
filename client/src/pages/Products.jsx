@@ -27,6 +27,7 @@ export default function InventoryPage() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
+const [activeCardId, setActiveCardId] = useState(null)
 
   // Refs
   const loaderRef = useRef(null)
@@ -388,10 +389,13 @@ export default function InventoryPage() {
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
-                <div
-                  key={item._id}
-                  className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100"
-                >
+               <div
+  key={item._id}
+  onClick={() =>
+    setActiveCardId((prev) => (prev === item._id ? null : item._id))
+  }
+  className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100 cursor-pointer"
+>
                   <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
                     {item.imageUrl ? (
                       <img
@@ -410,16 +414,29 @@ export default function InventoryPage() {
                         Out of Stock
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => openQRModal(item)}
+<div
+  className={`
+    absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300
+    bg-black/40
+    ${activeCardId === item._id ? "opacity-100" : "opacity-0"}
+    group-hover:opacity-100
+  `}
+>
+                <button
+  onClick={(e) => {
+    e.stopPropagation()
+    openQRModal(item)
+  }}
                         className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
                         title="View QR Code"
                       >
                         <Download size={18} className="text-slate-700" />
                       </button>
-                      <button
-                        onClick={() => openModal(item)}
+                     <button
+  onClick={(e) => {
+    e.stopPropagation()
+    openModal(item)
+  }}
                         className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
                         title="Edit Image"
                       >
