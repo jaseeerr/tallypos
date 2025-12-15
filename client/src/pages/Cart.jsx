@@ -26,12 +26,12 @@ export default function CartPage() {
       setLoading(false)
       return
     }
-
+console.log(storedIds)
     try {
-     const res = await axiosInstance.post("/inventory/bulk", {
+     const res = await axiosInstance.post("/inventoryBulk", {
   ids: storedIds,
 })
-
+console.log(res)
 setCartItems(res.data.items || [])
     } catch (err) {
       console.error("Failed to load cart", err)

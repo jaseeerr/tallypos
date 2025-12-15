@@ -302,7 +302,7 @@ const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
  * body: { ids: string[] }
  */
 router.post(
-  "/inventory/bulk",
+  "/inventoryBulk",
   Auth.userAuth,
   async (req, res) => {
     try {
