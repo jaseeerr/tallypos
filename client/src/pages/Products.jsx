@@ -328,7 +328,7 @@ const [activeCardId, setActiveCardId] = useState(null)
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {["ALL", "AMANA", "FANCY-PALACE-TRADING-LLC"].map((c) => (
+            {["ALL", "AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
               <button
                 key={c}
                 onClick={() => setActiveCompany(c)}
@@ -341,9 +341,7 @@ const [activeCardId, setActiveCardId] = useState(null)
                 {c === "ALL"
                   ? "All"
                   : c
-                      .split("-")
-                      .map((w) => w[0])
-                      .join("")}
+                     }
               </button>
             ))}
           </div>

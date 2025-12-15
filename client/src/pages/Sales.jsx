@@ -23,7 +23,7 @@ export default function AddSale() {
   // =============================
   // STATE
   // =============================
-  const [companyName, setCompanyName] = useState("ABC")
+  const [companyName, setCompanyName] = useState("AMANA-FIRST-TRADING-LLC")
   const [inventory, setInventory] = useState([])
   const [customers, setCustomers] = useState([])
   const [inventorySearch, setInventorySearch] = useState("")
@@ -400,7 +400,7 @@ export default function AddSale() {
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500 font-medium">Company:</span>
               <div className="flex gap-2">
-                {["ABC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
+                {["AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
                   <button
                     key={c}
                     onClick={() => setCompanyName(c)}
@@ -410,7 +410,7 @@ export default function AddSale() {
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    {c === "ABC" ? "ABC" : "Fancy Palace"}
+                    {c === "AMANA-FIRST-TRADING-LLC" ? "AMANA-FIRST-TRADING-LLC" : "FANCY-PALACE-TRADING-LLC"}
                   </button>
                 ))}
               </div>

@@ -449,6 +449,7 @@ router.post("/add-sale", Auth.userAuth, async (req, res) => {
       }
 
       partyName = customer.name;
+      partyVatNo = customer.trn || ""
 partyAddress = (customer.address || [])
   .filter(a => typeof a === "string" && a.trim() !== "")
   .map(a => ({ address: a.trim() }));

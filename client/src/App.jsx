@@ -37,7 +37,7 @@ function App() {
         {/* Hide Navbar on auth page */}
         {isAuthed && <Navbar />}
 
-        <div className="flex-grow">
+        <div className="flex-grow mb-10">
           <Routes>
 
             {/* Auth Page (Accessible without login) */}
