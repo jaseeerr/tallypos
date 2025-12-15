@@ -2,18 +2,45 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Home, ShoppingCart, Package, Users, Menu, X, FileText, GitBranch, LogOut, Plus } from "lucide-react"
+import {
+  Home,
+  ShoppingCart,
+  Package,
+  Users,
+  Menu,
+  X,
+  FileText,
+  GitBranch,
+  LogOut,
+  Plus,
+  ChevronRight,
+  Eye,
+} from "lucide-react"
 
 function BottomNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [expandedItem, setExpandedItem] = useState(null)
   const navigate = useNavigate()
 
   const navList = [
     { name: "Home", path: "/", icon: Home },
-    { name: "New Order", path: "/addSaleOrder", icon: ShoppingCart },
-    { name: "Sale Orders", path: "/listSaleOrders", icon: ShoppingCart },
+    {
+      name: "Sales",
+      icon: ShoppingCart,
+      subItems: [
+        { name: "View Sales", path: "/sales/view", icon: Eye },
+        { name: "Add Sale", path: "/sale", icon: Plus },
+      ],
+    },
+    {
+      name: "Sale Orders",
+      icon: Package,
+      subItems: [
+        { name: "View Orders", path: "/listSaleOrders", icon: Eye },
+        { name: "New Order", path: "/addSaleOrder", icon: Plus },
+      ],
+    },
     { name: "Inventory", path: "/products", icon: Package },
-    { name: "Add New Sale", path: "/sale", icon: Plus },
     { name: "Customers", path: "/customers", icon: Users },
     { name: "API Docs", path: "/api-doc", icon: FileText },
     { name: "Workflow", path: "/workflow", icon: GitBranch },
@@ -22,12 +49,23 @@ function BottomNavbar() {
   const handleLogout = () => {
     localStorage.removeItem("token")
     setIsMenuOpen(false)
+    setExpandedItem(null)
     navigate("/auth")
   }
 
   const handleNavigation = (path) => {
     navigate(path)
     setIsMenuOpen(false)
+    setExpandedItem(null)
+  }
+
+  const handleParentClick = (itemName) => {
+    setExpandedItem(expandedItem === itemName ? null : itemName)
+  }
+
+  const closeMenu = () => {
+    setIsMenuOpen(false)
+    setExpandedItem(null)
   }
 
   return (
@@ -36,7 +74,7 @@ function BottomNavbar() {
       {isMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-all duration-300"
-          onClick={() => setIsMenuOpen(false)}
+          onClick={closeMenu}
         />
       )}
 
@@ -48,20 +86,68 @@ function BottomNavbar() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
               {navList.map((item, index) => {
                 const Icon = item.icon
+                const hasSubItems = item.subItems && item.subItems.length > 0
+                const isExpanded = expandedItem === item.name
+
                 return (
-                  <button
-                    key={item.path}
-                    onClick={() => handleNavigation(item.path)}
-                    className="group bg-gradient-to-br from-gray-50 to-gray-100 hover:from-blue-50 hover:to-purple-50 rounded-2xl p-4 transition-all duration-300 flex flex-col items-center gap-2 hover:scale-105 hover:shadow-lg border border-gray-200 hover:border-blue-200 animate-[fadeIn_0.4s_ease-out]"
-                    style={{ animationDelay: `${index * 40}ms` }}
-                  >
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-md">
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-gray-700 font-medium text-xs text-center leading-tight group-hover:text-blue-600 transition-colors duration-300">
-                      {item.name}
-                    </span>
-                  </button>
+                  <div key={item.name} className="relative">
+                    <button
+                      onClick={() => (hasSubItems ? handleParentClick(item.name) : handleNavigation(item.path))}
+                      className={`group w-full bg-gradient-to-br ${
+                        isExpanded
+                          ? "from-blue-100 to-purple-100 border-blue-300"
+                          : "from-gray-50 to-gray-100 border-gray-200"
+                      } hover:from-blue-50 hover:to-purple-50 rounded-2xl p-4 transition-all duration-300 flex flex-col items-center gap-2 hover:scale-105 hover:shadow-lg border hover:border-blue-200 animate-[fadeIn_0.4s_ease-out] relative`}
+                      style={{ animationDelay: `${index * 40}ms` }}
+                    >
+                      {hasSubItems && (
+                        <div
+                          className={`absolute top-2 right-2 transition-transform duration-300 ${isExpanded ? "rotate-90" : ""}`}
+                        >
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </div>
+                      )}
+                      <div
+                        className={`bg-gradient-to-br ${
+                          isExpanded ? "from-blue-600 to-purple-700" : "from-blue-500 to-purple-600"
+                        } p-3 rounded-xl group-hover:scale-110 ${hasSubItems && !isExpanded ? "group-hover:rotate-6" : ""} transition-all duration-300 shadow-md`}
+                      >
+                        <Icon className="w-5 h-5 text-white" />
+                      </div>
+                      <span
+                        className={`${
+                          isExpanded ? "text-blue-700" : "text-gray-700"
+                        } font-medium text-xs text-center leading-tight group-hover:text-blue-600 transition-colors duration-300`}
+                      >
+                        {item.name}
+                      </span>
+                    </button>
+
+                    {hasSubItems && isExpanded && (
+                      <div className="absolute top-full left-0 right-0 mt-2 z-10 animate-[slideDown_0.2s_ease-out]">
+                        <div className="bg-white rounded-xl shadow-xl border border-blue-200 overflow-hidden">
+                          {item.subItems.map((subItem, subIndex) => {
+                            const SubIcon = subItem.icon
+                            return (
+                              <button
+                                key={subItem.path}
+                                onClick={() => handleNavigation(subItem.path)}
+                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors duration-200 border-b last:border-b-0 border-gray-100 group/sub"
+                                style={{ animationDelay: `${subIndex * 50}ms` }}
+                              >
+                                <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-lg group-hover/sub:scale-110 transition-transform duration-200 shadow-sm">
+                                  <SubIcon className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-gray-700 font-medium text-sm group-hover/sub:text-blue-600 transition-colors duration-200">
+                                  {subItem.name}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -151,6 +237,17 @@ function BottomNavbar() {
           to {
             opacity: 1;
             transform: scale(1);
+          }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
 
