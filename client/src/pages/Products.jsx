@@ -178,11 +178,19 @@ ctx.imageSmoothingEnabled = false
   const scale = 4
 
 const qrSize = 256 * scale
-const padding = 32 * scale      // quiet zone around QR
-const textHeight = 40 * scale   // space for "Scan Item"
+const padding = 5 * scale
+const textGap = 12 * scale
+const fontSize = 18 * scale
+const bottomPadding = 3 * scale
 
 canvas.width = qrSize + padding * 2
-canvas.height = qrSize + padding * 2 + textHeight
+canvas.height =
+  padding +              // top
+  qrSize +               // QR
+  textGap +              // gap before text
+  fontSize +             // actual text height
+  bottomPadding          // bottom padding
+
 
 
     img.onload = () => {
@@ -201,12 +209,12 @@ ctx.drawImage(
 ctx.fillStyle = "#000000"
 ctx.font = `${18 * scale}px Arial`
 ctx.textAlign = "center"
-ctx.textBaseline = "middle"
+ctx.textBaseline = "top"
 
 ctx.fillText(
-  "Scan Item",
+  `${modalItem.NAME}`,
   canvas.width / 2,
-  padding + qrSize + textHeight / 2
+  padding + qrSize + textGap
 )
 
       canvas.toBlob((blob) => {

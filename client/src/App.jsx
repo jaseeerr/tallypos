@@ -49,7 +49,7 @@ function App() {
             {/* Protected Routes */}
             <Route
               path="/"
-              element={isAuthed ? <SalesList /> : <Navigate to="/auth" replace />}
+              element={isAuthed ? <Home /> : <Navigate to="/auth" replace />}
             />
             <Route
               path="/products"
