@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import QRCode from "react-qr-code"
-import { Search, X, Upload, Trash2, Download, Package, Grid3x3, List } from "lucide-react"
+import { Search, X, Upload, Trash2, Download, Package, Grid3x3, List, ShoppingCart } from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
 
@@ -15,7 +15,7 @@ export default function InventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [activeCompany, setActiveCompany] = useState("ALL")
   const [includeOutOfStock, setIncludeOutOfStock] = useState(false)
-  const [viewMode, setViewMode] = useState("list")
+  const [viewMode, setViewMode] = useState("grid")
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -27,7 +27,7 @@ export default function InventoryPage() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
-const [activeCardId, setActiveCardId] = useState(null)
+  const [activeCardId, setActiveCardId] = useState(null)
 
   // Refs
   const loaderRef = useRef(null)
@@ -37,6 +37,17 @@ const [activeCardId, setActiveCardId] = useState(null)
   const hasMoreRef = useRef(true)
   const isMountedRef = useRef(false)
   const firstLoadCompleteRef = useRef(false)
+
+  function addToCart(productId) {
+    const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
+    if (!cartItems.includes(productId)) {
+      cartItems.push(productId)
+      localStorage.setItem("cartItems", JSON.stringify(cartItems))
+      alert("Item added to cart!")
+    } else {
+      alert("Item already in cart!")
+    }
+  }
 
   // Debounce search input
   useEffect(() => {
@@ -48,12 +59,10 @@ const [activeCardId, setActiveCardId] = useState(null)
 
   // Fetch inventory with proper guards to prevent multiple calls
   async function fetchInventory(resetPage = false) {
-    // Guard: prevent concurrent requests
     if (isFetchingRef.current) {
       return
     }
 
-    // Guard: check if more data available
     if (!resetPage && !hasMoreRef.current) {
       return
     }
@@ -77,19 +86,16 @@ const [activeCardId, setActiveCardId] = useState(null)
       console.log(newItems)
 
       if (resetPage) {
-        // Full reset for new search/filter
         loadedIdsRef.current = new Set(newItems.map((i) => i._id))
         setInventory(newItems)
         pageRef.current = 2
       } else {
-        // Append for infinite scroll
         const uniqueItems = newItems.filter((item) => !loadedIdsRef.current.has(item._id))
         uniqueItems.forEach((item) => loadedIdsRef.current.add(item._id))
         setInventory((prev) => [...prev, ...uniqueItems])
         pageRef.current = currentPage + 1
       }
 
-      // Update hasMore
       const moreDataAvailable = newItems.length === 100
       hasMoreRef.current = moreDataAvailable
       setHasMore(moreDataAvailable)
@@ -114,12 +120,10 @@ const [activeCardId, setActiveCardId] = useState(null)
   }, [])
 
   useEffect(() => {
-    // Guard: don't run on first render
     if (!isMountedRef.current) {
       return
     }
 
-    // Full reset and fetch
     setInventory([])
     loadedIdsRef.current = new Set()
     pageRef.current = 1
@@ -134,7 +138,6 @@ const [activeCardId, setActiveCardId] = useState(null)
 
   // Infinite scroll observer
   useEffect(() => {
-    // Guard: don't observe until first page is loaded
     if (!firstLoadCompleteRef.current) {
       return
     }
@@ -143,7 +146,6 @@ const [activeCardId, setActiveCardId] = useState(null)
       (entries) => {
         const entry = entries[0]
 
-        // Only fetch if: intersecting, has more data, not currently fetching, page > 1
         if (entry.isIntersecting && hasMoreRef.current && !isFetchingRef.current && !loading && pageRef.current > 1) {
           fetchInventory(false)
         }
@@ -160,7 +162,7 @@ const [activeCardId, setActiveCardId] = useState(null)
     }
   }, [firstLoadCompleteRef.current, loading])
 
-  // QR Download - Fixed version
+  // QR Download
   function handleQRDownload(item) {
     const qrContainer = document.getElementById(`qr-${modalItem._id}`)
     if (!qrContainer) return
@@ -170,52 +172,32 @@ const [activeCardId, setActiveCardId] = useState(null)
 
     const svgData = new XMLSerializer().serializeToString(svgElement)
     const canvas = document.createElement("canvas")
-const ctx = canvas.getContext("2d", { alpha: false })
-ctx.imageSmoothingEnabled = false
+    const ctx = canvas.getContext("2d", { alpha: false })
+    ctx.imageSmoothingEnabled = false
     const img = new Image()
 
-    // Set high resolution
-  const scale = 4
+    const scale = 4
+    const qrSize = 256 * scale
+    const padding = 5 * scale
+    const textGap = 12 * scale
+    const fontSize = 18 * scale
+    const bottomPadding = 3 * scale
 
-const qrSize = 256 * scale
-const padding = 5 * scale
-const textGap = 12 * scale
-const fontSize = 18 * scale
-const bottomPadding = 3 * scale
-
-canvas.width = qrSize + padding * 2
-canvas.height =
-  padding +              // top
-  qrSize +               // QR
-  textGap +              // gap before text
-  fontSize +             // actual text height
-  bottomPadding          // bottom padding
-
-
+    canvas.width = qrSize + padding * 2
+    canvas.height = padding + qrSize + textGap + fontSize + bottomPadding
 
     img.onload = () => {
-     ctx.fillStyle = "#ffffff"
-ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-// Draw QR centered with padding
-ctx.drawImage(
-  img,
-  padding,
-  padding,
-  qrSize,
-  qrSize
-)
+      ctx.drawImage(img, padding, padding, qrSize, qrSize)
 
-ctx.fillStyle = "#000000"
-ctx.font = `${18 * scale}px Arial`
-ctx.textAlign = "center"
-ctx.textBaseline = "top"
+      ctx.fillStyle = "#000000"
+      ctx.font = `${18 * scale}px Arial`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
 
-ctx.fillText(
-  `${modalItem.NAME}`,
-  canvas.width / 2,
-  padding + qrSize + textGap
-)
+      ctx.fillText(`${modalItem.NAME}`, canvas.width / 2, padding + qrSize + textGap)
 
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob)
@@ -372,10 +354,7 @@ ctx.fillText(
                     : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
-                {c === "ALL"
-                  ? "All"
-                  : c
-                     }
+                {c === "ALL" ? "All" : c}
               </button>
             ))}
           </div>
@@ -396,14 +375,18 @@ ctx.fillText(
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main className="w-full mx-auto px-4 sm:px-6 py-6">
         {initialLoading ? (
-          <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-3"}>
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl p-4 shadow-sm animate-pulse">
-                <div className="w-full h-48 bg-slate-200 rounded-xl mb-3"></div>
-                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+          <div
+            className={
+              viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2" : "space-y-3"
+            }
+          >
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="bg-white rounded-lg p-2 shadow-sm animate-pulse">
+                <div className="w-full aspect-square bg-slate-200 rounded-lg mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-3/4 mb-1"></div>
+                <div className="h-2 bg-slate-200 rounded w-1/2"></div>
               </div>
             ))}
           </div>
@@ -416,18 +399,16 @@ ctx.fillText(
             <p className="text-slate-500 text-sm">Try adjusting your filters or search query</p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
             {inventory.map((item) => {
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
-               <div
-  key={item._id}
-  onClick={() =>
-    setActiveCardId((prev) => (prev === item._id ? null : item._id))
-  }
-  className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100 cursor-pointer"
->
+                <div
+                  key={item._id}
+                  onClick={() => setActiveCardId((prev) => (prev === item._id ? null : item._id))}
+                  className="group bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100 cursor-pointer"
+                >
                   <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
                     {item.imageUrl ? (
                       <img
@@ -438,60 +419,71 @@ ctx.fillText(
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="text-slate-300" size={64} />
+                        <Package className="text-slate-300" size={48} />
                       </div>
                     )}
                     {isOutOfStock && (
-                      <div className="absolute top-2 right-2 px-3 py-1 bg-red-500 text-white text-xs font-semibold rounded-full shadow-lg">
-                        Out of Stock
+                      <div className="absolute top-1 right-1 px-2 py-0.5 bg-red-500 text-white text-[10px] font-semibold rounded-full shadow-lg">
+                        Out
                       </div>
                     )}
-<div
+
+                  <div
   className={`
-    absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300
-    bg-black/40
-    ${activeCardId === item._id ? "opacity-100" : "opacity-0"}
-    group-hover:opacity-100
+    absolute inset-0 flex flex-col items-center justify-center gap-2
+    bg-black/60 backdrop-blur-sm p-3
+    transition-opacity duration-300
+    ${activeCardId === item._id ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
+    group-hover:opacity-100 group-hover:pointer-events-auto
   `}
 >
-                <button
-  onClick={(e) => {
-    e.stopPropagation()
-    openQRModal(item)
-  }}
-                        className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                        title="View QR Code"
-                      >
-                        <Download size={18} className="text-slate-700" />
-                      </button>
-                     <button
-  onClick={(e) => {
-    e.stopPropagation()
-    openModal(item)
-  }}
-                        className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                        title="Edit Image"
-                      >
-                        <Upload size={18} className="text-slate-700" />
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="p-4">
-                    <h3 className="font-semibold text-slate-800 mb-1 line-clamp-2" title={item.NAME }>
-                      {item.NAME} || AED {item.SALESPRICE || "N/A"}
-                    </h3>
-                    <p className="text-xs text-slate-500 mb-3">{item.GROUP || "Uncategorized"}</p>
-                     <p className="text-xs text-slate-500 mb-3"></p>
+                      {/* Product Details */}
+                      <div className="text-center mb-2">
+                        <h3 className="text-white font-bold text-xs mb-1 line-clamp-2" title={item.NAME}>
+                          {item.NAME}
+                        </h3>
+                        <p className="text-emerald-300 font-bold text-sm mb-1">
+                          AED {Number(item.SALESPRICE || 0).toFixed(2)}
+                        </p>
+                        <p className={`text-xs font-semibold ${isOutOfStock ? "text-red-300" : "text-emerald-300"}`}>
+                          Stock: {item.CLOSINGQTY || "0"}
+                          {item.closingQtyPieces !== undefined && ` (${item.closingQtyPieces} pcs)`}
+                        </p>
+                      </div>
 
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className={`text-sm font-semibold ${isOutOfStock ? "text-red-600" : "text-green-600"}`}>
-                          {item.CLOSINGQTY || "0"}
-                        </span>
-                        {item.closingQtyPieces !== undefined && (
-                          <span className="text-xs text-slate-400 ml-2">({item.closingQtyPieces} pcs)</span>
-                        )}
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openQRModal(item)
+                          }}
+                          className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                          title="View QR Code"
+                        >
+                          <Download size={14} className="text-slate-700" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openModal(item)
+                          }}
+                          className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                          title="Edit Image"
+                        >
+                          <Upload size={14} className="text-slate-700" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addToCart(item._id)
+                          }}
+                          className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                          title="Add to Cart"
+                        >
+                          <ShoppingCart size={14} className="text-white" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -505,82 +497,71 @@ ctx.fillText(
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
 
               return (
-          <div
-  key={item._id}
-  className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
->
-  {/* IMAGE */}
-  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
-    {item.imageUrl ? (
-      <img
-        src={`${API_BASE}/${item.imageUrl}`}
-        alt={item.NAME}
-        className="w-full h-full object-cover rounded-md"
-        loading="lazy"
-      />
-    ) : (
-      <Package className="text-slate-400" size={20} />
-    )}
-  </div>
+                <div
+                  key={item._id}
+                  className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                >
+                  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    {item.imageUrl ? (
+                      <img
+                        src={`${API_BASE}/${item.imageUrl}`}
+                        alt={item.NAME}
+                        className="w-full h-full object-cover rounded-md"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Package className="text-slate-400" size={20} />
+                    )}
+                  </div>
 
-  {/* MAIN INFO */}
-  <div className="flex-1 min-w-0">
-    <h3 className="text-sm font-semibold text-slate-900 truncate">
-      {item.NAME}
-    </h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-slate-900 truncate">{item.NAME}</h3>
+                    <p className="text-xs text-slate-500">{item.GROUP || "Uncategorized"}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-semibold ${isOutOfStock ? "text-red-600" : "text-emerald-600"}`}>
+                        {item.CLOSINGQTY || "0"}
+                      </span>
+                      {item.closingQtyPieces !== undefined && (
+                        <span className="text-xs text-slate-400">({item.closingQtyPieces} pcs)</span>
+                      )}
+                      {isOutOfStock && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+                          OUT
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-    <p className="text-xs text-slate-500">
-      {item.GROUP || "Uncategorized"}
-    </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-bold text-blue-600 whitespace-nowrap">
+                      AED {Number(item.SALESPRICE || 0).toFixed(2)}
+                    </span>
 
-    <div className="flex items-center gap-2 mt-1">
-      <span
-        className={`text-xs font-semibold ${
-          isOutOfStock ? "text-red-600" : "text-emerald-600"
-        }`}
-      >
-        {item.CLOSINGQTY || "0"}
-      </span>
+                    <button
+                      onClick={() => openQRModal(item)}
+                      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                      title="View QR"
+                    >
+                      <Download size={14} className="text-slate-600" />
+                    </button>
 
-      {item.closingQtyPieces !== undefined && (
-        <span className="text-xs text-slate-400">
-          ({item.closingQtyPieces} pcs)
-        </span>
-      )}
+                    <button
+                      onClick={() => openModal(item)}
+                      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                      title="Edit"
+                    >
+                      <Upload size={14} className="text-slate-600" />
+                    </button>
 
-      {isOutOfStock && (
-        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
-          OUT
-        </span>
-      )}
-    </div>
-  </div>
-
-  {/* PRICE + ACTIONS */}
-  <div className="flex items-center gap-3 shrink-0">
-    <span className="text-sm font-bold text-blue-600 whitespace-nowrap">
-      AED {Number(item.SALESPRICE || 0).toFixed(2)}
-    </span>
-
-    <button
-      onClick={() => openQRModal(item)}
-      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-      title="View QR"
-    >
-      <Download size={14} className="text-slate-600" />
-    </button>
-
-    <button
-      onClick={() => openModal(item)}
-      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-      title="Edit"
-    >
-      <Upload size={14} className="text-slate-600" />
-    </button>
-  </div>
-</div>
-
-
+                    <button
+                      onClick={() => addToCart(item._id)}
+                      className="w-8 h-8 rounded-md bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center"
+                      title="Add to Cart"
+                    >
+                      <ShoppingCart size={14} className="text-white" />
+                    </button>
+                  </div>
+                </div>
               )
             })}
           </div>
@@ -588,176 +569,101 @@ ctx.fillText(
 
         <div ref={loaderRef} className="py-8 flex justify-center">
           {!initialLoading && loading && (
-            <div className="flex items-center gap-2 text-slate-500">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm font-medium">Loading more...</span>
-            </div>
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          )}
+          {!initialLoading && !loading && !hasMore && inventory.length > 0 && (
+            <p className="text-slate-400 text-sm">No more items to load</p>
           )}
         </div>
       </main>
 
-      {qrModalOpen && modalItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
-          onClick={() => setQrModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl transform animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-slate-800">QR Code</h2>
+      {/* Image Upload Modal */}
+      {modalOpen && modalItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-800">Edit Image</h2>
               <button
-                onClick={() => setQrModalOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
+                onClick={() => setModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
               >
-                <X size={20} className="text-slate-600" />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border-2 border-slate-100 mb-4">
-              <div id={`qr-${modalItem._id}`} className="flex justify-center">
-                <QRCode value={modalItem._id} size={200} />
+            <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
+
+            {preview && (
+              <div className="relative mb-4">
+                <img
+                  src={preview || "/placeholder.svg"}
+                  alt="Preview"
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+                {modalItem.imageUrl && !selectedFile && (
+                  <button
+                    onClick={handleRemoveImage}
+                    disabled={uploading}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition disabled:opacity-50"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
+            )}
+
+            <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="file-upload" />
+
+            <div className="flex gap-2">
+              <label
+                htmlFor="file-upload"
+                className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-center cursor-pointer transition"
+              >
+                Choose File
+              </label>
+              <button
+                onClick={handleUpload}
+                disabled={!selectedFile || uploading}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {qrModalOpen && modalItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-800">QR Code</h2>
+              <button
+                onClick={() => setQrModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <p className="text-sm text-slate-600 mb-4 text-center line-clamp-2">{modalItem.NAME}</p>
+            <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
+
+            <div id={`qr-${modalItem._id}`} className="bg-white p-4 rounded-lg flex flex-col items-center gap-3">
+              <QRCode value={JSON.stringify({ id: modalItem._id, name: modalItem.NAME })} size={256} />
+              <p className="text-sm font-medium text-slate-700 text-center">{modalItem.NAME}</p>
+            </div>
 
             <button
               onClick={() => handleQRDownload(modalItem)}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
             >
               <Download size={18} />
-              Download QR
+              Download QR Code
             </button>
           </div>
         </div>
       )}
-
-      {modalOpen && modalItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl transform animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-slate-800">Edit Image</h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
-              >
-                <X size={20} className="text-slate-600" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="font-semibold text-slate-800 mb-1">{modalItem.NAME}</p>
-              <p className="text-sm text-slate-500">{modalItem.GROUP || "Uncategorized"}</p>
-            </div>
-
-            <div className="mb-4">
-              <div className="relative w-full h-64 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden border-2 border-dashed border-slate-200">
-                {preview ? (
-                  <img src={preview || "/placeholder.svg"} alt="Preview" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                    <Package size={48} />
-                    <p className="text-sm mt-2">No image available</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              <label className="flex-1 px-4 py-3 bg-blue-50 text-blue-600 font-medium rounded-xl hover:bg-blue-100 transition-colors cursor-pointer flex items-center justify-center gap-2">
-                <Upload size={18} />
-                Choose File
-                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-              </label>
-
-              {preview && (
-                <button
-                  onClick={handleRemoveImage}
-                  disabled={uploading}
-                  className="px-4 py-3 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Trash2 size={18} />
-                  Remove
-                </button>
-              )}
-            </div>
-
-            {selectedFile && (
-              <button
-                onClick={handleUpload}
-                disabled={uploading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={18} />
-                    Upload Image
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out;
-        }
-
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   )
 }

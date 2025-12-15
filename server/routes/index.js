@@ -297,6 +297,64 @@ const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
   }
 );
 
+/**
+ * BULK FETCH INVENTORY BY IDS
+ * body: { ids: string[] }
+ */
+router.post(
+  "/inventory/bulk",
+  Auth.userAuth,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "ids must be a non-empty array",
+        });
+      }
+
+      // Validate ObjectIds
+      const validIds = ids.filter((id) =>
+        mongoose.Types.ObjectId.isValid(id)
+      );
+
+      if (validIds.length === 0) {
+        return res.json({
+          ok: true,
+          items: [],
+        });
+      }
+
+      // Single DB query
+      const products = await Inventory.find({
+        _id: { $in: validIds },
+      }).lean();
+
+      // Add derived fields only
+      const items = products.map((product) => ({
+        ...product,
+        closingQtyPieces: parseClosingQtyToPieces(
+          product.CLOSINGQTY
+        ),
+      }));
+
+      return res.json({
+        ok: true,
+        items,
+      });
+    } catch (error) {
+      console.error("Bulk inventory fetch error:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+
 
 router.put("/inventory/update-image/:id", Auth.userAuth, upload.single("image"), async (req, res) => {
   try {

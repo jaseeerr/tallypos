@@ -17,6 +17,7 @@ import Auth from './pages/Auth'
 import EditSale from './pages/EditSale'
 import SaleOrdersList from './pages/ListSaleOrders'
 import ViewOrder from './pages/ViewSaleOrder'
+import CartPage from './pages/Cart'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -93,10 +94,11 @@ function App() {
               element={isAuthed ? <Customers /> : <Navigate to="/auth" replace />}
             />
 
-            <Route
-              path="/purchase"
-              element={isAuthed ? <Purchases /> : <Navigate to="/auth" replace />}
+             <Route
+              path="/cart"
+              element={isAuthed ? <CartPage /> : <Navigate to="/auth" replace />}
             />
+
             <Route
               path="/api-doc"
               element={isAuthed ? <TallyApiDoc /> : <Navigate to="/auth" replace />}
