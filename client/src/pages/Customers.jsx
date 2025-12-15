@@ -49,7 +49,7 @@ export default function CustomersPage() {
           companyName: activeCompany === "ALL" ? "" : activeCompany,
         },
       })
-
+console.log(res.data)
       const items = res.data.items || []
 
       if (reset) {

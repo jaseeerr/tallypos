@@ -238,7 +238,7 @@ router.post("/customer-sync", async (req, res) => {
     let syncedCount = 0;
 
     for (const cust of customers) {
-      const { name, group, balance, address } = cust;
+      const { name, group, balance, address,trn } = cust;
 
       if (!name) continue; // Skip invalid records
 
