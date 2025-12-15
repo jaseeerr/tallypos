@@ -115,7 +115,7 @@ console.log(res.data)
         set.add(c.companyName)
       }
     })
-    return ["ALL", ...Array.from(set).sort()]
+    return ["ALL","AMANA-FIRST-TRADING-LLC","FANCY-PALACE-TRADING-LLC"]
   }, [customers])
 
   return (

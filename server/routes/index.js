@@ -1439,4 +1439,150 @@ router.get("/sale-orders/:id", Auth.userAuth, async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   1) TALLY FETCH SALES (GET)
+   Tally calls this to get all pending sales for a company
+   ============================================================ */
+router.get("/fetch-sales", async (req, res) => {
+  try {
+    const formatDate = (date) => {
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const company = req.query.company;
+
+    if (!company) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "company is required" });
+    }
+
+    const pendingSales = await Sale.find({
+      companyName: company,
+      status: "pending",
+    }).lean();
+
+    const vouchers = pendingSales.map((sale) => ({
+      TYPE: "Sales Invoice",
+      BILLNO: sale.billNo,
+      DATE: formatDate(sale.date),
+      REFERENCE: sale.reference || "",
+      TOTALAMOUNT: sale.totalAmount.toFixed(2),
+      REMARKS: sale.remarks || "",
+
+      PARTYVATNO: sale.partyVatNo || "",
+      PARTYCODE: sale.partyCode || "",
+      PARTYNAME: sale.isCashSale ? sale.cashLedgerName : sale.partyName,
+      PARTYADDRESS: sale.partyAddress.map((a) => ({ ADDRESS: a.address })),
+
+      ITEMS: sale.items.map((i) => ({
+        ITEMNAME: i.itemName,
+        ITEMCODE: i.itemCode,
+        ITEMGROUP: i.itemGroup,
+        DESCRIPTION: i.description,
+        QTY: Number(i.qty).toFixed(4),
+        UNIT: i.unit,
+        RATE: Number(i.rate).toFixed(2),
+        AMOUNT: Number(i.amount).toFixed(2),
+        Rateoftax: Number(i.rateOfTax || 0).toFixed(2),
+      })),
+
+      LEDGERS: sale.ledgers.map((l) => ({
+        LEDGERSNAME: l.ledgerName,
+        Percentage:
+          l.percentage != null ? Number(l.percentage).toFixed(2) : "5.00",
+        Amount: Number(l.amount).toFixed(2),
+      })),
+    }));
+
+    return res.json({ Vouchers: vouchers });
+  } catch (error) {
+    console.error("Error in /fetch-sales:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+
+
+/* ============================================================
+   2) TALLY CALLBACK AFTER INSERTION (POST)
+   Tally calls this after inserting vouchers
+   ============================================================ */
+router.post("/sales-callback", async (req, res) => {
+  try {
+    const results = req.body?.results;
+
+    if (!Array.isArray(results)) {
+      return res
+        .status(400)
+        .json({ ok: false, message: "Invalid results array" });
+    }
+
+    for (const result of results) {
+      const { billNo, status, message, tallyInvoiceNumber } = result;
+
+      const sale = await Sale.findOne({ billNo });
+      if (!sale) continue;
+
+      // Log the full Tally result
+      sale.tallyResponseLogs.push({
+        timestamp: new Date(),
+        data: result,
+      });
+
+      if (status === "success") {
+        sale.status = "synced";
+        sale.tallyInvoiceNumber = tallyInvoiceNumber || "";
+        sale.syncError = "";
+      } else {
+        sale.status = "error";
+        sale.syncAttempts += 1;
+        sale.syncError = message || "Unknown error";
+      }
+
+      await sale.save();
+    }
+
+    return res.json({ ok: true, message: "Callback processed" });
+  } catch (error) {
+    console.error("Error in /sales-callback:", error);
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 module.exports = router;
