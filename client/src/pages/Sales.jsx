@@ -23,7 +23,7 @@ export default function AddSale() {
   // =============================
   // STATE
   // =============================
-  const [companyName, setCompanyName] = useState("AMANA-FIRST-TRADING-LLC")
+  const [companyName, setCompanyName] = useState("")
   const [inventory, setInventory] = useState([])
   const [customers, setCustomers] = useState([])
   const [inventorySearch, setInventorySearch] = useState("")
@@ -821,6 +821,69 @@ export default function AddSale() {
           </button>
         </div>
       </div>
+      {/* COMPANY SELECTION MODAL */}
+{!companyName && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900/60 via-blue-900/60 to-indigo-900/60 backdrop-blur-sm p-4">
+    <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in duration-200">
+      
+      {/* Header */}
+      <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
+        <h2 className="text-2xl font-bold text-white">
+          Select Company
+        </h2>
+        <p className="text-blue-100 mt-1">
+         
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* AMANA */}
+        <button
+          onClick={() => setCompanyName("AMANA-FIRST-TRADING-LLC")}
+          className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-blue-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-blue-50"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-blue-600 text-white shadow-md">
+              <Package className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600">
+                AMANA FIRST TRADING LLC
+              </h3>
+            
+            </div>
+          </div>
+        </button>
+
+        {/* FANCY PALACE */}
+        <button
+          onClick={() => setCompanyName("FANCY-PALACE-TRADING-LLC")}
+          className="group w-full text-left p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-lg transition-all bg-gradient-to-br from-white to-indigo-50"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-indigo-600 text-white shadow-md">
+              <Package className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600">
+                FANCY PALACE TRADING LLC
+              </h3>
+             
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 text-sm text-gray-600 text-center">
+        You must select a company before continuing
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }

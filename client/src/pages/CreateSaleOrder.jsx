@@ -874,9 +874,7 @@ const normalizeUnit = (units = "") => {
         <h2 className="text-2xl font-bold text-white">
           Select Company
         </h2>
-        <p className="text-blue-100 mt-1">
-          Choose a company to start creating a sale order
-        </p>
+       
       </div>
 
       {/* Body */}
@@ -895,9 +893,7 @@ const normalizeUnit = (units = "") => {
               <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600">
                 AMANA FIRST TRADING LLC
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Manage inventory and create sale orders for Amana
-              </p>
+             
             </div>
           </div>
         </button>
@@ -915,9 +911,7 @@ const normalizeUnit = (units = "") => {
               <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600">
                 FANCY PALACE TRADING LLC
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Create and manage sales for Fancy Palace
-              </p>
+             
             </div>
           </div>
         </button>

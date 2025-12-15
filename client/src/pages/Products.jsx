@@ -444,10 +444,11 @@ const [activeCardId, setActiveCardId] = useState(null)
                   </div>
 
                   <div className="p-4">
-                    <h3 className="font-semibold text-slate-800 mb-1 line-clamp-2" title={item.NAME}>
-                      {item.NAME}
+                    <h3 className="font-semibold text-slate-800 mb-1 line-clamp-2" title={item.NAME }>
+                      {item.NAME} || AED {item.SALESPRICE || "N/A"}
                     </h3>
                     <p className="text-xs text-slate-500 mb-3">{item.GROUP || "Uncategorized"}</p>
+                     <p className="text-xs text-slate-500 mb-3"></p>
 
                     <div className="flex items-center justify-between">
                       <div>
