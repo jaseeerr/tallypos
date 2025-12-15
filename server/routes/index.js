@@ -307,7 +307,7 @@ router.post(
   async (req, res) => {
     try {
       const { ids } = req.body;
-
+console.log(ids)
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({
           ok: false,
