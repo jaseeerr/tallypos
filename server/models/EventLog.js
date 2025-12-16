@@ -36,7 +36,7 @@ const EventLogSchema = new mongoose.Schema(
 
     action: {
       type: String,
-      enum: ["fetch", "sync"],
+enum: ["fetch", "hash", "sync", "no-change"],
       required: true
     },
 
