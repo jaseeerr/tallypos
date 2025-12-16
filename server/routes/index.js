@@ -1716,11 +1716,13 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
       status,
       search = "",
       page = 1,
-      limit = 100
+      limit = 100,
+      startDate,
+      endDate
     } = req.query;
 
     // ----------------------------
-    // Pagination (same logic)
+    // Pagination
     // ----------------------------
     const parsedLimit = Math.min(parseInt(limit, 10), 200);
     const parsedPage = Math.max(parseInt(page, 10), 1);
@@ -1731,6 +1733,7 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
     // ----------------------------
     const query = {};
 
+    // Company filter
     if (company && company !== "ALL") {
       query.company = company;
     }
@@ -1747,7 +1750,26 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
       query.status = status;
     }
 
-    // Text search (message + details)
+    // ----------------------------
+    // Date filter (createdAt)
+    // ----------------------------
+    if (startDate || endDate) {
+      query.createdAt = {};
+
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // include full day
+        query.createdAt.$lte = end;
+      }
+    }
+
+    // ----------------------------
+    // Text search
+    // ----------------------------
     if (search.trim()) {
       query.$or = [
         { message: { $regex: search, $options: "i" } },
@@ -1756,11 +1778,11 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
     }
 
     // ----------------------------
-    // Fetch raw logs (lean)
+    // Fetch logs (DB-level sorting)
     // ----------------------------
     const rawLogs = await EventLog.find(query)
-      .lean()
-      .sort({ timestamp: -1 });
+      .sort({ timestamp: -1 })
+      .lean();
 
     const total = rawLogs.length;
 
@@ -1788,7 +1810,6 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
     });
   }
 });
-
 
 
 module.exports = router;

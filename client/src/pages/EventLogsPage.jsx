@@ -5,7 +5,8 @@ import {
   Loader2,
   Database,
   Clock,
-  Building2
+  Building2,
+  Calendar
 } from "lucide-react";
 import MyAxiosInstance from "../utils/axios";
 
@@ -18,33 +19,43 @@ export default function EventLogsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const observerRef = useRef(null);
 
   // -------------------------------
   // Fetch logs
   // -------------------------------
-  const fetchLogs = async (pageToLoad) => {
-    if (loading || !hasMore) return;
+  const fetchLogs = async (pageToLoad, reset = false) => {
+    if (loading || (!hasMore && !reset)) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const res = await axios.get(`/getEventLogs`, {
-        page: pageToLoad,
-        limit: 20
+      const res = await axios.get("/getEventLogs", {
+        params: {
+          page: pageToLoad,
+          limit: 20,
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate })
+        }
       });
-console.log(res)
+
       const newLogs = res.data.logs || [];
 
-setLogs((prev) => {
-  const seen = new Set(prev.map((l) => l.eventId));
-  const filtered = newLogs.filter((l) => !seen.has(l.eventId));
-  return [...prev, ...filtered];
-});
-      if (newLogs.length === 0 || newLogs.length < 20) {
-        setHasMore(false);
-      }
+      setLogs((prev) => {
+        if (reset) return newLogs;
+
+        const seen = new Set(prev.map((l) => l.eventId));
+        const filtered = newLogs.filter(
+          (l) => !seen.has(l.eventId)
+        );
+        return [...prev, ...filtered];
+      });
+
+      setHasMore(newLogs.length === 20);
     } catch (err) {
       setError(err.message || "Failed to load logs");
     } finally {
@@ -52,10 +63,21 @@ setLogs((prev) => {
     }
   };
 
+  // -------------------------------
   // Initial load
+  // -------------------------------
   useEffect(() => {
-    fetchLogs(1);
+    fetchLogs(1, true);
   }, []);
+
+  // -------------------------------
+  // Refetch on date change
+  // -------------------------------
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    fetchLogs(1, true);
+  }, [startDate, endDate]);
 
   // -------------------------------
   // Infinite scroll observer
@@ -65,7 +87,11 @@ setLogs((prev) => {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !loading
+        ) {
           const nextPage = page + 1;
           setPage(nextPage);
           fetchLogs(nextPage);
@@ -99,6 +125,35 @@ setLogs((prev) => {
         Event Logs
       </h1>
 
+      {/* Date Filters */}
+      <div className="flex flex-wrap gap-4 mb-6 items-end">
+        <div>
+          <label className="text-sm font-medium flex items-center gap-1">
+            <Calendar className="w-4 h-4" />
+            Start Date
+          </label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border rounded px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium flex items-center gap-1">
+            <Calendar className="w-4 h-4" />
+            End Date
+          </label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border rounded px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
       {/* Error */}
       {error && (
         <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
@@ -110,7 +165,7 @@ setLogs((prev) => {
       <div className="space-y-4">
         {logs.map((log) => (
           <div
-            key={log.eventId}
+            key={`${log.eventId}-${log.timestamp}`}
             className="border rounded-lg p-4 bg-white shadow-sm"
           >
             {/* Header */}
@@ -143,7 +198,11 @@ setLogs((prev) => {
 
               <div>
                 <span className="font-medium">Stage:</span>{" "}
-                {log.stage}
+                <span className="capitalize">
+                  {log.stage === "fetch" && "Tally Fetch"}
+                  {log.stage === "hash" && "Hash Check"}
+                  {log.stage === "sync" && "External Sync"}
+                </span>
               </div>
 
               <div>
@@ -186,8 +245,18 @@ setLogs((prev) => {
 
             {/* DB timestamps */}
             <div className="mt-3 text-xs text-gray-500">
-              <div>Created At: {new Date(log.createdAt).toLocaleString()}</div>
-              <div>Updated At: {new Date(log.updatedAt).toLocaleString()}</div>
+              {log.createdAt && (
+                <div>
+                  Created At:{" "}
+                  {new Date(log.createdAt).toLocaleString()}
+                </div>
+              )}
+              {log.updatedAt && (
+                <div>
+                  Updated At:{" "}
+                  {new Date(log.updatedAt).toLocaleString()}
+                </div>
+              )}
             </div>
           </div>
         ))}
