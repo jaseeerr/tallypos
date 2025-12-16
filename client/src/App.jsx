@@ -18,6 +18,7 @@ import EditSale from './pages/EditSale'
 import SaleOrdersList from './pages/ListSaleOrders'
 import ViewOrder from './pages/ViewSaleOrder'
 import CartPage from './pages/Cart'
+import EventLogsPage from './pages/EventLogsPage'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -97,6 +98,11 @@ function App() {
              <Route
               path="/cart"
               element={isAuthed ? <CartPage /> : <Navigate to="/auth" replace />}
+            />
+
+               <Route
+              path="/logs"
+              element={isAuthed ? <EventLogsPage /> : <Navigate to="/auth" replace />}
             />
 
             <Route

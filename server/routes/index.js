@@ -6,6 +6,7 @@ const path = require("path");
 const argon2 = require('argon2')
 const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose');
+const EventLog = require("../models/EventLog");
 
 
 const Auth = require('../auth/auth')
@@ -1701,5 +1702,93 @@ router.post("/sales-callback", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
+
+
+// event-logs-api
+
+router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
+  try {
+    const {
+      company,
+      module,
+      action,
+      status,
+      search = "",
+      page = 1,
+      limit = 100
+    } = req.query;
+
+    // ----------------------------
+    // Pagination (same logic)
+    // ----------------------------
+    const parsedLimit = Math.min(parseInt(limit, 10), 200);
+    const parsedPage = Math.max(parseInt(page, 10), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    // ----------------------------
+    // Build query
+    // ----------------------------
+    const query = {};
+
+    if (company && company !== "ALL") {
+      query.company = company;
+    }
+
+    if (module) {
+      query.module = module;
+    }
+
+    if (action) {
+      query.action = action;
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    // Text search (message + details)
+    if (search.trim()) {
+      query.$or = [
+        { message: { $regex: search, $options: "i" } },
+        { "details.error": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // ----------------------------
+    // Fetch raw logs (lean)
+    // ----------------------------
+    const rawLogs = await EventLog.find(query)
+      .lean()
+      .sort({ timestamp: -1 });
+
+    const total = rawLogs.length;
+
+    // ----------------------------
+    // Pagination AFTER filtering
+    // ----------------------------
+    const paginatedLogs = rawLogs.slice(
+      skip,
+      skip + parsedLimit
+    );
+
+    return res.json({
+      ok: true,
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      logs: paginatedLogs
+    });
+
+  } catch (error) {
+    console.error("Error fetching event logs:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+
 
 module.exports = router;

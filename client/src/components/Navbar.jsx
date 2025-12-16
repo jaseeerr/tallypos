@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Home, ShoppingCart, Users,Package, LogOut,BadgeDollarSign,ScrollText,ReceiptText, Plus,FilePlusCorner, Eye,Menu, ChevronDown } from "lucide-react"
+import { Home, ShoppingCart, Users,Package, LogOut,BadgeDollarSign,Activity ,ScrollText,ReceiptText, Plus,FilePlusCorner, Eye,Menu, ChevronDown } from "lucide-react"
 
 function BottomNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -33,6 +33,7 @@ function BottomNavbar() {
         { name: "Customers", path: "/customers", icon: Users, color: "from-blue-600 to-indigo-600" },
 
         { name: "Cart", path: "/cart", icon: ShoppingCart, color: "from-slate-600 to-indigo-800" },
+        { name: "Event Logs", path: "/logs", icon: Activity , color: "from-slate-600 to-indigo-800" },
 
   ]
 
