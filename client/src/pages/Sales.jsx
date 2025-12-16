@@ -533,7 +533,7 @@ export default function AddSale() {
             <input
               type="checkbox"
               checked={sale.isCashSale}
-              onChange={(e) => setSale({ ...sale, isCashSale: e.target.checked })}
+              onChange={(e) => setSale({ ...sale, isCashSale: e.target.checked, cashLedgerName:'cash' })}
               className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
             />
           </div>
