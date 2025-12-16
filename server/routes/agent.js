@@ -3,6 +3,7 @@ var router = express.Router();
 const Customer = require('../models/Customer')
 const Inventory = require('../models/Inventory')
 const Sale = require('../models/Sale')
+const EventLog = require("../models/EventLog");
 
 /* GET users listing. */
 router.get('/', function(req, res, next) {
@@ -393,5 +394,81 @@ router.post("/new-inventory", async (req, res) => {
 
 
 
+// -------------------------------------
+// POST /api/agent/event-log
+// -------------------------------------
+router.post("/event-log", async (req, res) => {
+  try {
+    const {
+      eventId,
+      timestamp,
+      company,
+      source,
+      module,
+      action,
+      status,
+      stage,
+      message,
+      details
+    } = req.body;
+
+    // ------------------
+    // Basic validation
+    // ------------------
+    if (
+      !eventId ||
+      !timestamp ||
+      !company ||
+      !source ||
+      !module ||
+      !action ||
+      !status ||
+      !stage ||
+      !message
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields"
+      });
+    }
+
+    // ------------------
+    // Save log
+    // ------------------
+    await EventLog.create({
+      eventId,
+      timestamp,
+      company,
+      source,
+      module,
+      action,
+      status,
+      stage,
+      message,
+      details
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Event log stored successfully"
+    });
+
+  } catch (err) {
+    // Duplicate eventId (idempotency)
+    if (err.code === 11000) {
+      return res.status(200).json({
+        success: true,
+        message: "Duplicate event ignored"
+      });
+    }
+
+    console.error("❌ Event log save failed:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
 
 module.exports = router;
