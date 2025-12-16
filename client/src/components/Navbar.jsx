@@ -33,7 +33,7 @@ function BottomNavbar() {
         { name: "Customers", path: "/customers", icon: Users, color: "from-blue-600 to-indigo-600" },
 
         { name: "Cart", path: "/cart", icon: ShoppingCart, color: "from-slate-600 to-indigo-800" },
-        { name: "Event Logs", path: "/logs", icon: Activity , color: "from-slate-600 to-indigo-800" },
+        { name: "Event Logs", path: "/logs", icon: Activity , color: "from-orange-600 to-indigo-800" },
 
   ]
 
