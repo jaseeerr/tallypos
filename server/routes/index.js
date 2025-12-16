@@ -18,23 +18,36 @@ const Admin = require('../models/Admin')
 
 
 // Ensure upload directory exists
+// Ensure upload directory exists
 const uploadDir = path.join(__dirname, "../uploads/inventory");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer setup
+// Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, "inv_" + Date.now() + ext);
+    cb(null, `inv_${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`);
   }
 });
 
-const upload = multer({ storage });
+// Optional: file filter (recommended)
+const fileFilter = (req, file, cb) => {
+  if (!file.mimetype.startsWith("image/")) {
+    return cb(new Error("Only image files are allowed"), false);
+  }
+  cb(null, true);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB per image
+});
 
 
 /* GET home page. */
@@ -357,74 +370,118 @@ console.log(ids)
 
 
 
-router.put("/inventory/update-image/:id", Auth.userAuth, upload.single("image"), async (req, res) => {
-  try {
-    const inventoryId = req.params.id;
+router.put("/inventory/add-images/:id",Auth.userAuth,upload.array("images", 10), async (req, res) => {
+    try {
+      const inventoryId = req.params.id;
 
-    if (!req.file) {
-      return res.status(400).json({ ok: false, message: "Image file required" });
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "At least one image is required"
+        });
+      }
+
+      const inv = await Inventory.findById(inventoryId);
+
+      if (!inv) {
+        // cleanup uploaded files
+        req.files.forEach(file => fs.unlinkSync(file.path));
+        return res.status(404).json({
+          ok: false,
+          message: "Inventory item not found"
+        });
+      }
+
+      const newImages = req.files.map(
+        file => `uploads/inventory/${file.filename}`
+      );
+
+      inv.imageUrl = [...inv.imageUrl, ...newImages];
+      await inv.save();
+
+      return res.json({
+        ok: true,
+        message: "Images added successfully",
+        images: newImages,
+        inventory: inv
+      });
+
+    } catch (error) {
+      console.error("Add inventory images error:", error);
+      return res.status(500).json({ ok: false, error: error.message });
     }
-
-    const newPath = "uploads/inventory/" + req.file.filename; // no leading slash
-
-    const oldInv = await Inventory.findById(inventoryId);
-
-    if (!oldInv) {
-      fs.unlinkSync(req.file.path); // cleanup uploaded file
-      return res.status(404).json({ ok: false, message: "Inventory item not found" });
-    }
-
-    // Delete old image from disk
-    if (oldInv.imageUrl) {
-      const oldFilePath = path.join(__dirname, "..", oldInv.imageUrl);
-      if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
-    }
-
-    oldInv.imageUrl = newPath;
-    await oldInv.save();
-
-    return res.json({
-      ok: true,
-      message: "Image updated successfully",
-      imageUrl: newPath,
-      inventory: oldInv,
-    });
-  } catch (error) {
-    console.error("Update inventory image error:", error);
-    return res.status(500).json({ ok: false, error: error.message });
   }
-});
+);
 
 
 
-router.put("/inventory/remove-image/:id", Auth.userAuth, async (req, res) => {
-  try {
-    const inventoryId = req.params.id;
 
-    const inv = await Inventory.findById(inventoryId);
+router.put(
+  "/inventory/delete-image/:id",
+  Auth.userAuth,
+  async (req, res) => {
+    try {
+      const inventoryId = req.params.id;
+      const { imageUrl } = req.body;
 
-    if (!inv) {
-      return res.status(404).json({ ok: false, message: "Inventory item not found" });
+      if (!imageUrl) {
+        return res.status(400).json({
+          ok: false,
+          message: "imageUrl is required",
+        });
+      }
+
+      const inventory = await Inventory.findById(inventoryId);
+
+      if (!inventory) {
+        return res.status(404).json({
+          ok: false,
+          message: "Inventory item not found",
+        });
+      }
+
+      // Check image exists in array
+      if (!inventory.imageUrl.includes(imageUrl)) {
+        return res.status(400).json({
+          ok: false,
+          message: "Image not found on this inventory item",
+        });
+      }
+
+      // Delete file from disk
+      const filePath = path.join(
+        __dirname,
+        "..",
+        imageUrl.replace(/^\//, "")
+      );
+
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Remove only this image from array
+      inventory.imageUrl = inventory.imageUrl.filter(
+        (img) => img !== imageUrl
+      );
+
+      await inventory.save();
+
+      return res.json({
+        ok: true,
+        message: "Image deleted successfully",
+        inventory,
+      });
+
+    } catch (error) {
+      console.error("Delete inventory image error:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
     }
-
-    if (inv.imageUrl) {
-      const filePath = path.join(__dirname, "..", inv.imageUrl.replace(/^\//, ""));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-
-    inv.imageUrl = null;
-    await inv.save();
-
-    return res.json({
-      ok: true,
-      message: "Image removed successfully",
-    });
-
-  } catch (error) {
-    console.error("Remove inventory image error:", error);
-    return res.status(500).json({ ok: false, error: error.message });
   }
-});
+);
+
 
 
 

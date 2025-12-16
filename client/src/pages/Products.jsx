@@ -24,8 +24,8 @@ export default function InventoryPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [modalItem, setModalItem] = useState(null)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [preview, setPreview] = useState(null)
+const [selectedFile, setSelectedFile] = useState(null)
+  const [preview, setPreview] = useState([])
   const [uploading, setUploading] = useState(false)
   const [activeCardId, setActiveCardId] = useState(null)
 
@@ -217,8 +217,12 @@ export default function InventoryPage() {
   // Modal functions
   function openModal(item) {
     setModalItem(item)
-    setSelectedFile(null)
-    setPreview(item.imageUrl ? `${API_BASE}/${item.imageUrl}` : null)
+    setSelectedFile([])
+setPreview(
+  Array.isArray(item.imageUrl)
+    ? item.imageUrl.map((img) => `${API_BASE}/${img}`)
+    : []
+)
     setModalOpen(true)
   }
 
@@ -227,12 +231,14 @@ export default function InventoryPage() {
     setQrModalOpen(true)
   }
 
-  function handleFileChange(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    setSelectedFile(file)
-    setPreview(URL.createObjectURL(file))
-  }
+ function handleFileChange(e) {
+  const files = Array.from(e.target.files)
+  if (files.length === 0) return
+
+  setSelectedFile(files)
+  setPreview(files.map((file) => URL.createObjectURL(file)))
+}
+
 
   async function handleUpload() {
     if (!selectedFile) {
@@ -242,8 +248,15 @@ export default function InventoryPage() {
 
     try {
       setUploading(true)
-      const formData = new FormData()
-      formData.append("image", selectedFile)
+    const formData = new FormData()
+selectedFile.forEach((file) => {
+  formData.append("images", file)
+})
+
+await axiosInstance.put(
+  `/inventory/add-images/${modalItem._id}`,
+  formData
+)
 
       await axiosInstance.put(`/inventory/update-image/${modalItem._id}`, formData)
 
@@ -265,27 +278,29 @@ export default function InventoryPage() {
     }
   }
 
-  async function handleRemoveImage() {
-    try {
-      setUploading(true)
-      await axiosInstance.put(`/inventory/remove-image/${modalItem._id}`)
-      setUploading(false)
-      setModalOpen(false)
+async function handleDeleteImage(imagePath) {
+  try {
+    await axiosInstance.put(
+      `/inventory/delete-image/${modalItem._id}`,
+      { imageUrl: imagePath }
+    )
 
-      setInventory([])
-      loadedIdsRef.current = new Set()
-      pageRef.current = 1
-      hasMoreRef.current = true
-      isFetchingRef.current = false
-      firstLoadCompleteRef.current = false
-      setInitialLoading(true)
-      fetchInventory(true)
-    } catch (err) {
-      console.error("Remove image error:", err)
-      alert("Failed to remove image")
-      setUploading(false)
-    }
+    setPreviews((prev) =>
+      prev.filter((p) => !p.endsWith(imagePath))
+    )
+  } catch (err) {
+    alert("Failed to delete image")
   }
+}
+
+
+  function getPrimaryImage(item) {
+  if (Array.isArray(item.imageUrl) && item.imageUrl.length > 0) {
+    return item.imageUrl[0]
+  }
+  return null
+}
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -410,9 +425,9 @@ export default function InventoryPage() {
                   className="group bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100 cursor-pointer"
                 >
                   <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-                    {item.imageUrl ? (
+                    {getPrimaryImage(item) ? (
                       <img
-                        src={`${API_BASE}/${item.imageUrl}`}
+                        src={`${API_BASE}/${getPrimaryImage(item)}`}
                         alt={item.NAME}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -502,9 +517,9 @@ export default function InventoryPage() {
                   className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
                 >
                   <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    {item.imageUrl ? (
+                    { getPrimaryImage(item) ? (
                       <img
-                        src={`${API_BASE}/${item.imageUrl}`}
+                        src={`${API_BASE}/${getPrimaryImage(item)}`}
                         alt={item.NAME}
                         className="w-full h-full object-cover rounded-md"
                         loading="lazy"
@@ -593,26 +608,34 @@ export default function InventoryPage() {
 
             <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
 
-            {preview && (
-              <div className="relative mb-4">
-                <img
-                  src={preview || "/placeholder.svg"}
-                  alt="Preview"
-                  className="w-full h-64 object-cover rounded-lg"
-                />
-                {modalItem.imageUrl && !selectedFile && (
-                  <button
-                    onClick={handleRemoveImage}
-                    disabled={uploading}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition disabled:opacity-50"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            )}
+           {preview.length > 0 && (
+  <div className="grid grid-cols-3 gap-2 mb-4">
+    {preview.map((img, idx) => (
+      <div key={idx} className="relative">
+        <img
+          src={img}
+          className="w-full h-24 object-cover rounded"
+        />
+        <button
+          onClick={() =>
+            handleDeleteImage(modalItem.imageUrl[idx])
+          }
+          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+    ))}
+  </div>
+)}
 
-            <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="file-upload" />
+
+<input
+  type="file"
+  accept="image/*"
+  multiple
+  onChange={handleFileChange}
+/>
 
             <div className="flex gap-2">
               <label
@@ -623,7 +646,7 @@ export default function InventoryPage() {
               </label>
               <button
                 onClick={handleUpload}
-                disabled={!selectedFile || uploading}
+disabled={selectedFile.length === 0 || uploading}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? "Uploading..." : "Upload"}
