@@ -650,7 +650,7 @@ export default function InventoryPage() {
             <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
 
             <div id={`qr-${modalItem._id}`} className="bg-white p-4 rounded-lg flex flex-col items-center gap-3">
-              <QRCode value={JSON.stringify(modalItem._id)} size={256} />
+              <QRCode value={modalItem._id} size={256} />
               <p className="text-sm font-medium text-slate-700 text-center">{modalItem.NAME}</p>
             </div>
 
