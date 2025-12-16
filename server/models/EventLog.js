@@ -47,11 +47,13 @@ const EventLogSchema = new mongoose.Schema(
       index: true
     },
 
-    stage: {
-      type: String,
-      enum: ["request", "response", "hash", "sync", "error"],
-      required: true
-    },
+   stage: {
+  type: String,
+  enum: ["fetch", "hash", "sync"],
+  required: true,
+  index: true
+},
+
 
     message: {
       type: String,
