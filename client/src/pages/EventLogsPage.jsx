@@ -34,11 +34,14 @@ export default function EventLogsPage() {
         page: pageToLoad,
         limit: 20
       });
-
+console.log(res)
       const newLogs = res.data.logs || [];
 
-      setLogs((prev) => [...prev, ...newLogs]);
-
+setLogs((prev) => {
+  const seen = new Set(prev.map((l) => l.eventId));
+  const filtered = newLogs.filter((l) => !seen.has(l.eventId));
+  return [...prev, ...filtered];
+});
       if (newLogs.length === 0 || newLogs.length < 20) {
         setHasMore(false);
       }
