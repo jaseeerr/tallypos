@@ -602,7 +602,7 @@ export default function AddSale() {
 
             {/* Inventory Dropdown */}
             {showInventoryDropdown && (
-              <div className="absolute w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200">
+              <div className="absolute w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                 {inventory.map((item) => (
                   <div
                     key={item._id}
@@ -660,10 +660,10 @@ export default function AddSale() {
                       setShowCustomerDropdown(false)
                     }}
                   >
-                    <h3 className="text-gray-800 font-semibold text-sm mb-1">{customer.NAME}</h3>
+                    <h3 className="text-gray-800 font-semibold text-sm mb-1">{customer.name}</h3>
                     <p className="text-gray-600 text-xs">
-                      Contact: {customer.CONTACT || "N/A"}
-                      <span className="ml-2">Email: {customer.EMAIL || "N/A"}</span>
+                      Address: {customer.address || "N/A"}
+                      <span className="ml-2">TRN: {customer.trn || "N/A"}</span>
                     </p>
                   </div>
                 ))}
