@@ -30,7 +30,7 @@ export default function EventLogsPage() {
     setError("");
 
     try {
-      const res = await axios.post(`/getEventLogs`, {
+      const res = await axios.get(`/getEventLogs`, {
         page: pageToLoad,
         limit: 20
       });
