@@ -2,7 +2,19 @@
 
 import { useEffect, useState, useRef } from "react"
 import QRCode from "react-qr-code"
-import { Search, X, Upload, Trash2, Download, Package, Grid3x3, List, ShoppingCart } from "lucide-react"
+import {
+  Search,
+  X,
+  Upload,
+  Trash2,
+  Download,
+  Package,
+  Grid3x3,
+  List,
+  ShoppingCart,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
 
@@ -24,10 +36,11 @@ export default function InventoryPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [modalItem, setModalItem] = useState(null)
-const [selectedFile, setSelectedFile] = useState(null)
-  const [preview, setPreview] = useState([])
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [previews, setPreviews] = useState([])
   const [uploading, setUploading] = useState(false)
   const [activeCardId, setActiveCardId] = useState(null)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   // Refs
   const loaderRef = useRef(null)
@@ -49,7 +62,6 @@ const [selectedFile, setSelectedFile] = useState(null)
     }
   }
 
-  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
@@ -57,7 +69,6 @@ const [selectedFile, setSelectedFile] = useState(null)
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Fetch inventory with proper guards to prevent multiple calls
   async function fetchInventory(resetPage = false) {
     if (isFetchingRef.current) {
       return
@@ -136,7 +147,6 @@ const [selectedFile, setSelectedFile] = useState(null)
     fetchInventory(true)
   }, [activeCompany, debouncedSearch, includeOutOfStock])
 
-  // Infinite scroll observer
   useEffect(() => {
     if (!firstLoadCompleteRef.current) {
       return
@@ -162,7 +172,6 @@ const [selectedFile, setSelectedFile] = useState(null)
     }
   }, [firstLoadCompleteRef.current, loading])
 
-  // QR Download
   function handleQRDownload(item) {
     const qrContainer = document.getElementById(`qr-${modalItem._id}`)
     if (!qrContainer) return
@@ -214,15 +223,13 @@ const [selectedFile, setSelectedFile] = useState(null)
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
   }
 
-  // Modal functions
   function openModal(item) {
     setModalItem(item)
-    setSelectedFile([])
-setPreview(
-  Array.isArray(item.imageUrl)
-    ? item.imageUrl.map((img) => `${API_BASE}/${img}`)
-    : []
-)
+    setSelectedFiles([])
+    // Handle imageUrl as an array
+    const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
+    setPreviews(imageArray.map((url) => `${API_BASE}/${url}`))
+    setCurrentImageIndex(0)
     setModalOpen(true)
   }
 
@@ -231,34 +238,56 @@ setPreview(
     setQrModalOpen(true)
   }
 
- function handleFileChange(e) {
-  const files = Array.from(e.target.files)
-  if (files.length === 0) return
+  function handleFileChange(e) {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    setSelectedFiles(files)
+    // Create preview URLs for new files
+    const newPreviews = files.map((file) => URL.createObjectURL(file))
+    setPreviews((prev) => [...prev, ...newPreviews])
+  }
 
-  setSelectedFile(files)
-  setPreview(files.map((file) => URL.createObjectURL(file)))
-}
+  function handleRemoveSelectedImage(indexToRemove) {
+    // Calculate the actual index in selectedFiles array
+    const existingImagesCount = Array.isArray(modalItem.imageUrl)
+      ? modalItem.imageUrl.length
+      : modalItem.imageUrl
+        ? 1
+        : 0
+    const selectedFileIndex = indexToRemove - existingImagesCount
 
+    if (selectedFileIndex >= 0 && selectedFileIndex < selectedFiles.length) {
+      // Remove from selectedFiles array
+      setSelectedFiles((prev) => prev.filter((_, idx) => idx !== selectedFileIndex))
+      // Remove from previews array
+setPreviews((prev) => {
+  const next = prev.filter((_, idx) => idx !== indexToRemove)
+  setCurrentImageIndex((idx) => clampIndex(idx, next.length))
+  return next
+})
+      // Adjust current image index if needed
+      if (currentImageIndex === indexToRemove) {
+        setCurrentImageIndex(Math.max(0, indexToRemove - 1))
+      } else if (currentImageIndex > indexToRemove) {
+        setCurrentImageIndex((prev) => prev - 1)
+      }
+    }
+  }
 
   async function handleUpload() {
-    if (!selectedFile) {
-      alert("Select an image first!")
+    if (selectedFiles.length === 0) {
+      alert("Select at least one image first!")
       return
     }
 
     try {
       setUploading(true)
-    const formData = new FormData()
-selectedFile.forEach((file) => {
-  formData.append("images", file)
-})
+      const formData = new FormData()
+      selectedFiles.forEach((file) => {
+        formData.append("images", file)
+      })
 
-await axiosInstance.put(
-  `/inventory/add-images/${modalItem._id}`,
-  formData
-)
-
-      await axiosInstance.put(`/inventory/update-image/${modalItem._id}`, formData)
+      await axiosInstance.put(`/inventory/add-images/${modalItem._id}`, formData)
 
       setUploading(false)
       setModalOpen(false)
@@ -273,34 +302,63 @@ await axiosInstance.put(
       fetchInventory(true)
     } catch (err) {
       console.error("Image upload error:", err)
-      alert("Failed to upload image")
+      alert("Failed to upload images")
       setUploading(false)
     }
   }
 
-async function handleDeleteImage(imagePath) {
-  try {
-    await axiosInstance.put(
-      `/inventory/delete-image/${modalItem._id}`,
-      { imageUrl: imagePath }
-    )
+  async function handleRemoveImage(imageUrl) {
+    try {
+      setUploading(true)
+      await axiosInstance.put(`/inventory/delete-image/${modalItem._id}`, { imageUrl })
 
-    setPreviews((prev) =>
-      prev.filter((p) => !p.endsWith(imagePath))
-    )
-  } catch (err) {
-    alert("Failed to delete image")
+      // Remove from previews
+      const imageArray = Array.isArray(modalItem.imageUrl)
+        ? modalItem.imageUrl
+        : modalItem.imageUrl
+          ? [modalItem.imageUrl]
+          : []
+      const fullUrl = `${API_BASE}/${imageUrl}`
+setPreviews((prev) => {
+  const next = prev.filter((p) => p !== fullUrl)
+  setCurrentImageIndex((idx) => clampIndex(idx, next.length))
+  return next
+})
+
+      // Update modal item
+      setModalItem((prev) => ({
+        ...prev,
+        imageUrl: imageArray.filter((url) => url !== imageUrl),
+      }))
+
+      setUploading(false)
+
+      // Refresh inventory
+      setInventory([])
+      loadedIdsRef.current = new Set()
+      pageRef.current = 1
+      hasMoreRef.current = true
+      isFetchingRef.current = false
+      firstLoadCompleteRef.current = false
+      setInitialLoading(true)
+      fetchInventory(true)
+    } catch (err) {
+      console.error("Remove image error:", err)
+      alert("Failed to remove image")
+      setUploading(false)
+    }
   }
-}
-
 
   function getPrimaryImage(item) {
-  if (Array.isArray(item.imageUrl) && item.imageUrl.length > 0) {
-    return item.imageUrl[0]
+    if (!item.imageUrl) return null
+    const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : [item.imageUrl]
+    return imageArray.length > 0 ? imageArray[0] : null
   }
-  return null
-}
 
+  function clampIndex(index, length) {
+  if (length === 0) return 0
+  return Math.max(0, Math.min(index, length - 1))
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -394,7 +452,9 @@ async function handleDeleteImage(imagePath) {
         {initialLoading ? (
           <div
             className={
-              viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2" : "space-y-3"
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2"
+                : "space-y-3"
             }
           >
             {[...Array(10)].map((_, i) => (
@@ -414,9 +474,11 @@ async function handleDeleteImage(imagePath) {
             <p className="text-slate-500 text-sm">Try adjusting your filters or search query</p>
           </div>
         ) : viewMode === "grid" ? (
-           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
             {inventory.map((item) => {
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
+              const primaryImage = getPrimaryImage(item)
+              const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
 
               return (
                 <div
@@ -425,13 +487,20 @@ async function handleDeleteImage(imagePath) {
                   className="group bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-100 cursor-pointer"
                 >
                   <div className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-                    {getPrimaryImage(item) ? (
-                      <img
-                        src={`${API_BASE}/${getPrimaryImage(item)}`}
-                        alt={item.NAME}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                    {primaryImage ? (
+                      <>
+                        <img
+                          src={`${API_BASE}/${primaryImage}`}
+                          alt={item.NAME}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        {imageArray.length > 1 && (
+                          <div className="absolute bottom-1 left-1 px-2 py-0.5 bg-black/70 text-white text-[10px] font-semibold rounded-full">
+                            +{imageArray.length - 1}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Package className="text-slate-300" size={48} />
@@ -443,16 +512,15 @@ async function handleDeleteImage(imagePath) {
                       </div>
                     )}
 
-                  <div
-  className={`
+                    <div
+                      className={`
     absolute inset-0 flex flex-col items-center justify-center gap-2
     bg-black/60 backdrop-blur-sm p-3
     transition-opacity duration-300
     ${activeCardId === item._id ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}
     group-hover:opacity-100 group-hover:pointer-events-auto
   `}
->
-
+                    >
                       {/* Product Details */}
                       <div className="text-center mb-2">
                         <h3 className="text-white font-bold text-xs mb-1 line-clamp-2" title={item.NAME}>
@@ -510,20 +578,29 @@ async function handleDeleteImage(imagePath) {
           <div className="space-y-2">
             {inventory.map((item) => {
               const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
+              const primaryImage = getPrimaryImage(item)
+              const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
 
               return (
                 <div
                   key={item._id}
                   className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
                 >
-                  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    { getPrimaryImage(item) ? (
-                      <img
-                        src={`${API_BASE}/${getPrimaryImage(item)}`}
-                        alt={item.NAME}
-                        className="w-full h-full object-cover rounded-md"
-                        loading="lazy"
-                      />
+                  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0 relative">
+                    {primaryImage ? (
+                      <>
+                        <img
+                          src={`${API_BASE}/${primaryImage}`}
+                          alt={item.NAME}
+                          className="w-full h-full object-cover rounded-md"
+                          loading="lazy"
+                        />
+                        {imageArray.length > 1 && (
+                          <div className="absolute bottom-0 right-0 px-1 py-0.5 bg-black/70 text-white text-[8px] font-semibold rounded-tl">
+                            +{imageArray.length - 1}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <Package className="text-slate-400" size={20} />
                     )}
@@ -540,40 +617,34 @@ async function handleDeleteImage(imagePath) {
                         <span className="text-xs text-slate-400">({item.closingQtyPieces} pcs)</span>
                       )}
                       {isOutOfStock && (
-                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
-                          OUT
+                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded-full">
+                          Out of Stock
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-bold text-blue-600 whitespace-nowrap">
-                      AED {Number(item.SALESPRICE || 0).toFixed(2)}
-                    </span>
-
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => openQRModal(item)}
-                      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-                      title="View QR"
+                      className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+                      title="View QR Code"
                     >
-                      <Download size={14} className="text-slate-600" />
+                      <Download size={16} className="text-slate-700" />
                     </button>
-
                     <button
                       onClick={() => openModal(item)}
-                      className="w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-                      title="Edit"
+                      className="w-9 h-9 rounded-lg bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition"
+                      title="Edit Image"
                     >
-                      <Upload size={14} className="text-slate-600" />
+                      <Upload size={16} className="text-blue-700" />
                     </button>
-
                     <button
                       onClick={() => addToCart(item._id)}
-                      className="w-8 h-8 rounded-md bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center"
+                      className="w-9 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center transition"
                       title="Add to Cart"
                     >
-                      <ShoppingCart size={14} className="text-white" />
+                      <ShoppingCart size={16} className="text-white" />
                     </button>
                   </div>
                 </div>
@@ -582,22 +653,18 @@ async function handleDeleteImage(imagePath) {
           </div>
         )}
 
-        <div ref={loaderRef} className="py-8 flex justify-center">
-          {!initialLoading && loading && (
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          )}
-          {!initialLoading && !loading && !hasMore && inventory.length > 0 && (
-            <p className="text-slate-400 text-sm">No more items to load</p>
-          )}
-        </div>
+        {!initialLoading && hasMore && (
+          <div ref={loaderRef} className="py-8 text-center">
+            {loading && <div className="text-slate-500 text-sm">Loading more...</div>}
+          </div>
+        )}
       </main>
 
-      {/* Image Upload Modal */}
       {modalOpen && modalItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-800">Edit Image</h2>
+              <h2 className="text-xl font-bold text-slate-800">Manage Images</h2>
               <button
                 onClick={() => setModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
@@ -608,55 +675,121 @@ async function handleDeleteImage(imagePath) {
 
             <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
 
-           {preview.length > 0 && (
-  <div className="grid grid-cols-3 gap-2 mb-4">
-    {preview.map((img, idx) => (
-      <div key={idx} className="relative">
-        <img
-          src={img}
-          className="w-full h-24 object-cover rounded"
-        />
-        <button
-          onClick={() =>
-            handleDeleteImage(modalItem.imageUrl[idx])
-          }
-          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-    ))}
-  </div>
-)}
+            {previews.length > 0 && (
+              <div className="relative mb-4">
+                <div className="relative h-80 bg-slate-100 rounded-lg overflow-hidden">
+                  <img
+                    src={previews[currentImageIndex] || "/placeholder.svg"}
+                    alt={`Preview ${currentImageIndex + 1}`}
+                    className="w-full h-full object-contain"
+                  />
 
+                  {currentImageIndex <
+                  (Array.isArray(modalItem.imageUrl) ? modalItem.imageUrl.length : modalItem.imageUrl ? 1 : 0) ? (
+                    // Delete button for existing images (uploaded to server)
+                    <button
+                      onClick={() => {
+                        const imageArray = Array.isArray(modalItem.imageUrl)
+                          ? modalItem.imageUrl
+                          : modalItem.imageUrl
+                            ? [modalItem.imageUrl]
+                            : []
+                        handleRemoveImage(imageArray[currentImageIndex])
+                      }}
+                      disabled={uploading}
+                      className="absolute top-2 right-2 w-9 h-9 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition disabled:opacity-50"
+                      title="Delete this image"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRemoveSelectedImage(currentImageIndex)}
+                      className="absolute top-2 right-2 w-9 h-9 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition"
+                      title="Remove this image"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
 
-<input
-  type="file"
-  accept="image/*"
-  multiple
-  onChange={handleFileChange}
-/>
+                  {/* Image counter */}
+                  {previews.length > 1 && (
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/70 text-white text-xs font-medium rounded-full">
+                      {currentImageIndex + 1} / {previews.length}
+                    </div>
+                  )}
+                </div>
+
+                {/* Navigation buttons */}
+                {previews.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? previews.length - 1 : prev - 1))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition"
+                    >
+                      <ChevronLeft size={20} className="text-slate-700" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentImageIndex((prev) => (prev === previews.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow-lg flex items-center justify-center transition"
+                    >
+                      <ChevronRight size={20} className="text-slate-700" />
+                    </button>
+                  </>
+                )}
+
+                {/* Thumbnail strip */}
+                {previews.length > 1 && (
+                  <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                    {previews.map((preview, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentImageIndex(idx)}
+                        className={`flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition ${
+                          currentImageIndex === idx ? "border-blue-500" : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <img
+                          src={preview || "/placeholder.svg"}
+                          alt={`Thumbnail ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+              id="file-upload"
+            />
 
             <div className="flex gap-2">
               <label
                 htmlFor="file-upload"
                 className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-center cursor-pointer transition"
               >
-                Choose File
+                Choose Files
               </label>
               <button
                 onClick={handleUpload}
-disabled={selectedFile.length === 0 || uploading}
+                disabled={selectedFiles.length === 0 || uploading}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploading ? "Uploading..." : "Upload"}
+                {uploading ? "Uploading..." : `Upload ${selectedFiles.length > 0 ? `(${selectedFiles.length})` : ""}`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* QR Modal */}
+      {/* QR Modal - No changes needed */}
       {qrModalOpen && modalItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
@@ -670,16 +803,15 @@ disabled={selectedFile.length === 0 || uploading}
               </button>
             </div>
 
-            <p className="text-sm text-slate-600 mb-4">{modalItem.NAME}</p>
-
-            <div id={`qr-${modalItem._id}`} className="bg-white p-4 rounded-lg flex flex-col items-center gap-3">
-              <QRCode value={modalItem._id} size={256} />
-              <p className="text-sm font-medium text-slate-700 text-center">{modalItem.NAME}</p>
+            <div className="bg-slate-50 p-6 rounded-xl mb-4" id={`qr-${modalItem._id}`}>
+              <QRCode value={modalItem._id} size={256} className="w-full h-auto" />
             </div>
+
+            <p className="text-sm font-medium text-slate-700 mb-4 text-center">{modalItem.NAME}</p>
 
             <button
               onClick={() => handleQRDownload(modalItem)}
-              className="w-full mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
             >
               <Download size={18} />
               Download QR Code
