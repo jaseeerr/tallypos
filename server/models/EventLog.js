@@ -74,7 +74,7 @@ enum: ["fetch", "hash", "sync", "no-change"],
 // ✅ TTL INDEX (90 days)
 EventLogSchema.index(
   { timestamp: 1 },
-  { expireAfterSeconds: 60 * 60 * 24 * 90 }
+  { expireAfterSeconds: 60 * 60 * 24 * 30 }
 );
 
 module.exports = mongoose.model("EventLog", EventLogSchema);
