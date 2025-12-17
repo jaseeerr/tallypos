@@ -79,7 +79,7 @@ export default function ViewOrder() {
   // RENDER
   // =============================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6 mb-16">
       <div className="max-w-5xl mx-auto space-y-6">
         <button
           onClick={() => navigate(-1)}
