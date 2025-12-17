@@ -137,8 +137,9 @@ router.post("/sales-callback", async (req, res) => {
    ============================================================ */
 router.post("/inventory-sync", async (req, res) => {
   try {
-    const { company, items } = req.body;
+  const { company, inventory } = req.body;
     const companyName = company;
+    const items = inventory;
 
     console.log("\n===============================");
     console.log("📦 NEW SYNC REQUEST");
