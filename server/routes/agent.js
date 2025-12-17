@@ -228,8 +228,8 @@ router.post("/inventory-sync", async (req, res) => {
    ============================================================ */
 router.post("/customer-sync", async (req, res) => {
   try {
-    const { companyName, customers } = req.body;
-
+const { company, customers } = req.body;
+const companyName = company;
     if (!companyName || !Array.isArray(customers)) {
       return res.status(400).json({
         ok: false,
