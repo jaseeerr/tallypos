@@ -1668,6 +1668,8 @@ router.post("/sales-callback", async (req, res) => {
   try {
     const results = req.body?.results;
 
+    console.log('sales callBank Called')
+    console.log(req.body)
     if (!Array.isArray(results)) {
       return res
         .status(400)
