@@ -1648,6 +1648,7 @@ router.get("/fetch-sales", async (req, res) => {
       })),
     }));
 
+    console.log(vouchers)
     return res.json({ Vouchers: vouchers });
   } catch (error) {
     console.error("Error in /fetch-sales:", error);
