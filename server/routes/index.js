@@ -1666,14 +1666,18 @@ router.get("/fetch-sales", async (req, res) => {
    ============================================================ */
 router.post("/sales-callback", async (req, res) => {
   try {
-    const results = req.body?.results;
+    console.log("sales callback called");
+    console.dir(req.body, { depth: null });
 
-    console.log('sales callBank Called')
-    console.log(req.body)
+    let results = req.body?.results;
+
+    // 🔥 Normalize results
+    if (!results) {
+      return res.status(400).json({ ok: false, message: "Missing results" });
+    }
+
     if (!Array.isArray(results)) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Invalid results array" });
+      results = [results]; // wrap single object into array
     }
 
     for (const result of results) {
@@ -1682,7 +1686,6 @@ router.post("/sales-callback", async (req, res) => {
       const sale = await Sale.findOne({ billNo });
       if (!sale) continue;
 
-      // Log the full Tally result
       sale.tallyResponseLogs.push({
         timestamp: new Date(),
         data: result,
@@ -1707,6 +1710,7 @@ router.post("/sales-callback", async (req, res) => {
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
