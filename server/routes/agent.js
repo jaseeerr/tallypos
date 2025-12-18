@@ -88,47 +88,47 @@ router.get("/fetch-sales", async (req, res) => {
    2) TALLY CALLBACK AFTER INSERTION (POST)
    Tally calls this after inserting vouchers
    ============================================================ */
-router.post("/sales-callback", async (req, res) => {
-  try {
-    const results = req.body?.results;
+// router.post("/sales-callback", async (req, res) => {
+//   try {
+//     const results = req.body?.results;
 
-    if (!Array.isArray(results)) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "Invalid results array" });
-    }
+//     if (!Array.isArray(results)) {
+//       return res
+//         .status(400)
+//         .json({ ok: false, message: "Invalid results array" });
+//     }
 
-    for (const result of results) {
-      const { billNo, status, message, tallyInvoiceNumber } = result;
+//     for (const result of results) {
+//       const { billNo, status, message, tallyInvoiceNumber } = result;
 
-      const sale = await Sale.findOne({ billNo });
-      if (!sale) continue;
+//       const sale = await Sale.findOne({ billNo });
+//       if (!sale) continue;
 
-      // Log the full Tally result
-      sale.tallyResponseLogs.push({
-        timestamp: new Date(),
-        data: result,
-      });
+//       // Log the full Tally result
+//       sale.tallyResponseLogs.push({
+//         timestamp: new Date(),
+//         data: result,
+//       });
 
-      if (status === "success") {
-        sale.status = "synced";
-        sale.tallyInvoiceNumber = tallyInvoiceNumber || "";
-        sale.syncError = "";
-      } else {
-        sale.status = "error";
-        sale.syncAttempts += 1;
-        sale.syncError = message || "Unknown error";
-      }
+//       if (status === "success") {
+//         sale.status = "synced";
+//         sale.tallyInvoiceNumber = tallyInvoiceNumber || "";
+//         sale.syncError = "";
+//       } else {
+//         sale.status = "error";
+//         sale.syncAttempts += 1;
+//         sale.syncError = message || "Unknown error";
+//       }
 
-      await sale.save();
-    }
+//       await sale.save();
+//     }
 
-    return res.json({ ok: true, message: "Callback processed" });
-  } catch (error) {
-    console.error("Error in /sales-callback:", error);
-    return res.status(500).json({ ok: false, error: error.message });
-  }
-});
+//     return res.json({ ok: true, message: "Callback processed" });
+//   } catch (error) {
+//     console.error("Error in /sales-callback:", error);
+//     return res.status(500).json({ ok: false, error: error.message });
+//   }
+// });
 
 
 /* ============================================================
