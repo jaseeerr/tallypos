@@ -442,34 +442,47 @@ export default function AddSale() {
         )}
 
         {/* HEADER */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Create New Sale
-              </h1>
-              <p className="text-gray-500 mt-1">Enter sale details and add items to the invoice</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500 font-medium">Company:</span>
-              <div className="flex gap-2">
-                {["AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCompanyName(c)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      companyName === c
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {c === "AMANA-FIRST-TRADING-LLC" ? "AMANA-FIRST-TRADING-LLC" : "FANCY-PALACE-TRADING-LLC"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    
+    {/* Title Section */}
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        Create New Sale
+      </h1>
+      <p className="text-sm sm:text-base text-gray-500 mt-1">
+        Enter sale details and add items to the invoice
+      </p>
+    </div>
+
+    {/* Company Selector */}
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+      <span className="text-sm text-gray-500 font-medium">
+        Company:
+      </span>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        {["AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCompanyName(c)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all w-full sm:w-auto ${
+              companyName === c
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {c === "AMANA-FIRST-TRADING-LLC"
+              ? "AMANA-FIRST-TRADING-LLC"
+              : "FANCY-PALACE-TRADING-LLC"}
+          </button>
+        ))}
+      </div>
+    </div>
+
+  </div>
+</div>
+
 
         {/* SALE DETAILS */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -718,7 +731,7 @@ export default function AddSale() {
         </div>
 
         {/* SUBMIT BUTTON */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end gap-4 mb-10">
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"

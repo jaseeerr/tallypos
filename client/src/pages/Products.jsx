@@ -575,82 +575,86 @@ setPreviews((prev) => {
             })}
           </div>
         ) : (
-          <div className="space-y-2">
-            {inventory.map((item) => {
-              const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
-              const primaryImage = getPrimaryImage(item)
-              const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
+     <div className="space-y-4">
+  {inventory.map((item) => {
+    const isOutOfStock = item.closingQtyPieces <= 0 || !item.CLOSINGQTY
+    const primaryImage = getPrimaryImage(item)
 
-              return (
-                <div
-                  key={item._id}
-                  className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
-                >
-                  <div className="w-12 h-12 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0 relative">
-                    {primaryImage ? (
-                      <>
-                        <img
-                          src={`${API_BASE}/${primaryImage}`}
-                          alt={item.NAME}
-                          className="w-full h-full object-cover rounded-md"
-                          loading="lazy"
-                        />
-                        {imageArray.length > 1 && (
-                          <div className="absolute bottom-0 right-0 px-1 py-0.5 bg-black/70 text-white text-[8px] font-semibold rounded-tl">
-                            +{imageArray.length - 1}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <Package className="text-slate-400" size={20} />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-900 truncate">{item.NAME}</h3>
-                    <p className="text-xs text-slate-500">{item.GROUP || "Uncategorized"}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs font-semibold ${isOutOfStock ? "text-red-600" : "text-emerald-600"}`}>
-                        {item.CLOSINGQTY || "0"}
-                      </span>
-                      {item.closingQtyPieces !== undefined && (
-                        <span className="text-xs text-slate-400">({item.closingQtyPieces} pcs)</span>
-                      )}
-                      {isOutOfStock && (
-                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded-full">
-                          Out of Stock
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openQRModal(item)}
-                      className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
-                      title="View QR Code"
-                    >
-                      <Download size={16} className="text-slate-700" />
-                    </button>
-                    <button
-                      onClick={() => openModal(item)}
-                      className="w-9 h-9 rounded-lg bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition"
-                      title="Edit Image"
-                    >
-                      <Upload size={16} className="text-blue-700" />
-                    </button>
-                    <button
-                      onClick={() => addToCart(item._id)}
-                      className="w-9 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center transition"
-                      title="Add to Cart"
-                    >
-                      <ShoppingCart size={16} className="text-white" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+    return (
+      <div
+        key={item._id}
+        className="bg-white border border-slate-200 rounded-xl p-3"
+      >
+        {/* TOP ROW */}
+        <div className="flex items-start justify-between gap-3">
+          
+          {/* IMAGE */}
+          <div className="w-10 h-10 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+            {primaryImage ? (
+              <img
+                src={`${API_BASE}/${primaryImage}`}
+                alt={item.NAME}
+                className="w-full h-full object-cover rounded-md"
+              />
+            ) : (
+              <Package size={18} className="text-slate-400" />
+            )}
           </div>
+
+          {/* ACTIONS */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+              <Download size={14} />
+            </button>
+            <button className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Upload size={14} className="text-blue-600" />
+            </button>
+            <button className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+              <ShoppingCart size={14} className="text-white" />
+            </button>
+          </div>
+        </div>
+
+        {/* CONTENT */}
+        <div className="mt-2">
+          <h3 className="text-sm font-semibold text-slate-900 truncate">
+            {item.NAME}
+          </h3>
+
+          <p className="text-xs text-slate-500 truncate">
+            {item.GROUP || "Uncategorized"}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span
+              className={`text-xs font-semibold ${
+                isOutOfStock ? "text-red-600" : "text-emerald-600"
+              }`}
+            >
+              {item.CLOSINGQTY || "0"}
+            </span>
+
+            {item.closingQtyPieces !== undefined && (
+              <span className="text-xs text-slate-400">
+                ({item.closingQtyPieces} pcs)
+              </span>
+            )}
+
+            {isOutOfStock && (
+              <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded-full">
+                Out of Stock
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  })}
+</div>
+
+
+
+
         )}
 
         {!initialLoading && hasMore && (

@@ -110,7 +110,7 @@ export default function ViewSale() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 mb-20">
       <div className="max-w-6xl mx-auto">
         {/* Notification */}
         {notification && (

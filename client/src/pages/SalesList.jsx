@@ -435,7 +435,7 @@ const goToSaleDetails = (billNo) => {
 
             {/* End of list */}
             {!hasMoreRef.current && sales.length > 0 && (
-              <div className="text-center py-8">
+              <div className="text-center py-8 mb-12">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-600">
                   <CheckCircle2 className="w-4 h-4" />
                   All sales loaded

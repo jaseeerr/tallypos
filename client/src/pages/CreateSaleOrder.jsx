@@ -423,34 +423,47 @@ export default function CreateSaleOrder() {
         )}
 
         {/* HEADER */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Create Sale Order
-              </h1>
-              <p className="text-gray-500 mt-1">Enter sale order details and add items</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500 font-medium">Company:</span>
-              <div className="flex gap-2">
-                {["AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCompanyName(c)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      companyName === c
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {c === "AMANA-FIRST-TRADING-LLC" ? "AMANA-FIRST-TRADING-LLC" : "FANCY-PALACE-TRADING-LLC"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    
+    {/* Title Section */}
+    <div>
+      <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        Create Sale Order
+      </h1>
+      <p className="text-sm sm:text-base text-gray-500 mt-1">
+        Enter sale order details and add items
+      </p>
+    </div>
+
+    {/* Company Selector */}
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+      <span className="text-sm text-gray-500 font-medium">
+        Company:
+      </span>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        {["AMANA-FIRST-TRADING-LLC", "FANCY-PALACE-TRADING-LLC"].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCompanyName(c)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all w-full sm:w-auto ${
+              companyName === c
+                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {c === "AMANA-FIRST-TRADING-LLC"
+              ? "AMANA-FIRST-TRADING-LLC"
+              : "FANCY-PALACE-TRADING-LLC"}
+          </button>
+        ))}
+      </div>
+    </div>
+
+  </div>
+</div>
+
 
         {/* SALE ORDER DETAILS */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -775,7 +788,7 @@ export default function CreateSaleOrder() {
         )}
 
         {/* SUBMIT BUTTON */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 mb-24">
           <button
             onClick={submitSaleOrder}
             disabled={submitting || selectedItems.length === 0}

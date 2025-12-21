@@ -231,7 +231,7 @@ export default function CartPage() {
               })}
             </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-md border border-slate-100 sticky bottom-4">
+            <div className="bg-white p-4 rounded-xl shadow-md border border-slate-100 sticky bottom-4 mb-24">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-base font-semibold text-slate-700">Total Amount</span>
                 <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
