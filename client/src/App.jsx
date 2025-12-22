@@ -19,6 +19,7 @@ import SaleOrdersList from './pages/ListSaleOrders'
 import ViewOrder from './pages/ViewSaleOrder'
 import CartPage from './pages/Cart'
 import EventLogsPage from './pages/EventLogsPage'
+import PrivacyPolicy from './pages/Privacy'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -42,10 +43,16 @@ function App() {
         <div className="flex-grow">
           <Routes>
 
+
             {/* Auth Page (Accessible without login) */}
             <Route
               path="/auth"
               element={isAuthed ? <Navigate to="/" replace /> : <Auth />}
+            />
+
+  <Route
+              path="/privacy-policy"
+              element={<PrivacyPolicy/>}
             />
 
             {/* Protected Routes */}
