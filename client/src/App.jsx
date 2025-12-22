@@ -52,8 +52,7 @@ function App() {
 
   <Route
               path="/privacy-policy"
-              element={<PrivacyPolicy/>}
-            />
+element={isAuthed ? <PrivacyPolicy/>: <PrivacyPolicy />}            />
 
             {/* Protected Routes */}
             <Route
