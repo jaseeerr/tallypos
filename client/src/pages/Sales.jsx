@@ -1020,9 +1020,23 @@ onClick={() => {
         Scanned Product
       </h3>
 
-<div>
-  <img src={flutterScannedProduct.images[0]} alt="" />
+<div className="mb-3 flex justify-center">
+  {Array.isArray(flutterScannedProduct.images) &&
+  flutterScannedProduct.images.length > 0 &&
+  typeof flutterScannedProduct.images[0] === "string" &&
+  flutterScannedProduct.images[0].trim() !== "" ? (
+    <img
+      src={flutterScannedProduct.images[0]}
+      alt={flutterScannedProduct.NAME}
+      className="w-40 h-40 object-cover rounded-lg border"
+    />
+  ) : (
+    <div className="w-40 h-40 flex items-center justify-center bg-gray-100 rounded-lg border text-gray-400 text-sm">
+      No image available
+    </div>
+  )}
 </div>
+
       <p className="font-semibold text-gray-700">
         {flutterScannedProduct.NAME}
       </p>
