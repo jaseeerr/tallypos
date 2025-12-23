@@ -126,7 +126,17 @@ const handleScanResult = async (code) => {
   const product = await fetchProductById(code.trim())
   if (!product) return
 
-  // FLUTTER behaviour
+  // Company safety check (important)
+  if (product.companyName !== companyName) {
+    showNotification(
+      "warning",
+      "Company Mismatch",
+      `This product belongs to ${product.companyName}`
+    )
+    return
+  }
+
+  // FLUTTER flow
   if (isFlutterApp) {
     if (flutterAutoAdd) {
       addItem(product)
@@ -141,11 +151,12 @@ const handleScanResult = async (code) => {
     return
   }
 
-  // WEB behaviour (unchanged)
+  // WEB flow
   if (autoAdd) {
     addItem(product)
   }
 }
+
 
 
 
