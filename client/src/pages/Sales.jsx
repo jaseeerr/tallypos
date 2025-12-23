@@ -21,6 +21,9 @@ import {
 export default function AddSale() {
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
+const [flutterAutoAdd, setFlutterAutoAdd] = useState(true)
+const [flutterScannedProduct, setFlutterScannedProduct] = useState(null)
+
 useEffect(() => {
   if (typeof window !== "undefined") {
     setIsFlutterApp(!!window.FlutterScanQR)
@@ -127,10 +130,9 @@ alert(
     }
   }
 
-  const handleScanResult = (code) => {
+const handleScanResult = async (code) => {
   if (!code) return
 
-  // Guard: company must be selected
   if (!companyName) {
     showNotification(
       "warning",
@@ -140,8 +142,30 @@ alert(
     return
   }
 
-  fetchProductById(code.trim())
+  const product = await fetchProductById(code.trim())
+  if (!product) return
+
+  // FLUTTER behaviour
+  if (isFlutterApp) {
+    if (flutterAutoAdd) {
+      addItem(product)
+      showNotification(
+        "success",
+        "Product Added",
+        `${product.NAME} added successfully.`
+      )
+    } else {
+      setFlutterScannedProduct(product)
+    }
+    return
+  }
+
+  // WEB behaviour (unchanged)
+  if (autoAdd) {
+    addItem(product)
+  }
 }
+
 
 
   // =============================
@@ -618,6 +642,20 @@ alert(
             </div>
           </div>
         )}
+{!isFlutterApp && (
+  <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
+    <label className="flex items-center gap-3 text-sm font-medium text-gray-700 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={flutterAutoAdd}
+        onChange={() => setFlutterAutoAdd(!flutterAutoAdd)}
+        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+      />
+      Auto add scanned item
+    </label>
+  </div>
+)}
+
 
         {/* INVENTORY SEARCH */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -981,6 +1019,44 @@ onClick={() => {
           </div>
         </div>
       )}
+
+      {isFlutterApp && flutterScannedProduct && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6">
+      <h3 className="text-lg font-bold text-gray-800 mb-3">
+        Scanned Product
+      </h3>
+
+      <p className="font-semibold text-gray-700">
+        {flutterScannedProduct.NAME}
+      </p>
+
+      <p className="text-gray-500 text-sm mb-4">
+        Price: AED {Number(flutterScannedProduct.SALESPRICE).toFixed(2)}
+      </p>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => {
+            addItem(flutterScannedProduct)
+            setFlutterScannedProduct(null)
+          }}
+          className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
+        >
+          Add Item
+        </button>
+
+        <button
+          onClick={() => setFlutterScannedProduct(null)}
+          className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }
