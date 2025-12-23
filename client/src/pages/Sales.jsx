@@ -21,17 +21,15 @@ import { API_BASE } from "../utils/url"
 export default function AddSale() {
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
+const lastScannedRef = useRef(null)
 
 
 useEffect(() => {
   if (typeof window !== "undefined") {
     setIsFlutterApp(!!window.FlutterScanQR)
   }
-alert(
-  window.FlutterScanQR
-    ? "Running inside Flutter"
-    : "Running in browser"
-)
+console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
+
 }, [])
 
 
@@ -85,9 +83,6 @@ alert(
 
 const fetchProductById = async (id) => {
   try {
-    setLoadingScan(true)
-    setScannerError(null)
-
     const res = await axios.post(`/inventory/${id}`, { companyName })
 
     if (!res.data.ok) {
@@ -95,19 +90,16 @@ const fetchProductById = async (id) => {
       return null
     }
 
-    const product = res.data.product
-    setScannedProduct(product)
-    return product
+    return res.data.product
   } catch (error) {
     setScannerError({
       type: "error",
       message: error.response?.data?.message || "Failed to fetch product",
     })
     return null
-  } finally {
-    setLoadingScan(false)
   }
 }
+
 
 
 const handleScanResult = async (code) => {
@@ -127,6 +119,11 @@ const handleScanResult = async (code) => {
   }
 
   const trimmedCode = code.trim()
+
+  if (lastScannedRef.current === trimmedCode) return
+
+lastScannedRef.current = trimmedCode
+
 
   try {
     setLoadingScan(true)
@@ -155,6 +152,8 @@ const handleScanResult = async (code) => {
         "Product Added",
         `${product.NAME} added successfully`
       )
+        lastScannedRef.current = null
+
       return
     }
 
@@ -275,7 +274,7 @@ useEffect(() => {
   return () => {
     delete window.onFlutterQrScanned
   }
-}, [companyName, isFlutterApp, autoAdd])
+}, [companyName, isFlutterApp])
 
 
   // =============================
@@ -676,12 +675,17 @@ useEffect(() => {
             </h2>
             <button
 onClick={() => {
+  setScannerError(null)
+  lastScannedRef.current = null
+
   if (window.FlutterScanQR?.postMessage) {
     window.FlutterScanQR.postMessage("open")
   } else {
     setScannerOpen(true)
   }
 }}
+
+
 
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
             >
@@ -871,6 +875,8 @@ onClick={() => {
                   setScannerOpen(false)
                   setScannedProduct(null)
                   setScannerError(null)
+                    lastScannedRef.current = null
+
                 }}
                 className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
               >
@@ -879,15 +885,7 @@ onClick={() => {
             </div>
 
             <div className="p-6">
-              <label className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <input
-                  type="checkbox"
-                  checked={autoAdd}
-                  onChange={() => setAutoAdd(!autoAdd)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Automatically add scanned items</span>
-              </label>
+              
 
               <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                 <QRBarcodeScanner
@@ -933,42 +931,7 @@ onClick={() => {
                 </div>
               )}
 
-              {scannedProduct && !autoAdd && (
-                <div className="mt-4 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
-                  {scannedProduct.productImage && (
-                    <div className="mb-3 flex justify-center">
-                      <img
-                        src={scannedProduct.productImage || "/placeholder.svg"}
-                        alt={scannedProduct.NAME}
-                        className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
-                      />
-                    </div>
-                  )}
-                  <h3 className="font-bold text-gray-800 text-lg mb-2">{scannedProduct.NAME}</h3>
-                  {scannedProduct.SALESPRICE && (
-                    <p className="text-blue-700 font-semibold text-xl mb-3">
-                      AED {Number(scannedProduct.SALESPRICE).toFixed(2)}
-                    </p>
-                  )}
-                  <p className="text-gray-600 text-sm mb-3">
-                    Stock: {scannedProduct.CLOSINGQTY || "0"}
-                    {scannedProduct.closingQtyPieces !== undefined && (
-                      <span className="text-xs text-gray-500 ml-1">({scannedProduct.closingQtyPieces} pcs)</span>
-                    )}
-                  </p>
-                  <button
-                    onClick={() => {
-                      addItem(scannedProduct)
-                      setScannedProduct(null)
-                      setScannerOpen(false)
-                    }}
-                    className="w-full py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Add to Sale
-                  </button>
-                </div>
-              )}
+            
             </div>
           </div>
         </div>
@@ -1062,42 +1025,45 @@ onClick={() => {
       </p>
 
       <div className="flex gap-3">
-        <button
-        onClick={() => {
-  addItem(scannedProduct)
-  setScannedProduct(null)
+     <button
+  onClick={() => {
+    addItem(scannedProduct)
+    setScannedProduct(null)
+lastScannedRef.current = null
 
-  if (isFlutterApp) {
-    window.FlutterScanQR?.postMessage("open")
-  } else {
-    setScannerOpen(true)
-  }
-}}
+    if (isFlutterApp) {
+      window.FlutterScanQR?.postMessage("open")
+    } else {
+      setScannerOpen(true)
+    }
+  }}
+  className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
+>
+  Add Item
+</button>
 
-          className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
-        >
-          Add Item
-        </button>
-  <button
-        onClick={() => {
-  addItem(scannedProduct)
-  setScannedProduct(null)
+<button
+  onClick={() => {
+    addItem(scannedProduct)
+    setScannedProduct(null)
+lastScannedRef.current = null
 
-  if (isFlutterApp) {
-    window.FlutterScanQR?.postMessage("close")
-  } else {
-    setScannerOpen(false)
-  }
-}}
+    if (isFlutterApp) {
+      window.FlutterScanQR?.postMessage("close")
+    } else {
+      setScannerOpen(false)
+    }
+  }}
+  className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+>
+  Add Item & Close Scanner
+</button>
 
 
-          className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
-        >
-          Add Item and close scanner
-        </button>
        <button
 onClick={() => {
   setScannedProduct(null)
+  lastScannedRef.current = null
 
   if (isFlutterApp) {
     window.FlutterScanQR?.postMessage("open")
@@ -1105,6 +1071,7 @@ onClick={() => {
     setScannerOpen(true)
   }
 }}
+
   className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
 >
   Cancel
