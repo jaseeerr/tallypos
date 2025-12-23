@@ -25,6 +25,7 @@ useEffect(() => {
   if (typeof window !== "undefined") {
     setIsFlutterApp(!!window.FlutterScanQR)
   }
+  alert(window)
 }, [])
 
 
