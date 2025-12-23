@@ -80,6 +80,7 @@ alert(
     setTimeout(() => setNotification(null), 5000)
   }
 
+
   const fetchProductById = async (id) => {
     try {
       setLoadingScan(true)
@@ -125,6 +126,23 @@ alert(
       setLoadingScan(false)
     }
   }
+
+  const handleScanResult = (code) => {
+  if (!code) return
+
+  // Guard: company must be selected
+  if (!companyName) {
+    showNotification(
+      "warning",
+      "Select Company",
+      "Please select a company before scanning items."
+    )
+    return
+  }
+
+  fetchProductById(code.trim())
+}
+
 
   // =============================
   // FETCH INVENTORY
@@ -216,7 +234,7 @@ alert(
 
   window.onFlutterQrScanned = (code) => {
     if (!code) return
-    fetchProductById(code.trim())
+  handleScanResult(code)
   }
 
   return () => {
@@ -826,7 +844,11 @@ onClick={() => {
               <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                 <QRBarcodeScanner
                   onUpdate={(err, data) => {
-                    if (data?.text) fetchProductById(data.text.trim())
+                  if (data?.text) {
+  handleScanResult(data.text)
+  setScannerOpen(false)
+}
+
                   }}
                   style={{ width: "100%" }}
                 />
