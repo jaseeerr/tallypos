@@ -84,51 +84,32 @@ alert(
   }
 
 
-  const fetchProductById = async (id) => {
-    try {
-      setLoadingScan(true)
-      setScannedProduct(null)
-      setScannerError(null)
+const fetchProductById = async (id) => {
+  try {
+    setLoadingScan(true)
+    setScannerError(null)
 
-      const res = await axios.post(`/inventory/${id}`, {
-        companyName,
-      })
+    const res = await axios.post(`/inventory/${id}`, { companyName })
 
-      if (res.data.ok) {
-        const product = res.data.product
-        setScannedProduct(product)
-
-        if (autoAdd) {
-          if (product.companyName !== companyName) {
-            setScannerError({
-              type: "warning",
-              message: `The scanned product "${product.NAME}" belongs to ${product.companyName}, but you have selected ${companyName}. Item not added.`,
-            })
-            return
-          }
-
-          if (!product.disable) {
-            addItem(product)
-            setScannedProduct(null)
-            setScannerError(null)
-            showNotification("success", "Product Scanned", `${product.NAME} has been added to the sale.`)
-          }
-        }
-      } else {
-        setScannerError({
-          type: "error",
-          message: "Product not found",
-        })
-      }
-    } catch (error) {
-      setScannerError({
-        type: "error",
-        message: error.response?.data?.message || "Failed to fetch product",
-      })
-    } finally {
-      setLoadingScan(false)
+    if (!res.data.ok) {
+      setScannerError({ type: "error", message: "Product not found" })
+      return null
     }
+
+    const product = res.data.product
+    setScannedProduct(product)
+    return product
+  } catch (error) {
+    setScannerError({
+      type: "error",
+      message: error.response?.data?.message || "Failed to fetch product",
+    })
+    return null
+  } finally {
+    setLoadingScan(false)
   }
+}
+
 
 const handleScanResult = async (code) => {
   if (!code) return
