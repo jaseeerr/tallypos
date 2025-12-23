@@ -89,7 +89,7 @@ const fetchProductById = async (id) => {
       setScannerError({ type: "error", message: "Product not found" })
       return null
     }
-
+console.log(res.data.product)
     return res.data.product
   } catch (error) {
     setScannerError({

@@ -1847,4 +1847,59 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
 });
 
 
+
+
+
+
+
+
+
+
+
+
+
+router.get(
+  "/dupitems",
+  Auth.userAuth, // optional
+  async (req, res) => {
+    try {
+      const result = await Inventory.aggregate([
+        {
+          $group: {
+            _id: "$NAME",
+            companies: { $addToSet: "$companyName" },
+          },
+        },
+        {
+          $match: {
+            "companies.1": { $exists: true }, // more than one company
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            NAME: "$_id",
+            companies: 1,
+          },
+        },
+        {
+          $sort: { NAME: 1 },
+        },
+      ]);
+
+      return res.json({
+        ok: true,
+        count: result.length,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error fetching duplicate product names:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
 module.exports = router;
