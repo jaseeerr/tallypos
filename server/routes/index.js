@@ -1860,7 +1860,6 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
 
 router.get(
   "/dupitems",
-  Auth.userAuth, // optional
   async (req, res) => {
     try {
       const result = await Inventory.aggregate([
