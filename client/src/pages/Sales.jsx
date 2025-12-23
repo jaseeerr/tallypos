@@ -245,18 +245,19 @@ const handleScanResult = async (code) => {
   }, [])
 
 
-  useEffect(() => {
+useEffect(() => {
   if (!isFlutterApp) return
 
   window.onFlutterQrScanned = (code) => {
     if (!code) return
-  handleScanResult(code)
+    handleScanResult(code)
   }
 
   return () => {
     delete window.onFlutterQrScanned
   }
-}, [companyName])
+}, [companyName, isFlutterApp, flutterAutoAdd])
+
 
   // =============================
   // ADD ITEM
