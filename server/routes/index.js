@@ -1863,17 +1863,38 @@ router.get(
   async (req, res) => {
     try {
       const result = await Inventory.aggregate([
+        // 1️⃣ Ignore out-of-stock products
+        {
+          $addFields: {
+            closingQtyNumeric: {
+              $toDouble: {
+                $ifNull: ["$CLOSINGQTY", 0],
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            closingQtyNumeric: { $gt: 0 },
+          },
+        },
+
+        // 2️⃣ Group by product NAME
         {
           $group: {
             _id: "$NAME",
             companies: { $addToSet: "$companyName" },
           },
         },
+
+        // 3️⃣ Keep only names found in multiple companies
         {
           $match: {
-            "companies.1": { $exists: true }, // more than one company
+            "companies.1": { $exists: true },
           },
         },
+
+        // 4️⃣ Clean response
         {
           $project: {
             _id: 0,
@@ -1881,6 +1902,8 @@ router.get(
             companies: 1,
           },
         },
+
+        // 5️⃣ Optional sort
         {
           $sort: { NAME: 1 },
         },
@@ -1892,7 +1915,7 @@ router.get(
         data: result,
       });
     } catch (error) {
-      console.error("Error fetching duplicate product names:", error);
+      console.error("Error fetching duplicate in-stock products:", error);
       return res.status(500).json({
         ok: false,
         error: error.message,
@@ -1900,5 +1923,6 @@ router.get(
     }
   }
 );
+
 
 module.exports = router;
