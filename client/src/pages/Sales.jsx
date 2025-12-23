@@ -25,7 +25,11 @@ useEffect(() => {
   if (typeof window !== "undefined") {
     setIsFlutterApp(!!window.FlutterScanQR)
   }
-  alert(window)
+alert(
+  window.FlutterScanQR
+    ? "Running inside Flutter"
+    : "Running in browser"
+)
 }, [])
 
 
