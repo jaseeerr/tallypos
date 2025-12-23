@@ -1860,26 +1860,32 @@ router.get("/getEventLogs", Auth.userAuth, async (req, res) => {
 
 router.get(
   "/dupitems",
+  Auth.userAuth, // optional
   async (req, res) => {
     try {
       const result = await Inventory.aggregate([
-        // 1️⃣ Ignore out-of-stock products
+        // 1️⃣ Safely convert CLOSINGQTY to number
         {
           $addFields: {
             closingQtyNumeric: {
-              $toDouble: {
-                $ifNull: ["$CLOSINGQTY", 0],
+              $convert: {
+                input: "$CLOSINGQTY",
+                to: "double",
+                onError: 0,
+                onNull: 0,
               },
             },
           },
         },
+
+        // 2️⃣ Keep only in-stock products
         {
           $match: {
             closingQtyNumeric: { $gt: 0 },
           },
         },
 
-        // 2️⃣ Group by product NAME
+        // 3️⃣ Group by NAME
         {
           $group: {
             _id: "$NAME",
@@ -1887,14 +1893,14 @@ router.get(
           },
         },
 
-        // 3️⃣ Keep only names found in multiple companies
+        // 4️⃣ Keep names with multiple companies
         {
           $match: {
             "companies.1": { $exists: true },
           },
         },
 
-        // 4️⃣ Clean response
+        // 5️⃣ Final shape
         {
           $project: {
             _id: 0,
@@ -1903,7 +1909,7 @@ router.get(
           },
         },
 
-        // 5️⃣ Optional sort
+        // 6️⃣ Optional sort
         {
           $sort: { NAME: 1 },
         },
@@ -1915,7 +1921,7 @@ router.get(
         data: result,
       });
     } catch (error) {
-      console.error("Error fetching duplicate in-stock products:", error);
+      console.error("Aggregation error:", error);
       return res.status(500).json({
         ok: false,
         error: error.message,
@@ -1923,6 +1929,7 @@ router.get(
     }
   }
 );
+
 
 
 module.exports = router;
