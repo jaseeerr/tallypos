@@ -21,7 +21,7 @@ import {
 export default function AddSale() {
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
-const [flutterAutoAdd, setFlutterAutoAdd] = useState(true)
+const [flutterAutoAdd, setFlutterAutoAdd] = useState(false)
 const [flutterScannedProduct, setFlutterScannedProduct] = useState(null)
 
 useEffect(() => {
