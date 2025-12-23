@@ -1021,12 +1021,12 @@ onClick={() => {
       </h3>
 
 <div className="mb-3 flex justify-center">
-  {Array.isArray(flutterScannedProduct.images) &&
-  flutterScannedProduct.images.length > 0 &&
-  typeof flutterScannedProduct.images[0] === "string" &&
-  flutterScannedProduct.images[0].trim() !== "" ? (
+  {Array.isArray(flutterScannedProduct.imageUrl) &&
+  flutterScannedProduct.imageUrl.length > 0 &&
+  typeof flutterScannedProduct.imageUrl[0] === "string" &&
+  flutterScannedProduct.imageUrl[0].trim() !== "" ? (
     <img
-      src={flutterScannedProduct.images[0]}
+      src={flutterScannedProduct.imageUrl[0]}
       alt={flutterScannedProduct.NAME}
       className="w-40 h-40 object-cover rounded-lg border"
     />
