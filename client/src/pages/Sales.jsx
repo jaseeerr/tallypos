@@ -21,8 +21,7 @@ import { API_BASE } from "../utils/url"
 export default function AddSale() {
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
-const [flutterAutoAdd, setFlutterAutoAdd] = useState(false)
-const [flutterScannedProduct, setFlutterScannedProduct] = useState(null)
+
 
 useEffect(() => {
   if (typeof window !== "undefined") {
@@ -48,7 +47,7 @@ alert(
   const [includeVAT, setIncludeVAT] = useState(true)
 
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [autoAdd, setAutoAdd] = useState(true)
+  const [autoAdd, setAutoAdd] = useState(false)
   const [scannedProduct, setScannedProduct] = useState(null)
   const [loadingScan, setLoadingScan] = useState(false)
   const [scannerError, setScannerError] = useState(null)
@@ -114,6 +113,10 @@ const fetchProductById = async (id) => {
 const handleScanResult = async (code) => {
   if (!code) return
 
+  // Prevent parallel scans
+  if (loadingScan) return
+
+  // Company must be selected first
   if (!companyName) {
     showNotification(
       "warning",
@@ -123,39 +126,55 @@ const handleScanResult = async (code) => {
     return
   }
 
-  const product = await fetchProductById(code.trim())
-  if (!product) return
+  const trimmedCode = code.trim()
 
-  // Company safety check (important)
-  if (product.companyName !== companyName) {
-    showNotification(
-      "warning",
-      "Company Mismatch",
-      `This product belongs to ${product.companyName}`
-    )
-    return
-  }
-console.log(product)
-  // FLUTTER flow
-  if (isFlutterApp) {
-    if (flutterAutoAdd) {
+  try {
+    setLoadingScan(true)
+    setScannerError(null)
+
+    const product = await fetchProductById(trimmedCode)
+    if (!product) return
+
+    // Safety: ensure product belongs to selected company
+    if (product.companyName !== companyName) {
+      showNotification(
+        "warning",
+        "Company Mismatch",
+        `This product belongs to ${product.companyName}`
+      )
+      return
+    }
+
+    // AUTO ADD MODE
+    // → Add item immediately
+    // → Keep camera open (web & flutter)
+    if (autoAdd) {
       addItem(product)
       showNotification(
         "success",
         "Product Added",
-        `${product.NAME} added successfully.`
+        `${product.NAME} added successfully`
       )
-    } else {
-      setFlutterScannedProduct(product)
+      return
     }
-    return
-  }
 
-  // WEB flow
-  if (autoAdd) {
-    addItem(product)
+    // MANUAL MODE
+    // → Pause flow
+    // → Open unified scanned-product modal
+    setScannedProduct(product)
+
+  } catch (error) {
+    console.error("Scan error:", error)
+    showNotification(
+      "error",
+      "Scan Failed",
+      "Something went wrong while processing the scanned item."
+    )
+  } finally {
+    setLoadingScan(false)
   }
 }
+
 
 
 
@@ -256,7 +275,7 @@ useEffect(() => {
   return () => {
     delete window.onFlutterQrScanned
   }
-}, [companyName, isFlutterApp, flutterAutoAdd])
+}, [companyName, isFlutterApp, autoAdd])
 
 
   // =============================
@@ -635,19 +654,17 @@ useEffect(() => {
             </div>
           </div>
         )}
-{isFlutterApp && (
-  <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
-    <label className="flex items-center gap-3 text-sm font-medium text-gray-700 cursor-pointer">
+ <div className="mb-4 rounded-lg border bg-gray-50 px-4 py-3">
+    <label className="flex items-center gap-3 text-sm font-medium text-gray-700">
       <input
         type="checkbox"
-        checked={flutterAutoAdd}
-        onChange={() => setFlutterAutoAdd(!flutterAutoAdd)}
-        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+        checked={autoAdd}
+        onChange={() => setAutoAdd(!autoAdd)}
+        className="w-4 h-4"
       />
       Auto add scanned item
     </label>
   </div>
-)}
 
 
         {/* INVENTORY SEARCH */}
@@ -877,7 +894,6 @@ onClick={() => {
                   onUpdate={(err, data) => {
                   if (data?.text) {
   handleScanResult(data.text)
-  setScannerOpen(false)
 }
 
                   }}
@@ -1013,7 +1029,7 @@ onClick={() => {
         </div>
       )}
 
-      {isFlutterApp && flutterScannedProduct && (
+      {scannedProduct &&  (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
     <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6">
       <h3 className="text-lg font-bold text-gray-800 mb-3">
@@ -1021,13 +1037,13 @@ onClick={() => {
       </h3>
 
 <div className="mb-3 flex justify-center">
-  {Array.isArray(flutterScannedProduct.imageUrl) &&
-  flutterScannedProduct.imageUrl.length > 0 &&
-  typeof flutterScannedProduct.imageUrl[0] === "string" &&
-  flutterScannedProduct.imageUrl[0].trim() !== "" ? (
+  {Array.isArray(scannedProduct.imageUrl) &&
+  scannedProduct.imageUrl.length > 0 &&
+  typeof scannedProduct.imageUrl[0] === "string" &&
+  scannedProduct.imageUrl[0].trim() !== "" ? (
     <img
-      src={API_BASE+'/'+flutterScannedProduct.imageUrl[0]}
-      alt={flutterScannedProduct.NAME}
+      src={API_BASE+'/'+scannedProduct.imageUrl[0]}
+      alt={scannedProduct.NAME}
       className="w-40 h-40 object-cover rounded-lg border"
     />
   ) : (
@@ -1038,30 +1054,62 @@ onClick={() => {
 </div>
 
       <p className="font-semibold text-gray-700">
-        {flutterScannedProduct.NAME}
+        {scannedProduct.NAME}
       </p>
 
       <p className="text-gray-500 text-sm mb-4">
-        Price: AED {Number(flutterScannedProduct.SALESPRICE).toFixed(2)}
+        Price: AED {Number(scannedProduct.SALESPRICE).toFixed(2)}
       </p>
 
       <div className="flex gap-3">
         <button
-          onClick={() => {
-            addItem(flutterScannedProduct)
-            setFlutterScannedProduct(null)
-          }}
+        onClick={() => {
+  addItem(scannedProduct)
+  setScannedProduct(null)
+
+  if (isFlutterApp) {
+    window.FlutterScanQR?.postMessage("open")
+  } else {
+    setScannerOpen(true)
+  }
+}}
+
           className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
         >
           Add Item
         </button>
+  <button
+        onClick={() => {
+  addItem(scannedProduct)
+  setScannedProduct(null)
 
-        <button
-          onClick={() => setFlutterScannedProduct(null)}
-          className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+  if (isFlutterApp) {
+    window.FlutterScanQR?.postMessage("close")
+  } else {
+    setScannerOpen(false)
+  }
+}}
+
+
+          className="flex-1 py-2 bg-green-600 text-white rounded-lg font-semibold"
         >
-          Cancel
+          Add Item and close scanner
         </button>
+       <button
+onClick={() => {
+  setScannedProduct(null)
+
+  if (isFlutterApp) {
+    window.FlutterScanQR?.postMessage("open")
+  } else {
+    setScannerOpen(true)
+  }
+}}
+  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+>
+  Cancel
+</button>
+
       </div>
     </div>
   </div>
