@@ -16,8 +16,14 @@ import {
   CheckCircle,
   XCircle,
   QrCode,
+   ChevronLeft,
+  Layers,
+  ShoppingCart,
+  CheckCircle2,
+  DollarSign,
+  ChevronRight
 } from "lucide-react"
-
+import { API_BASE } from "../utils/url"
 export default function CreateSaleOrder() {
   const axios = MyAxiosInstance()
 const lastScannedRef = useRef(null)
@@ -652,7 +658,21 @@ const resetSaleOrderForm = () => {
             </div>
           )}
         </div>
-
+<div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-5 py-4 shadow-sm hover:shadow-md transition-all">
+  <label className="flex items-center gap-3 cursor-pointer group">
+    <div className="relative">
+      <input
+        type="checkbox"
+        checked={autoAdd}
+        onChange={() => setAutoAdd(!autoAdd)}
+        className="peer w-5 h-5 cursor-pointer rounded-md border-2 border-slate-300 checked:bg-gradient-to-br checked:from-emerald-600 checked:to-emerald-700 checked:border-emerald-600 transition-all appearance-none checked:after:content-['✓'] checked:after:absolute checked:after:text-white checked:after:text-xs checked:after:left-1/2 checked:after:top-1/2 checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:font-bold hover:border-slate-400"
+      />
+    </div>
+    <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors select-none">
+      Auto add scanned item
+    </span>
+  </label>
+</div>
         {/* INVENTORY SEARCH */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -1037,54 +1057,224 @@ onClick={() => {
           </div>
         </div>
       )}
-      {scannedProduct && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6">
-      <h3 className="text-lg font-bold mb-3">Scanned Product</h3>
+     {scannedProduct && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
+    <div className="bg-white w-full max-w-sm sm:max-w-md lg:max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-5 sm:py-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-emerald-500/10"></div>
+        <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 relative z-10">
+          <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+            <Package className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          Scanned Product
+        </h3>
+      </div>
 
-      <p className="font-semibold">{scannedProduct.NAME}</p>
-      <p className="text-sm text-gray-600 mb-4">
-        AED {Number(scannedProduct.SALESPRICE).toFixed(2)}
-      </p>
+      {/* Content */}
+      <div className="p-6 sm:p-8 lg:p-10 space-y-6 sm:space-y-8">
+        {/* Image Slider */}
+        <div className="relative">
+          {Array.isArray(scannedProduct.imageUrl) &&
+          scannedProduct.imageUrl.length > 0 &&
+          typeof scannedProduct.imageUrl[0] === "string" &&
+          scannedProduct.imageUrl[0].trim() !== "" ? (
+            <div className="relative group">
+              <div className="flex justify-center overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner">
+                <img
+                  src={
+                    API_BASE +
+                    "/" +
+                    scannedProduct.imageUrl[
+                      (typeof window !== "undefined" &&
+                        window.__currentImageIndex) ||
+                        0
+                    ] || "/placeholder.svg"
+                  }
+                  alt={scannedProduct.NAME}
+                  className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
 
-      <div className="flex gap-3">
-        {/* Add Item */}
-        <button
-          onClick={() => {
-  addItem(scannedProduct)
-  setScannedProduct(null)
-  openScanner()
-}}
+              {/* Image Navigation */}
+              {scannedProduct.imageUrl.length > 1 && (
+                <>
+                  <button
+                    onClick={() => {
+                      const current =
+                        (typeof window !== "undefined" &&
+                          window.__currentImageIndex) ||
+                        0;
+                      window.__currentImageIndex =
+                        current === 0
+                          ? scannedProduct.imageUrl.length - 1
+                          : current - 1;
+                      setScannedProduct({ ...scannedProduct });
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-slate-700" />
+                  </button>
 
-          className="flex-1 bg-green-600 text-white py-2 rounded-lg"
-        >
-          Add Item
-        </button>
+                  <button
+                    onClick={() => {
+                      const current =
+                        (typeof window !== "undefined" &&
+                          window.__currentImageIndex) ||
+                        0;
+                      window.__currentImageIndex =
+                        (current + 1) % scannedProduct.imageUrl.length;
+                      setScannedProduct({ ...scannedProduct });
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                  >
+                    <ChevronRight className="w-5 h-5 text-slate-700" />
+                  </button>
 
-        {/* Add & Close */}
-        <button
-         onClick={() => {
-  addItem(scannedProduct)
-  setScannedProduct(null)
-  closeScanner()
-}}
+                  {/* Image Indicators */}
+                  <div className="flex justify-center gap-2 mt-4">
+                    {scannedProduct.imageUrl.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          window.__currentImageIndex = index;
+                          setScannedProduct({ ...scannedProduct });
+                        }}
+                        className={`h-2 rounded-full transition-all ${
+                          ((typeof window !== "undefined" &&
+                            window.__currentImageIndex) ||
+                            0) === index
+                            ? "w-10 bg-slate-700"
+                            : "w-2 bg-slate-300 hover:bg-slate-400"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-2xl border-2 border-dashed border-slate-300">
+                <ImageIcon className="w-16 h-16 text-slate-400 mb-3" />
+                <span className="text-slate-500 text-sm font-medium">
+                  No image available
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
-          className="flex-1 bg-blue-600 text-white py-2 rounded-lg"
-        >
-          Add & Close
-        </button>
+        {/* Product Details */}
+        <div className="space-y-5">
+          <div className="text-center">
+            <h4 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 leading-tight">
+              {scannedProduct.NAME}
+            </h4>
+            <div className="inline-flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-6 py-3 rounded-2xl border-2 border-emerald-200 shadow-sm">
+              <DollarSign className="w-6 h-6 text-emerald-600" />
+              <span className="text-3xl font-bold text-emerald-700">
+                {Number(scannedProduct.SALESPRICE).toFixed(2)}
+              </span>
+              <span className="text-base text-emerald-600 font-semibold">AED</span>
+            </div>
+          </div>
 
-        {/* Cancel */}
-        <button
-         onClick={() => {
-  setScannedProduct(null)
-  openScanner()
-}}
+          {/* Stock Information */}
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="p-2 bg-slate-200 rounded-lg">
+                <Layers className="w-5 h-5 text-slate-700" />
+              </div>
+              <p className="font-bold text-slate-800 text-lg">Stock Availability</p>
+            </div>
+            <div className="space-y-2.5">
+              {["FANCY-PALACE-TRADING-LLC", "AMANA-FIRST-TRADING-LLC"].map(
+                (company) => (
+                  <div
+                    key={company}
+                    className="flex items-center justify-between bg-white px-4 py-3 rounded-xl text-sm shadow-sm border border-slate-100"
+                  >
+                    <span className="text-slate-600 font-medium">
+                      {company.replace(/-/g, " ")}
+                    </span>
+                    <span className="font-bold text-slate-900 text-base">
+                      {scannedProduct?.[`${company}Stock`]}{" "}
+                      <span className="text-slate-600 font-semibold">
+                        {scannedProduct?.[`${company}Unit`]}
+                      </span>
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
 
-          className="flex-1 bg-gray-200 py-2 rounded-lg"
-        >
-          Cancel
-        </button>
+        {/* Action Buttons */}
+        <div className="space-y-3 pt-2">
+          {/* Primary Actions Row */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                addItem(scannedProduct);
+                setScannedProduct(null);
+                lastScannedRef.current = null;
+                window.__currentImageIndex = 0;
+
+                if (isFlutterApp) {
+                  window.FlutterScanQR?.postMessage("open");
+                } else {
+                  setScannerOpen(true);
+                }
+              }}
+              className="py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 hover:scale-105"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span className="hidden sm:inline">Add Item</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+
+            <button
+              onClick={() => {
+                addItem(scannedProduct);
+                setScannedProduct(null);
+                lastScannedRef.current = null;
+                window.__currentImageIndex = 0;
+
+                if (isFlutterApp) {
+                  window.FlutterScanQR?.postMessage("close");
+                } else {
+                  setScannerOpen(false);
+                }
+              }}
+              className="py-3.5 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 hover:scale-105"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="hidden sm:inline">Add & Close</span>
+              <span className="sm:hidden">Add & Close</span>
+            </button>
+          </div>
+
+          {/* Cancel Button Row */}
+          <button
+            onClick={() => {
+              setScannedProduct(null);
+              lastScannedRef.current = null;
+              window.__currentImageIndex = 0;
+
+              if (isFlutterApp) {
+                window.FlutterScanQR?.postMessage("open");
+              } else {
+                setScannerOpen(true);
+              }
+            }}
+            className="w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300"
+          >
+            <X className="w-5 h-5" />
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   </div>

@@ -658,17 +658,21 @@ useEffect(() => {
             </div>
           </div>
         )}
- <div className="mb-4 rounded-lg border bg-gray-50 px-4 py-3">
-    <label className="flex items-center gap-3 text-sm font-medium text-gray-700">
+<div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-5 py-4 shadow-sm hover:shadow-md transition-all">
+  <label className="flex items-center gap-3 cursor-pointer group">
+    <div className="relative">
       <input
         type="checkbox"
         checked={autoAdd}
         onChange={() => setAutoAdd(!autoAdd)}
-        className="w-4 h-4"
+        className="peer w-5 h-5 cursor-pointer rounded-md border-2 border-slate-300 checked:bg-gradient-to-br checked:from-emerald-600 checked:to-emerald-700 checked:border-emerald-600 transition-all appearance-none checked:after:content-['✓'] checked:after:absolute checked:after:text-white checked:after:text-xs checked:after:left-1/2 checked:after:top-1/2 checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:font-bold hover:border-slate-400"
       />
+    </div>
+    <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors select-none">
       Auto add scanned item
-    </label>
-  </div>
+    </span>
+  </label>
+</div>
 
 
         {/* INVENTORY SEARCH */}
