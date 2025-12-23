@@ -17,7 +17,7 @@ import {
   XCircle,
   Camera,
 } from "lucide-react"
-
+import { API_BASE } from "../utils/url"
 export default function AddSale() {
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
@@ -135,7 +135,7 @@ const handleScanResult = async (code) => {
     )
     return
   }
-
+console.log(product)
   // FLUTTER flow
   if (isFlutterApp) {
     if (flutterAutoAdd) {
@@ -1026,7 +1026,7 @@ onClick={() => {
   typeof flutterScannedProduct.imageUrl[0] === "string" &&
   flutterScannedProduct.imageUrl[0].trim() !== "" ? (
     <img
-      src={flutterScannedProduct.imageUrl[0]}
+      src={API_BASE+flutterScannedProduct.imageUrl[0]}
       alt={flutterScannedProduct.NAME}
       className="w-40 h-40 object-cover rounded-lg border"
     />
