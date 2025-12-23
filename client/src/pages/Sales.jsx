@@ -1019,6 +1019,9 @@ onClick={() => {
         Scanned Product
       </h3>
 
+<div>
+  <img src={flutterScannedProduct.images[0]} alt="" />
+</div>
       <p className="font-semibold text-gray-700">
         {flutterScannedProduct.NAME}
       </p>
