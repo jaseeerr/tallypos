@@ -20,6 +20,19 @@ import {
 
 export default function CreateSaleOrder() {
   const axios = MyAxiosInstance()
+const lastScannedRef = useRef(null)
+const scanCooldownRef = useRef(false)
+const inventoryDebounceRef = useRef(null)
+
+const [isFlutterApp, setIsFlutterApp] = useState(false)
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    setIsFlutterApp(!!window.FlutterScanQR)
+  }
+  console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
+}, [])
+
+
 
   // =============================
   // STATE
@@ -90,6 +103,29 @@ export default function CreateSaleOrder() {
 
     return { display: "pcs", multiplier: 1 }
   }
+
+  const openScanner = () => {
+  setScannerError(null)
+  lastScannedRef.current = null
+
+  if (window.FlutterScanQR?.postMessage) {
+    window.FlutterScanQR.postMessage("open")
+  } else {
+    setScannerOpen(true)
+  }
+}
+
+const closeScanner = () => {
+  setScannerError(null)
+  lastScannedRef.current = null
+
+  if (window.FlutterScanQR?.postMessage) {
+    window.FlutterScanQR.postMessage("close")
+  } else {
+    setScannerOpen(false)
+  }
+}
+
 
   // =============================
   // FETCH INVENTORY
@@ -179,46 +215,95 @@ export default function CreateSaleOrder() {
   // FETCH PRODUCT BY QR
   // =============================
   const fetchProductById = async (id) => {
-    try {
-      setLoadingScan(true)
-      setScannedProduct(null)
-      setScannerError(null)
+  try {
+    const res = await axios.post(`/inventory/${id}`, { companyName })
 
-      const res = await axios.post(`/inventory/${id}`, {
-        companyName,
-      })
-
-      if (res.data.ok) {
-        const product = res.data.product
-        setScannedProduct(product)
-
-        if (autoAdd) {
-          if (product.companyName !== companyName) {
-            setScannerError({
-              type: "warning",
-              message: `The scanned product "${product.NAME}" belongs to ${product.companyName}, but you have selected ${companyName}. Item not added.`,
-            })
-            return
-          }
-
-          if (!product.disable) {
-            addItem(product)
-            setScannedProduct(null)
-            setScannerError(null)
-            showNotification("success", "Product Scanned", `${product.NAME} has been added to the sale order.`)
-          }
-        }
-      }
-    } catch (err) {
-      setScannerError({
-        type: "error",
-        message: "Unable to find the scanned product. Please try again.",
-      })
-      console.error(err)
-    } finally {
-      setLoadingScan(false)
+    if (!res.data.ok) {
+      setScannerError({ type: "error", message: "Product not found" })
+      return null
     }
+
+    return res.data.product
+  } catch (err) {
+    setScannerError({
+      type: "error",
+      message: "Unable to find the scanned product. Please try again.",
+    })
+    return null
   }
+}
+
+const handleScanResult = async (code) => {
+  if (!code) return
+  if (loadingScan) return
+  if (scanCooldownRef.current) return
+
+  if (!companyName) {
+    showNotification("warning", "Select Company", "Please select a company before scanning.")
+    return
+  }
+
+  const trimmedCode = code.trim()
+
+  // Prevent duplicate scan
+  if (lastScannedRef.current === trimmedCode) return
+  lastScannedRef.current = trimmedCode
+
+  try {
+    setLoadingScan(true)
+    setScannerError(null)
+
+    const product = await fetchProductById(trimmedCode)
+    if (!product) return
+
+    if (product.companyName !== companyName) {
+      setScannerError({
+        type: "warning",
+        message: `This product belongs to ${product.companyName}`,
+      })
+      return
+    }
+
+   if (autoAdd) {
+  addItem(product)
+  showNotification("success", "Product Added", `${product.NAME} added successfully`)
+
+  scanCooldownRef.current = true
+  setTimeout(() => {
+    scanCooldownRef.current = false
+    lastScannedRef.current = null
+  }, 400)
+
+  openScanner()
+  return
+}
+
+
+
+    // Manual mode
+    setScannedProduct(product)
+    closeScanner()
+
+  } finally {
+    setLoadingScan(false)
+  }
+}
+
+
+const resetSaleOrderForm = () => {
+  setSaleOrder({
+    billNo: "",
+    date: new Date().toISOString().slice(0, 10),
+    remarks: "",
+    partyName: "",
+  })
+  setSelectedItems([])
+  setInventory([])
+  setInventorySearch("")
+  setCustomerSearch("")
+  setNotification(null)
+}
+
 
   // =============================
   // ADD ITEM
@@ -365,9 +450,9 @@ export default function CreateSaleOrder() {
       )
 
       // Reset form after 2 seconds
-      setTimeout(() => {
-        window.location.reload()
-      }, 2000)
+     setTimeout(() => {
+  resetSaleOrderForm()
+}, 1500)
     } catch (error) {
       const errorMessage =
         error.response?.data?.message ||
@@ -584,22 +669,33 @@ export default function CreateSaleOrder() {
                   type="text"
                   placeholder="Type to search inventory items..."
                   value={inventorySearch}
-                  onChange={(e) => {
-                    setInventorySearch(e.target.value)
-                    if (e.target.value.trim()) {
-                      fetchInventory()
-                    } else {
-                      setInventory([])
-                      setShowInventoryDropdown(false)
-                    }
-                  }}
+                onChange={(e) => {
+  const value = e.target.value
+  setInventorySearch(value)
+
+  if (inventoryDebounceRef.current) {
+    clearTimeout(inventoryDebounceRef.current)
+  }
+
+  inventoryDebounceRef.current = setTimeout(() => {
+    if (value.trim()) {
+      fetchInventory()
+    } else {
+      setInventory([])
+      setShowInventoryDropdown(false)
+    }
+  }, 300)
+}}
+
                   onFocus={() => inventorySearch && setShowInventoryDropdown(true)}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
               <button
-                onClick={() => setScannerOpen(true)}
-                className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md flex items-center gap-2 font-medium"
+onClick={() => {
+  openScanner()
+}}
+           className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md flex items-center gap-2 font-medium"
               >
                 <QrCode className="w-5 h-5" />
                 Scan QR
@@ -809,7 +905,7 @@ export default function CreateSaleOrder() {
         </div>
 
         {/* SCANNER MODAL */}
-        {scannerOpen && (
+        {scannerOpen && !isFlutterApp &&(
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
               <div className="p-6 border-b border-gray-200">
@@ -819,7 +915,10 @@ export default function CreateSaleOrder() {
                     Scan Product QR Code
                   </h3>
                   <button
-                    onClick={() => setScannerOpen(false)}
+onClick={() => {
+  closeScanner()
+}}
+
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     <X className="w-5 h-5" />
@@ -841,7 +940,7 @@ export default function CreateSaleOrder() {
                 <div className="rounded-lg overflow-hidden border-2 border-gray-200">
                   <QRBarcodeScanner
                     onUpdate={(err, data) => {
-                      if (data?.text) fetchProductById(data.text.trim())
+    if (data?.text) handleScanResult(data.text)
                     }}
                     style={{ width: "100%" }}
                   />
@@ -879,45 +978,7 @@ export default function CreateSaleOrder() {
                   </div>
                 )}
 
-                {scannedProduct && !autoAdd && (
-                  <div className="mt-4 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
-                    {scannedProduct.productImage && (
-                      <div className="mb-3 flex justify-center">
-                        <img
-                          src={scannedProduct.productImage || "/placeholder.svg"}
-                          alt={scannedProduct.NAME}
-                          className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{scannedProduct.NAME}</p>
-                        <p className="text-sm text-gray-600 mt-1">Company: {scannedProduct.companyName}</p>
-                        <p className="text-sm font-semibold text-green-600 mt-1">
-                          Price: AED {Number(scannedProduct.SALESPRICE || 0).toFixed(2)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Stock: {scannedProduct.CLOSINGQTY || "0"}
-                          {scannedProduct.closingQtyPieces !== undefined && (
-                            <span className="text-xs text-gray-500 ml-1">({scannedProduct.closingQtyPieces} pcs)</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      disabled={scannedProduct.disable}
-                      onClick={() => {
-                        addItem(scannedProduct)
-                        setScannerOpen(false)
-                      }}
-                      className="w-full mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add to Sale Order
-                    </button>
-                  </div>
-                )}
+             
               </div>
             </div>
           </div>
@@ -976,6 +1037,60 @@ export default function CreateSaleOrder() {
           </div>
         </div>
       )}
+      {scannedProduct && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6">
+      <h3 className="text-lg font-bold mb-3">Scanned Product</h3>
+
+      <p className="font-semibold">{scannedProduct.NAME}</p>
+      <p className="text-sm text-gray-600 mb-4">
+        AED {Number(scannedProduct.SALESPRICE).toFixed(2)}
+      </p>
+
+      <div className="flex gap-3">
+        {/* Add Item */}
+        <button
+          onClick={() => {
+  addItem(scannedProduct)
+  setScannedProduct(null)
+  openScanner()
+}}
+
+          className="flex-1 bg-green-600 text-white py-2 rounded-lg"
+        >
+          Add Item
+        </button>
+
+        {/* Add & Close */}
+        <button
+         onClick={() => {
+  addItem(scannedProduct)
+  setScannedProduct(null)
+  closeScanner()
+}}
+
+          className="flex-1 bg-blue-600 text-white py-2 rounded-lg"
+        >
+          Add & Close
+        </button>
+
+        {/* Cancel */}
+        <button
+         onClick={() => {
+  setScannedProduct(null)
+  openScanner()
+}}
+
+          className="flex-1 bg-gray-200 py-2 rounded-lg"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
     </div>
   )
 }
