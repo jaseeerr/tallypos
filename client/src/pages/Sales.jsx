@@ -1026,7 +1026,7 @@ onClick={() => {
   typeof flutterScannedProduct.imageUrl[0] === "string" &&
   flutterScannedProduct.imageUrl[0].trim() !== "" ? (
     <img
-      src={API_BASE+flutterScannedProduct.imageUrl[0]}
+      src={API_BASE+'/'+flutterScannedProduct.imageUrl[0]}
       alt={flutterScannedProduct.NAME}
       className="w-40 h-40 object-cover rounded-lg border"
     />
