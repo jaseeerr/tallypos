@@ -20,9 +20,13 @@ import {
 
 export default function AddSale() {
   const axios = MyAxiosInstance()
-const isFlutterApp =
-  typeof window !== "undefined" &&
-  !!window.FlutterScanQR
+const [isFlutterApp, setIsFlutterApp] = useState(false)
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    setIsFlutterApp(!!window.FlutterScanQR)
+  }
+}, [])
+
 
   // =============================
   // STATE
@@ -601,12 +605,13 @@ const isFlutterApp =
             </h2>
             <button
 onClick={() => {
-  if (isFlutterApp) {
+  if (window.FlutterScanQR?.postMessage) {
     window.FlutterScanQR.postMessage("open")
   } else {
     setScannerOpen(true)
   }
 }}
+
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
             >
               <Camera className="w-5 h-5" />
