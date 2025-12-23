@@ -279,16 +279,40 @@ router.post(
         });
       }
 
-     const product = await Inventory.findById(id).lean();
+      // 1️⃣ Fetch main product
+      const product = await Inventory.findById(id).lean();
 
-if (!product) {
-  return res.status(404).json({
-    ok: false,
-    message: "Product not found",
-  });
-}
+      if (!product) {
+        return res.status(404).json({
+          ok: false,
+          message: "Product not found",
+        });
+      }
 
-const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
+      const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
+
+      // 2️⃣ Find other products with SAME NAME but DIFFERENT company
+      const sameNameProducts = await Inventory.find({
+        NAME: product.NAME,
+        _id: { $ne: product._id },
+      }).lean();
+
+      // 3️⃣ Build dynamic stock & unit fields
+      const companyStockUnitMap = {};
+
+      // current product
+      companyStockUnitMap[`${product.companyName}Stock`] =
+        closingQtyPieces;
+      companyStockUnitMap[`${product.companyName}Unit`] =
+        product.UNITS;
+
+      // other companies
+      sameNameProducts.forEach((p) => {
+        companyStockUnitMap[`${p.companyName}Stock`] =
+          parseClosingQtyToPieces(p.CLOSINGQTY);
+        companyStockUnitMap[`${p.companyName}Unit`] =
+          p.UNITS;
+      });
 
       const isCompanyMismatch =
         companyName && product.companyName !== companyName;
@@ -299,6 +323,7 @@ const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
           ...product,
           closingQtyPieces,
           disable: isCompanyMismatch,
+          ...companyStockUnitMap,
         },
       });
     } catch (error) {
@@ -310,6 +335,7 @@ const closingQtyPieces = parseClosingQtyToPieces(product.CLOSINGQTY);
     }
   }
 );
+
 
 /**
  * BULK FETCH INVENTORY BY IDS
