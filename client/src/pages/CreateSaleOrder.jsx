@@ -113,7 +113,6 @@ const scanPausedRef = useRef(false)
 
   const openScanner = () => {
   setScannerError(null)
-  lastScannedRef.current = null
 
   if (window.FlutterScanQR?.postMessage) {
     window.FlutterScanQR.postMessage("open")
@@ -124,7 +123,6 @@ const scanPausedRef = useRef(false)
 
 const closeScanner = () => {
   setScannerError(null)
-  lastScannedRef.current = null
 
   if (window.FlutterScanQR?.postMessage) {
     window.FlutterScanQR.postMessage("close")
@@ -273,7 +271,9 @@ const handleScanResult = async (code) => {
       return
     }
 
-   if (autoAdd) {
+  if (autoAdd) {
+  scanPausedRef.current = false   // ✅ IMPORTANT
+
   addItem(product)
   showNotification("success", "Product Added", `${product.NAME} added successfully`)
 
@@ -283,9 +283,14 @@ const handleScanResult = async (code) => {
     lastScannedRef.current = null
   }, 400)
 
-  openScanner()
+  // 🔥 DO NOT reopen Flutter scanner manually
+  if (!isFlutterApp) {
+    setScannerOpen(true)
+  }
+
   return
 }
+
 
 
 
