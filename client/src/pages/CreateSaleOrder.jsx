@@ -290,10 +290,14 @@ const handleScanResult = async (code) => {
 
 
     // Manual mode
-   // Manual mode
+// Manual mode
 scanPausedRef.current = true
 setScannedProduct(product)
-closeScanner()
+
+// ❗ DO NOT close scanner here for Flutter
+if (!isFlutterApp) {
+  setScannerOpen(false)
+}
 
 
   } finally {
@@ -1063,22 +1067,22 @@ onClick={() => {
           </div>
         </div>
       )}
-     {scannedProduct && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
-    <div className="bg-white w-full max-w-sm sm:max-w-md lg:max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
+  {scannedProduct && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+    <div className="bg-white w-full max-w-[90vw] sm:max-w-md lg:max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
       {/* Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-5 sm:py-6 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-2.5 sm:py-3 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-emerald-500/10"></div>
-        <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 relative z-10">
-          <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-            <Package className="w-5 h-5 sm:w-6 sm:h-6" />
+        <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 relative z-10">
+          <div className="p-1 sm:p-1.5 bg-white/10 rounded-lg backdrop-blur-sm">
+            <Package className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           Scanned Product
         </h3>
       </div>
 
       {/* Content */}
-      <div className="p-6 sm:p-8 lg:p-10 space-y-6 sm:space-y-8">
+      <div className="p-4 sm:p-5 space-y-3 sm:space-y-4">
         {/* Image Slider */}
         <div className="relative">
           {Array.isArray(scannedProduct.imageUrl) &&
@@ -1086,7 +1090,7 @@ onClick={() => {
           typeof scannedProduct.imageUrl[0] === "string" &&
           scannedProduct.imageUrl[0].trim() !== "" ? (
             <div className="relative group">
-              <div className="flex justify-center overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner">
+              <div className="flex justify-center overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner">
                 <img
                   src={
                     API_BASE +
@@ -1098,7 +1102,7 @@ onClick={() => {
                     ] || "/placeholder.svg"
                   }
                   alt={scannedProduct.NAME}
-                  className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-32 h-32 sm:w-40 sm:h-40 object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
 
@@ -1117,9 +1121,9 @@ onClick={() => {
                           : current - 1;
                       setScannedProduct({ ...scannedProduct });
                     }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                    className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-1 sm:p-1.5 rounded-full shadow-lg transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 border border-slate-200"
                   >
-                    <ChevronLeft className="w-5 h-5 text-slate-700" />
+                    <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-slate-700" />
                   </button>
 
                   <button
@@ -1132,13 +1136,13 @@ onClick={() => {
                         (current + 1) % scannedProduct.imageUrl.length;
                       setScannedProduct({ ...scannedProduct });
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                    className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-1 sm:p-1.5 rounded-full shadow-lg transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 border border-slate-200"
                   >
-                    <ChevronRight className="w-5 h-5 text-slate-700" />
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-700" />
                   </button>
 
                   {/* Image Indicators */}
-                  <div className="flex justify-center gap-2 mt-4">
+                  <div className="flex justify-center gap-1 mt-2">
                     {scannedProduct.imageUrl.map((_, index) => (
                       <button
                         key={index}
@@ -1146,12 +1150,12 @@ onClick={() => {
                           window.__currentImageIndex = index;
                           setScannedProduct({ ...scannedProduct });
                         }}
-                        className={`h-2 rounded-full transition-all ${
+                        className={`h-1 rounded-full transition-all ${
                           ((typeof window !== "undefined" &&
                             window.__currentImageIndex) ||
                             0) === index
-                            ? "w-10 bg-slate-700"
-                            : "w-2 bg-slate-300 hover:bg-slate-400"
+                            ? "w-6 bg-slate-700"
+                            : "w-1 bg-slate-300 hover:bg-slate-400"
                         }`}
                       />
                     ))}
@@ -1161,10 +1165,10 @@ onClick={() => {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-2xl border-2 border-dashed border-slate-300">
-                <ImageIcon className="w-16 h-16 text-slate-400 mb-3" />
-                <span className="text-slate-500 text-sm font-medium">
-                  No image available
+              <div className="w-32 h-32 sm:w-40 sm:h-40 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                <ImageIcon className="w-8 h-8 text-slate-400 mb-1" />
+                <span className="text-slate-500 text-xs font-medium">
+                  No image
                 </span>
               </div>
             </div>
@@ -1172,39 +1176,39 @@ onClick={() => {
         </div>
 
         {/* Product Details */}
-        <div className="space-y-5">
+        <div className="space-y-3">
           <div className="text-center">
-            <h4 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 leading-tight">
+            <h4 className="text-base sm:text-lg font-bold text-slate-900 mb-2 leading-tight truncate px-2">
               {scannedProduct.NAME}
             </h4>
-            <div className="inline-flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-6 py-3 rounded-2xl border-2 border-emerald-200 shadow-sm">
-              <DollarSign className="w-6 h-6 text-emerald-600" />
-              <span className="text-3xl font-bold text-emerald-700">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border-2 border-emerald-200 shadow-sm">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
+              <span className="text-xl sm:text-2xl font-bold text-emerald-700">
                 {Number(scannedProduct.SALESPRICE).toFixed(2)}
               </span>
-              <span className="text-base text-emerald-600 font-semibold">AED</span>
+              <span className="text-xs sm:text-sm text-emerald-600 font-semibold">AED</span>
             </div>
           </div>
 
           {/* Stock Information */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="p-2 bg-slate-200 rounded-lg">
-                <Layers className="w-5 h-5 text-slate-700" />
+          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1 bg-slate-200 rounded-lg flex-shrink-0">
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />
               </div>
-              <p className="font-bold text-slate-800 text-lg">Stock Availability</p>
+              <p className="font-bold text-slate-800 text-xs sm:text-sm">Stock Availability</p>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-1.5">
               {["FANCY-PALACE-TRADING-LLC", "AMANA-FIRST-TRADING-LLC"].map(
                 (company) => (
                   <div
                     key={company}
-                    className="flex items-center justify-between bg-white px-4 py-3 rounded-xl text-sm shadow-sm border border-slate-100"
+                    className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg text-xs shadow-sm border border-slate-100 gap-2"
                   >
-                    <span className="text-slate-600 font-medium">
+                    <span className="text-slate-600 font-medium truncate flex-1 min-w-0">
                       {company.replace(/-/g, " ")}
                     </span>
-                    <span className="font-bold text-slate-900 text-base">
+                    <span className="font-bold text-slate-900 text-xs flex-shrink-0 whitespace-nowrap">
                       {scannedProduct?.[`${company}Stock`]}{" "}
                       <span className="text-slate-600 font-semibold">
                         {scannedProduct?.[`${company}Unit`]}
@@ -1218,16 +1222,15 @@ onClick={() => {
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-2">
           {/* Primary Actions Row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
-                  scanPausedRef.current = false
-
+                scanPausedRef.current = false;
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1236,11 +1239,10 @@ onClick={() => {
                   setScannerOpen(true);
                 }
               }}
-              className="py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 hover:scale-105"
+              className="py-2 sm:py-2.5 px-2 sm:px-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 active:scale-95 text-xs sm:text-sm"
             >
-              <ShoppingCart className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Item</span>
-              <span className="sm:hidden">Add</span>
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span>Add Item</span>
             </button>
 
             <button
@@ -1248,8 +1250,7 @@ onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
-                  scanPausedRef.current = false
-
+                scanPausedRef.current = false;
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1258,11 +1259,10 @@ onClick={() => {
                   setScannerOpen(false);
                 }
               }}
-              className="py-3.5 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 hover:scale-105"
+              className="py-2 sm:py-2.5 px-2 sm:px-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 active:scale-95 text-xs sm:text-sm"
             >
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="hidden sm:inline">Add & Close</span>
-              <span className="sm:hidden">Add & Close</span>
+              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span>Add & Close</span>
             </button>
           </div>
 
@@ -1271,8 +1271,7 @@ onClick={() => {
             onClick={() => {
               setScannedProduct(null);
               lastScannedRef.current = null;
-                scanPausedRef.current = false
-
+              scanPausedRef.current = false;
               window.__currentImageIndex = 0;
 
               if (isFlutterApp) {
@@ -1281,9 +1280,9 @@ onClick={() => {
                 setScannerOpen(true);
               }
             }}
-            className="w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300"
+            className="w-full py-2 sm:py-2.5 px-2 sm:px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 border border-slate-200 hover:border-slate-300 active:scale-95 text-xs sm:text-sm"
           >
-            <X className="w-5 h-5" />
+            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
             Cancel
           </button>
         </div>
