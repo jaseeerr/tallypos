@@ -74,6 +74,7 @@ useEffect(() => {
 
   const inventorySearchRef = useRef(null)
   const customerSearchRef = useRef(null)
+const scanPausedRef = useRef(false)
 
   // =============================
   // NOTIFICATION HANDLER
@@ -243,6 +244,8 @@ const handleScanResult = async (code) => {
   if (!code) return
   if (loadingScan) return
   if (scanCooldownRef.current) return
+  if (scanPausedRef.current) return
+
 
   if (!companyName) {
     showNotification("warning", "Select Company", "Please select a company before scanning.")
@@ -287,8 +290,11 @@ const handleScanResult = async (code) => {
 
 
     // Manual mode
-    setScannedProduct(product)
-    closeScanner()
+   // Manual mode
+scanPausedRef.current = true
+setScannedProduct(product)
+closeScanner()
+
 
   } finally {
     setLoadingScan(false)
@@ -1220,6 +1226,8 @@ onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
+                  scanPausedRef.current = false
+
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1240,6 +1248,8 @@ onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
+                  scanPausedRef.current = false
+
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1261,6 +1271,8 @@ onClick={() => {
             onClick={() => {
               setScannedProduct(null);
               lastScannedRef.current = null;
+                scanPausedRef.current = false
+
               window.__currentImageIndex = 0;
 
               if (isFlutterApp) {
