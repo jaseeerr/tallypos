@@ -914,6 +914,29 @@ router.put("/edit-sale/:saleId", Auth.userAuth, async (req, res) => {
 
 
 
+// GET count of sales for a company
+router.get("/salesCount/:companyName", async (req, res) => {
+  try {
+    const { companyName } = req.params;
+
+    if (!companyName) {
+      return res.status(400).json({ message: "companyName is required" });
+    }
+
+    const count = await Sale.countDocuments({ companyName });
+
+    res.json({
+      companyName,
+      count,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch sales count",
+      error: error.message,
+    });
+  }
+});
+
 /* ============================================================
    LIST ALL SALES (MERN APP → SERVER)
    Supports: search, company filter, date filter, pagination

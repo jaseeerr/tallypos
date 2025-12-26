@@ -282,6 +282,47 @@ useEffect(() => {
 }, [companyName, isFlutterApp])
 
 
+// =============================
+// GENERATE BILL NUMBER
+// =============================
+const generateBillNo = async (company) => {
+  if (!company) return
+
+  try {
+    const res = await axios.get(`/salesCount/${company}`)
+
+    const count = res.data.count || 0
+
+    // Take first letter of company
+    const companyLetter = company.charAt(0).toUpperCase()
+
+    // Start from 1000
+    const billNumber = `${companyLetter}${1000 + count + 1}`
+
+    setSale((prev) => ({
+      ...prev,
+      billNo: billNumber,
+    }))
+  } catch (error) {
+    console.error("Failed to generate bill number", error)
+    showNotification(
+      "error",
+      "Bill No Error",
+      "Unable to generate bill number automatically."
+    )
+  }
+}
+
+// =============================
+// AUTO GENERATE BILL NO ON COMPANY CHANGE
+// =============================
+useEffect(() => {
+  if (companyName) {
+    generateBillNo(companyName)
+  }
+}, [companyName])
+
+
   // =============================
   // ADD ITEM
   // =============================
