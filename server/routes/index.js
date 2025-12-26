@@ -181,7 +181,7 @@ function parseClosingQtyToPieces(closingQty = "") {
 }
 
 /* ============================================================
-   GET INVENTORY (From MongoDB — For MERN App)
+   GET INVENTORY (With Cross-Company Stock Insight)
    ============================================================ */
 router.get("/inventory", Auth.userAuth, async (req, res) => {
   try {
@@ -199,12 +199,12 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
 
     const query = {};
 
-    // Company filter
+    // ✅ Company filter (PRIMARY company only)
     if (companyName && companyName !== "ALL") {
       query.companyName = companyName;
     }
 
-    // Text search
+    // ✅ Text search
     if (search.trim()) {
       query.$or = [
         { NAME: { $regex: search, $options: "i" } },
@@ -212,25 +212,55 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       ];
     }
 
-    // Fetch raw items first (lean for speed)
+    // 1️⃣ Fetch inventory of selected company only
     const rawItems = await Inventory.find(query)
       .lean()
       .sort({ NAME: 1 });
 
-    // Parse + normalize stock
-    const processedItems = rawItems.map((item) => {
-      const closingQtyPieces = parseClosingQtyToPieces(
-        item.CLOSINGQTY
-      );
+    // 2️⃣ Enrich each item with other-company stock (DISPLAY ONLY)
+    const processedItems = await Promise.all(
+      rawItems.map(async (item) => {
+        // Parse selected company stock
+        const closingQtyPieces = parseClosingQtyToPieces(
+          item.CLOSINGQTY
+        );
 
-      return {
-        ...item,
-        closingQtyPieces,
-        isOutOfStock: closingQtyPieces <= 0,
-      };
-    });
+        // Find same NAME items in other companies
+        const sameNameProducts = await Inventory.find({
+          NAME: item.NAME,
+          _id: { $ne: item._id },
+        }).lean();
 
-    // Stock filter (BACKEND)
+        const companyStockUnitMap = {};
+
+        // 🔹 Selected company (PRIMARY)
+        companyStockUnitMap[`${item.companyName}Stock`] =
+          closingQtyPieces;
+        companyStockUnitMap[`${item.companyName}Unit`] =
+          item.UNITS;
+
+        // 🔹 Other companies (SECONDARY, display-only)
+        sameNameProducts.forEach((p) => {
+          companyStockUnitMap[`${p.companyName}Stock`] =
+            parseClosingQtyToPieces(p.CLOSINGQTY);
+          companyStockUnitMap[`${p.companyName}Unit`] =
+            p.UNITS;
+        });
+
+        return {
+          ...item,
+
+          // ✅ Primary company fields (unchanged)
+          closingQtyPieces,
+          isOutOfStock: closingQtyPieces <= 0,
+
+          // ✅ Cross-company insight
+          ...companyStockUnitMap,
+        };
+      })
+    );
+
+    // 3️⃣ Backend stock filter (PRIMARY company only)
     const filteredItems =
       includeOutOfStock === "true"
         ? processedItems
@@ -238,7 +268,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
 
     const total = filteredItems.length;
 
-    // Pagination AFTER filtering
+    // 4️⃣ Pagination AFTER filtering
     const paginatedItems = filteredItems.slice(
       skip,
       skip + parsedLimit
@@ -259,6 +289,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
     });
   }
 });
+
 
 /**
  * GET PRODUCT BY ID

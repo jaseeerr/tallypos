@@ -77,6 +77,22 @@ console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
   const inventorySearchRef = useRef(null)
   const customerSearchRef = useRef(null)
 
+
+
+  // Helper
+  const formatStockDisplay = (item) => {
+  if (!item.stock) return "Out of stock"
+
+  const units = item.unit || "pcs"
+  const piecesPerUnit = item.piecesPerUnit || 1
+
+  const qtyInUnits = Math.floor(item.stock / piecesPerUnit)
+
+  return `${qtyInUnits} ${units} (${item.stock} pcs)`
+}
+
+
+
   // =============================
   // NOTIFICATION HANDLER
   // =============================
@@ -94,7 +110,7 @@ const fetchProductById = async (id) => {
       setScannerError({ type: "error", message: "Product not found" })
       return null
     }
-console.log(res.data.product)
+console.log(res)
     return res.data.product
   } catch (error) {
     setScannerError({
@@ -203,6 +219,7 @@ lastScannedRef.current = trimmedCode
           includeOutOfStock: false,
         },
       })
+      console.log(res.data)
       setInventory(res.data.items || [])
       setShowInventoryDropdown(true)
     } catch (error) {
@@ -384,16 +401,13 @@ useEffect(() => {
       const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
 
       if (qtyInPieces > item.stock) {
-        showNotification(
-          "error",
-          "Insufficient Stock",
-          `Cannot add ${numValue} ${item.unit} (${qtyInPieces} pcs). Only ${maxQtyInUnits} ${item.unit} (${item.stock} pcs) available for ${item.name}.`,
-        )
-        updated[index][field] = maxQtyInUnits
-        updated[index].amount = maxQtyInUnits * updated[index].rate
-        setSelectedItems(updated)
-        return
-      }
+  showNotification(
+    "warning",
+    "Stock Exceeded",
+    `${item.name}: Selling ${numValue} ${item.unit} (${qtyInPieces} pcs) while only ${item.stock} pcs are available.`
+  )
+}
+
       if (numValue <= 0) {
         showNotification("warning", "Invalid Quantity", `Quantity must be at least 1.`)
         return
@@ -463,14 +477,14 @@ useEffect(() => {
       const qtyInPieces = item.qty * (item.piecesPerUnit || 1)
       const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
 
-      if (qtyInPieces > item.stock) {
-        showNotification(
-          "error",
-          "Stock Exceeded",
-          `Cannot sell ${item.qty} ${item.unit} (${qtyInPieces} pcs) of ${item.name}. Only ${maxQtyInUnits} ${item.unit} (${item.stock} pcs) available in stock.`,
-        )
-        return false
-      }
+     if (qtyInPieces > item.stock) {
+  showNotification(
+    "warning",
+    "Stock Exceeded",
+    `${item.name}: Sale quantity exceeds available stock. This item will go into negative stock.`
+  )
+}
+
       if (item.rate < 0) {
         showNotification("error", "Validation Error", `Invalid rate for ${item.name}. Rate cannot be negative.`)
         return false
@@ -849,11 +863,30 @@ onClick={() => {
             {selectedItems.map((item, index) => (
               <div key={item.itemId} className="flex items-center justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="text-gray-800 font-semibold text-sm">{item.name}</h3>
-                  <p className="text-gray-600 text-xs">
-                    Price: AED {item.rate.toFixed(2)}
-                    <span className="ml-2">Unit: {item.unit}</span>
-                  </p>
+                <h3 className="text-gray-800 font-semibold text-sm">
+  {item.name}
+</h3>
+
+<p className="text-gray-600 text-xs mt-1">
+  Price: AED {item.rate.toFixed(2)}
+  <span className="ml-2">Unit: {item.unit}</span>
+</p>
+
+<p className="text-xs text-slate-500 mt-1">
+  Stock:{" "}
+  <span
+    className={`font-semibold ${
+      item.stock <= 0
+        ? "text-red-600"
+        : item.stock < item.piecesPerUnit
+        ? "text-yellow-600"
+        : "text-emerald-600"
+    }`}
+  >
+    {formatStockDisplay(item)}
+  </span>
+</p>
+
                 </div>
                 <div className="flex items-center gap-4">
                   <input
