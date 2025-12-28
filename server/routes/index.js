@@ -122,23 +122,19 @@ router.post("/login", async (req, res) => {
  * Apply unsynced (pending + processing) sales deduction
  * Works for both getRaw=true and getRaw=false
  */
-async function applyUnsyncedSalesDeduction({
-  items,
-  companyName,
-  
-}) {
+async function applyUnsyncedSalesDeduction({ items, companyName }) {
   if (!items.length) return items;
 
   const itemNames = items.map((i) => i.NAME);
 
-  // 1️⃣ Fetch all unsynced sales ONCE
+  // 1️⃣ Fetch unsynced sales
   const unsyncedSales = await Sale.find({
     companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // 2️⃣ Build unsynced qty map (pieces)
+  // 2️⃣ Build unsynced qty map (IN PIECES)
   const unsyncedQtyMap = {};
 
   unsyncedSales.forEach((sale) => {
@@ -157,35 +153,37 @@ async function applyUnsyncedSalesDeduction({
       };
 
       const multiplier = UNIT_MULTIPLIER[normalizedUnit] || 1;
-      const qtyInPieces = saleItem.qty * multiplier;
 
       unsyncedQtyMap[saleItem.itemName] =
-        (unsyncedQtyMap[saleItem.itemName] || 0) + qtyInPieces;
+        (unsyncedQtyMap[saleItem.itemName] || 0) +
+        saleItem.qty * multiplier;
     });
   });
 
-  // 3️⃣ Apply deduction (PRIMARY company only)
+  // 3️⃣ Apply deduction CORRECTLY (UNIT-AWARE)
   return items.map((item) => {
     const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
 
-    const adjustedClosingQty = Math.max(
-      item.closingQtyPieces - unsyncedQty,
-      0
-    );
+    const totalPieces = item.closingQtyPieces;
 
-    const updatedItem = {
+    // Extract pieces per unit from inventory UNITS
+    const match = item.UNITS?.match(/of\s*(\d+)/i);
+    const piecesPerUnit = match ? parseInt(match[1], 10) : 1;
+
+    // 🔥 KEY FIX: collapse to full units ONLY
+    const remainingPieces = Math.max(totalPieces - unsyncedQty, 0);
+    const adjustedPieces =
+      Math.floor(remainingPieces / piecesPerUnit) * piecesPerUnit;
+
+    return {
       ...item,
-      closingQtyPieces: adjustedClosingQty,
+      closingQtyPieces: adjustedPieces,
       unsyncedQty,
-      isOutOfStock: adjustedClosingQty <= 0,
+      isOutOfStock: adjustedPieces <= 0,
     };
-
-    // 4️⃣ If getRaw=true, DO NOT touch cross-company stock fields
-    // Only primary company stock is affected (already done above)
-
-    return updatedItem;
   });
 }
+
 
 // helper for inventory filters
 const UNIT_NORMALIZATION_MAP = {

@@ -83,25 +83,21 @@ console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
 
 function getCompanyStockInfo(item) {
   return Object.keys(item)
-    .filter(
-      (key) =>
-        key.endsWith("Stock") && key !== "isOutOfStock"
-    )
+    .filter((key) => key.endsWith("Stock"))
     .map((stockKey) => {
       const company = stockKey.replace("Stock", "");
       return {
         company,
-        stock: Number(item[stockKey]) || 0,
-        unit: item[`${company}Unit`] || ""
+        stockDisplay: item[stockKey], // STRING
+        unit: item[`${company}Unit`] || "",
       };
     })
-    .filter((s) => s.stock > 0);
+    .filter((s) => s.stockDisplay); // keep if exists
 }
 
 
 
-
-  const formatStockDisplay = (item) => {
+const formatStockDisplay = (item) => {
   if (!item.stock) return "Out of stock"
 
   const units = item.unit || "pcs"
@@ -111,6 +107,7 @@ function getCompanyStockInfo(item) {
 
   return `${qtyInUnits} ${units} (${item.stock} pcs)`
 }
+
 
 
 
@@ -834,7 +831,8 @@ onClick={() => {
                         {s.company.replace(/-/g, " ")}
                       </span>
                       <span className="font-medium text-neutral-800 tabular-nums">
-                        {s.stock} {s.unit}
+                          {s.stockDisplay}
+
                       </span>
                     </div>
                   ))}
@@ -984,17 +982,23 @@ onClick={() => {
                     <span className="text-gray-300">|</span>
                     <span>
                       <span className="font-medium text-gray-600">Stock:</span>{" "}
-                      <span
-                        className={`font-semibold ${
-                          item.stock <= 0
-                            ? "text-red-500"
-                            : item.stock < item.piecesPerUnit
-                              ? "text-amber-500"
-                              : "text-emerald-500"
-                        }`}
-                      >
-                        {formatStockDisplay(item)}
-                      </span>
+                    <span
+  className={`font-semibold ${
+    item.stock <= 0
+      ? "text-red-500"
+      : item.stock < item.piecesPerUnit
+        ? "text-amber-500"
+        : "text-emerald-500"
+  }`}
+>
+  {formatStockDisplay(item)}
+  {item.unsyncedQty > 0 && (
+    <span className="ml-2 text-[10px] text-amber-600 font-medium">
+      ({item.unsyncedQty} pcs reserved)
+    </span>
+  )}
+</span>
+
                     </span>
                   </div>
                 </div>
