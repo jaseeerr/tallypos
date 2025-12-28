@@ -503,87 +503,54 @@ router.post("/inventory/:id", Auth.userAuth, async (req, res) => {
     const { companyName } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        ok: false,
-        message: "Invalid product id",
-      });
+      return res.status(400).json({ ok: false, message: "Invalid product id" });
     }
 
-    // 1️⃣ Fetch main product
+    // 1️⃣ Fetch product
     const product = await Inventory.findById(id).lean();
     if (!product) {
-      return res.status(404).json({
-        ok: false,
-        message: "Product not found",
-      });
+      return res.status(404).json({ ok: false, message: "Product not found" });
     }
 
-    // 2️⃣ Fetch same-name products from other companies
+    // 2️⃣ Find same-name products
     const sameNameProducts = await Inventory.find({
       NAME: product.NAME,
       _id: { $ne: product._id },
     }).lean();
 
-    const allProducts = [product, ...sameNameProducts];
-    const itemName = product.NAME;
+    // 3️⃣ Build SAME shape as /inventory
+    let items = [
+      {
+        ...product,
+        closingQtyPieces: parseClosingQtyToPieces(product.CLOSINGQTY),
+      },
+    ];
 
-    // 3️⃣ Fetch unsynced sales for SELECTED company only
-    const unsyncedSales = companyName
-      ? await Sale.find({
-          companyName,
-          status: { $in: ["pending", "processing"] },
-          "items.itemName": itemName,
-        }).lean()
-      : [];
-
-    let unsyncedQty = 0;
-    unsyncedSales.forEach((sale) => {
-      sale.items.forEach((si) => {
-        if (si.itemName === itemName) {
-          unsyncedQty += si.qty;
-        }
-      });
+    // attach cross-company raw stock (same as /inventory)
+    sameNameProducts.forEach((p) => {
+      items[0][`${p.companyName}Stock`] = p.CLOSINGQTY;
+      items[0][`${p.companyName}Unit`] = p.UNITS;
     });
 
-    // 4️⃣ Build company-wise stock fields
-    const companyStockMap = {};
+    items[0][`${product.companyName}Stock`] = product.CLOSINGQTY;
+    items[0][`${product.companyName}Unit`] = product.UNITS;
 
-    allProducts.forEach((p) => {
-      const unit = extractPrimaryUnit(p.UNITS);
-      const physicalQty = extractUnitCount(p.CLOSINGQTY);
-
-      const isPrimaryCompany = p.companyName === companyName;
-      const netQty = isPrimaryCompany
-        ? Math.max(physicalQty - unsyncedQty, 0)
-        : physicalQty;
-
-      companyStockMap[`${p.companyName}Stock`] = p.CLOSINGQTY;
-      companyStockMap[`${p.companyName}Unit`] = p.UNITS;
-      companyStockMap[`${p.companyName}-NetAvailable`] =
-        buildQtyString(netQty, unit);
-      companyStockMap[`${p.companyName}-UnsyncedQty`] =
-        isPrimaryCompany ? unsyncedQty : 0;
+    // 4️⃣ 🔥 APPLY SAME HELPER 🔥
+    items = await applyUnsyncedSalesDeduction({
+      items,
+      companyName: product.companyName,
     });
-
-    const isCompanyMismatch =
-      companyName && product.companyName !== companyName;
 
     return res.json({
       ok: true,
-      product: {
-        ...product,
-        disable: isCompanyMismatch,
-        ...companyStockMap,
-      },
+      product: items[0],
     });
   } catch (error) {
     console.error("Error fetching product by id:", error);
-    return res.status(500).json({
-      ok: false,
-      error: error.message,
-    });
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 router.post("/inventoryOldStable/:id", Auth.userAuth, async (req, res) => {
