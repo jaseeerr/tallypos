@@ -124,10 +124,10 @@ router.post("/login", async (req, res) => {
  */
 function extractPrimaryUnit(units = "") {
   const u = units.toLowerCase();
-  if (u.includes("doz")) return "DOZ";
-  if (u.includes("gross")) return "GROSS";
-  if (u.includes("pair")) return "PAIR";
-  return "PCS";
+  if (u.includes("doz")) return "Doz";
+  if (u.includes("gross")) return "Gross";
+  if (u.includes("pair")) return "Pair";
+  return "pcs";
 }
 
 function extractUnitCount(closingQty = "") {
@@ -136,11 +136,9 @@ function extractUnitCount(closingQty = "") {
 }
 
 function buildQtyString(qty, unit) {
-  if (unit === "DOZ") return `${qty} Doz`;
-  if (unit === "GROSS") return `${qty} Gross`;
-  if (unit === "PAIR") return `${qty} Pair`;
-  return `${qty} pcs`;
+  return `${qty} ${unit}`;
 }
+
 
 async function applyUnsyncedSalesDeduction({ items, companyName }) {
   if (!items.length) return items;
@@ -153,7 +151,7 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // Build unsynced qty map (UNIT COUNT, NOT PIECES)
+  // Unsynced qty per item (UNIT COUNT)
   const unsyncedQtyMap = {};
 
   unsyncedSales.forEach((sale) => {
@@ -164,19 +162,25 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
   });
 
   return items.map((item) => {
-    const unit = extractPrimaryUnit(item.UNITS);
-    const originalQty = extractUnitCount(item.CLOSINGQTY);
     const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
 
-    const availableQty = Math.max(originalQty - unsyncedQty, 0);
+    const unit = extractPrimaryUnit(item.UNITS);
+    const physicalQty = extractUnitCount(item.CLOSINGQTY);
+    const availableQty = Math.max(physicalQty - unsyncedQty, 0);
 
-    return {
+    const updated = {
       ...item,
-      unsyncedQty,                    // unit count
-      availableQty,                   // unit count
+      unsyncedQty,
+      availableQty,
       availableQtyDisplay: buildQtyString(availableQty, unit),
       isOutOfStock: availableQty <= 0,
     };
+
+    // 🔥 COMPANY-WISE AVAILABLE STOCK
+    const companyKey = `${companyName}AvailableStock`;
+    updated[companyKey] = buildQtyString(availableQty, unit);
+
+    return updated;
   });
 }
 
