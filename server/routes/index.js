@@ -122,67 +122,64 @@ router.post("/login", async (req, res) => {
  * Apply unsynced (pending + processing) sales deduction
  * Works for both getRaw=true and getRaw=false
  */
+function extractPrimaryUnit(units = "") {
+  const u = units.toLowerCase();
+  if (u.includes("doz")) return "DOZ";
+  if (u.includes("gross")) return "GROSS";
+  if (u.includes("pair")) return "PAIR";
+  return "PCS";
+}
+
+function extractUnitCount(closingQty = "") {
+  const match = closingQty.match(/(\d+)\s*(doz|gross|pair|pcs|pc)/i);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+function buildQtyString(qty, unit) {
+  if (unit === "DOZ") return `${qty} Doz`;
+  if (unit === "GROSS") return `${qty} Gross`;
+  if (unit === "PAIR") return `${qty} Pair`;
+  return `${qty} pcs`;
+}
+
 async function applyUnsyncedSalesDeduction({ items, companyName }) {
   if (!items.length) return items;
 
   const itemNames = items.map((i) => i.NAME);
 
-  // 1️⃣ Fetch unsynced sales
   const unsyncedSales = await Sale.find({
     companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // 2️⃣ Build unsynced qty map (IN PIECES)
+  // Build unsynced qty map (UNIT COUNT, NOT PIECES)
   const unsyncedQtyMap = {};
 
   unsyncedSales.forEach((sale) => {
-    sale.items.forEach((saleItem) => {
-      if (!itemNames.includes(saleItem.itemName)) return;
-
-      const unitKey = (saleItem.unit || "pcs").toLowerCase();
-      const normalizedUnit =
-        UNIT_NORMALIZATION_MAP[unitKey] || "PCS";
-
-      const UNIT_MULTIPLIER = {
-        PCS: 1,
-        DOZEN: 12,
-        GROSS: 144,
-        PAIR: 2,
-      };
-
-      const multiplier = UNIT_MULTIPLIER[normalizedUnit] || 1;
-
-      unsyncedQtyMap[saleItem.itemName] =
-        (unsyncedQtyMap[saleItem.itemName] || 0) +
-        saleItem.qty * multiplier;
+    sale.items.forEach((si) => {
+      unsyncedQtyMap[si.itemName] =
+        (unsyncedQtyMap[si.itemName] || 0) + si.qty;
     });
   });
 
-  // 3️⃣ Apply deduction CORRECTLY (UNIT-AWARE)
   return items.map((item) => {
+    const unit = extractPrimaryUnit(item.UNITS);
+    const originalQty = extractUnitCount(item.CLOSINGQTY);
     const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
 
-    const totalPieces = item.closingQtyPieces;
-
-    // Extract pieces per unit from inventory UNITS
-    const match = item.UNITS?.match(/of\s*(\d+)/i);
-    const piecesPerUnit = match ? parseInt(match[1], 10) : 1;
-
-    // 🔥 KEY FIX: collapse to full units ONLY
-    const remainingPieces = Math.max(totalPieces - unsyncedQty, 0);
-    const adjustedPieces =
-      Math.floor(remainingPieces / piecesPerUnit) * piecesPerUnit;
+    const availableQty = Math.max(originalQty - unsyncedQty, 0);
 
     return {
       ...item,
-      closingQtyPieces: adjustedPieces,
-      unsyncedQty,
-      isOutOfStock: adjustedPieces <= 0,
+      unsyncedQty,                    // unit count
+      availableQty,                   // unit count
+      availableQtyDisplay: buildQtyString(availableQty, unit),
+      isOutOfStock: availableQty <= 0,
     };
   });
 }
+
 
 
 // helper for inventory filters
