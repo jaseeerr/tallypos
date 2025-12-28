@@ -81,20 +81,23 @@ console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
 
   // Helper
 
-  const getCompanyStockInfo = (item) => {
-  if (!item) return []
-
+function getCompanyStockInfo(item) {
   return Object.keys(item)
-    .filter((key) => key.endsWith("Stock"))
-    .map((key) => {
-      const company = key.replace("Stock", "")
+    .filter(
+      (key) =>
+        key.endsWith("Stock") && key !== "isOutOfStock"
+    )
+    .map((stockKey) => {
+      const company = stockKey.replace("Stock", "");
       return {
         company,
-        stock: item[key],
-        unit: item[`${company}Unit`] || "",
-      }
+        stock: Number(item[stockKey]) || 0,
+        unit: item[`${company}Unit`] || ""
+      };
     })
+    .filter((s) => s.stock > 0);
 }
+
 
 
 

@@ -87,17 +87,25 @@ const scanPausedRef = useRef(false)
   // =============================
   // HELPER FUNCTIONS
   // =============================
-  const extractUnit = (units = "") => {
-    if (!units) return "pcs"
-    return units.split(" of ")[0] || "pcs"
-  }
 
-  const UNIT_MULTIPLIER = {
-    PCS: 1,
-    DOZEN: 12,
-    GROSS: 144,
-    PAIR: 2,
-  }
+
+ function getCompanyStockInfo(item) {
+  return Object.keys(item)
+    .filter(
+      (key) =>
+        key.endsWith("Stock") && key !== "isOutOfStock"
+    )
+    .map((stockKey) => {
+      const company = stockKey.replace("Stock", "");
+      return {
+        company,
+        stock: Number(item[stockKey]) || 0,
+        unit: item[`${company}Unit`] || ""
+      };
+    })
+    .filter((s) => s.stock > 0);
+}
+
 
   const normalizeUnit = (units = "") => {
     if (!units) return { display: "pcs", multiplier: 1 }
@@ -738,31 +746,55 @@ onClick={() => {
             </div>
 
             {showInventoryDropdown && inventory.length > 0 && (
-              <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-80 overflow-y-auto">
-                {inventory.map((item) => (
-                  <div
-                    key={item._id}
-                    onClick={() => addItem(item)}
-                    className="p-4 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-gray-800">{item.NAME}</div>
-                        <div className="text-sm text-gray-500 mt-1">
-                          Stock: {item.stockFormatted}({item.stock} pcs)
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-blue-600">AED {Number(item.SALESPRICE || 0).toFixed(2)}</div>
-                        <button className="mt-1 px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1">
-                          <Plus className="w-3 h-3" />
-                          Add
-                        </button>
-                      </div>
+             <div className="absolute w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10 h-56 overflow-auto">
+          {inventory.length === 0 ? (
+            <div className="px-6 py-8 text-center text-neutral-500 text-sm">No items to display</div>
+          ) : (
+            inventory.map((item) => (
+              <div
+                key={item._id}
+                className="group px-6 py-4 border-b border-gray-50 last:border-0 hover:bg-neutral-50 cursor-pointer transition-colors duration-150"
+                onClick={() => {
+                  addItem(item)
+                  setInventorySearch("")
+                  setShowInventoryDropdown(false)
+                }}
+              >
+                {/* Item name and price */}
+                <div className="flex items-baseline justify-between mb-3">
+                  <h3 className="text-sm font-medium text-neutral-900">{item.NAME}</h3>
+                  <span className="text-sm font-semibold text-neutral-700">
+                    AED {Number(item.SALESPRICE).toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Stock breakdown */}
+                <div className="space-y-1.5">
+                  {getCompanyStockInfo(item).map((s) => (
+                    <div key={s.company} className="flex items-center justify-between text-xs">
+                      <span className="text-neutral-500 font-normal tracking-wide uppercase text-[10px]">
+                        {s.company.replace(/-/g, " ")}
+                      </span>
+                      <span className="font-medium text-neutral-800 tabular-nums">
+                        {s.stock} {s.unit}
+                      </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+
+                  {/* Total stock */}
+                  {getCompanyStockInfo(item).length > 1 && (
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-neutral-100">
+                      <span className="text-xs font-semibold text-neutral-900 uppercase tracking-wider">Total</span>
+                      <span className="text-sm font-bold text-neutral-900 tabular-nums">
+                        {getCompanyStockInfo(item).reduce((sum, s) => sum + (s.stock || 0), 0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
+            ))
+          )}
+        </div>
             )}
 
             {loadingInventory && (
