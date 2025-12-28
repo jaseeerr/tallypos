@@ -301,6 +301,8 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       includeOutOfStock = "false",
     } = req.query;
 
+    const shouldGetRaw = getRaw === "true";
+
     const parsedLimit = Math.min(parseInt(limit, 10), 200);
     const parsedPage = Math.max(parseInt(page, 10), 1);
     const skip = (parsedPage - 1) * parsedLimit;
