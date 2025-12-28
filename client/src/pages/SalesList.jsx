@@ -213,6 +213,26 @@ const goToSaleDetails = (billNo) => {
     }).format(amount || 0)
   }
 
+
+
+  const deleteSale = async (saleId) => {
+  if (!window.confirm("Are you sure you want to delete this sale?")) return;
+
+  try {
+    await axiosInstance.delete(`/deleteSale/${saleId}`);
+
+    setSales((prev) => prev.filter((s) => s._id !== saleId));
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "Failed to delete sale. Only pending sales can be deleted."
+    );
+  }
+};
+
+
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
@@ -358,69 +378,94 @@ const goToSaleDetails = (billNo) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {sales.map((sale) => (
-              <div
-                key={sale._id}
-                  onDoubleClick={() => goToSaleDetails(sale.billNo)}
-                  onClick={() => goToSaleDetails(sale.billNo)}
-                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-center">
-                  {/* Bill Number */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5" />
-                      Bill Number
-                    </div>
-                    <div className="text-base font-bold text-gray-900">#{sale.billNo || "N/A"}</div>
-                  </div>
+           {sales.map((sale) => (
+  <div
+    key={sale._id}
+    onDoubleClick={() => goToSaleDetails(sale.billNo)}
+    onClick={() => goToSaleDetails(sale.billNo)}
+    className="relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
+  >
+    {/* DELETE BUTTON (pending only) */}
+    {sale.status === "pending" && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteSale(sale._id);
+        }}
+        className="absolute top-4 right-4 px-3 py-1.5 text-xs font-semibold rounded-lg
+          bg-red-100 text-red-600 hover:bg-red-200 transition"
+      >
+        Delete
+      </button>
+    )}
 
-                  {/* Company */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5" />
-                      Company
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">{sale.companyName || "-"}</div>
-                  </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-center">
+      {/* Bill Number */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+          <FileText className="w-3.5 h-3.5" />
+          Bill Number
+        </div>
+        <div className="text-base font-bold text-gray-900">
+          #{sale.billNo || "N/A"}
+        </div>
+      </div>
 
-                  {/* Customer */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5" />
-                      Customer
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {sale.isCashSale ? sale.cashLedgerName || "Cash Sale" : sale.partyName || "-"}
-                    </div>
-                  </div>
+      {/* Company */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+          <Building2 className="w-3.5 h-3.5" />
+          Company
+        </div>
+        <div className="text-sm font-medium text-gray-900">
+          {sale.companyName || "-"}
+        </div>
+      </div>
 
-                  {/* Date */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      Date
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">{formatDate(sale.date)}</div>
-                  </div>
+      {/* Customer */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+          <User className="w-3.5 h-3.5" />
+          Customer
+        </div>
+        <div className="text-sm font-medium text-gray-900">
+          {sale.isCashSale
+            ? sale.cashLedgerName || "Cash Sale"
+            : sale.partyName || "-"}
+        </div>
+      </div>
 
-                  {/* Amount */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5" />
-                      Amount
-                    </div>
-                    <div className="text-base font-bold text-green-600">AED {formatCurrency(sale.totalAmount)}</div>
-                  </div>
+      {/* Date */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5" />
+          Date
+        </div>
+        <div className="text-sm font-medium text-gray-900">
+          {formatDate(sale.date)}
+        </div>
+      </div>
 
-                  {/* Status */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-gray-500">Status</div>
-                    <div>{getStatusBadge(sale.status)}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+      {/* Amount */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+          <DollarSign className="w-3.5 h-3.5" />
+          Amount
+        </div>
+        <div className="text-base font-bold text-green-600">
+          AED {formatCurrency(sale.totalAmount)}
+        </div>
+      </div>
+
+      {/* Status */}
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-500">Status</div>
+        <div>{getStatusBadge(sale.status)}</div>
+      </div>
+    </div>
+  </div>
+))}
+
 
             {/* Loading More */}
             {loading && !initialLoading && (

@@ -1171,9 +1171,6 @@ router.get("/list-sales", Auth.userAuth, async (req, res) => {
 });
 
 
-
-
-
 /* ============================================================
    GET SINGLE SALE (with full details + logs)
    /sale/:billNo
@@ -1414,6 +1411,56 @@ router.put("/edit-sale/:saleId", Auth.userAuth, async (req, res) => {
     console.error("Error editing sale:", error);
     return res.status(500).json({
       ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
+router.delete("/deleteSale/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Validate Mongo ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid sale ID",
+      });
+    }
+
+    // 2️⃣ Find sale
+    const sale = await Sale.findById(id);
+
+    if (!sale) {
+      return res.status(404).json({
+        ok: false,
+        message: "Sale not found",
+      });
+    }
+
+    // 3️⃣ Allow delete ONLY if pending
+    if (sale.status !== "pending") {
+      return res.status(400).json({
+        ok: false,
+        message: `Cannot delete sale. Status is "${sale.status}". Only pending sales can be deleted.`,
+      });
+    }
+
+    // 4️⃣ Delete
+    await Sale.deleteOne({ _id: id });
+
+    return res.status(200).json({
+      ok: true,
+      message: `Sale ${sale.billNo} deleted successfully`,
+    });
+
+  } catch (error) {
+    console.error("Delete sale error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to delete sale",
       error: error.message,
     });
   }

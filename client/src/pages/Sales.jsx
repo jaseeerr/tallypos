@@ -857,51 +857,107 @@ onClick={() => {
           </div>
 
           {/* CUSTOMER SEARCH */}
-          <div className="relative mt-6" ref={customerSearchRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search Customer</label>
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Type to search customers..."
-                value={customerSearch}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value)
-                  if (e.target.value.trim()) {
-                    fetchCustomers()
-                  } else {
-                    setCustomers([])
-                    setShowCustomerDropdown(false)
-                  }
-                }}
-                onFocus={() => customerSearch && setShowCustomerDropdown(true)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-              />
-            </div>
+        {/* CUSTOMER SELECTION */}
+<div className="relative mt-6" ref={customerSearchRef}>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Customer
+  </label>
 
-            {/* Customer Dropdown */}
-            {showCustomerDropdown && (
-              <div className="absolute w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200">
-                {customers.map((customer) => (
-                  <div
-                    key={customer._id}
-                    className="px-4 py-3 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => {
-                      setSale({ ...sale, customerId: customer._id })
-                      setCustomerSearch("")
-                      setShowCustomerDropdown(false)
-                    }}
-                  >
-                    <h3 className="text-gray-800 font-semibold text-sm mb-1">{customer.name}</h3>
-                    <p className="text-gray-600 text-xs">
-                      Address: {customer.address || "N/A"}
-                      <span className="ml-2">TRN: {customer.trn || "N/A"}</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
+  {/* SELECTED CUSTOMER VIEW */}
+  {sale.customerId ? (
+    (() => {
+      const selectedCustomer = customers.find(
+        (c) => c._id === sale.customerId
+      )
+
+      if (!selectedCustomer) return null
+
+      return (
+        <div className="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {selectedCustomer.name}
+            </h3>
+            <p className="text-xs text-gray-600">
+              Address: {selectedCustomer.address || "N/A"}
+            </p>
+            <p className="text-xs text-gray-600">
+              TRN: {selectedCustomer.trn || "N/A"}
+            </p>
+            {selectedCustomer.phone && (
+              <p className="text-xs text-gray-600">
+                Phone: {selectedCustomer.phone}
+              </p>
             )}
           </div>
+
+          <button
+            onClick={() => {
+              setSale({ ...sale, customerId: "" })
+              setCustomerSearch("")
+              setShowCustomerDropdown(false)
+            }}
+            className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition"
+          >
+            Change
+          </button>
+        </div>
+      )
+    })()
+  ) : (
+    <>
+      {/* SEARCH INPUT */}
+      <div className="relative">
+        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Type to search customers..."
+          value={customerSearch}
+          onChange={(e) => {
+            setCustomerSearch(e.target.value)
+            if (e.target.value.trim()) {
+              fetchCustomers()
+            } else {
+              setCustomers([])
+              setShowCustomerDropdown(false)
+            }
+          }}
+          onFocus={() => customerSearch && setShowCustomerDropdown(true)}
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg
+            focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+        />
+      </div>
+
+      {/* CUSTOMER DROPDOWN */}
+      {showCustomerDropdown && customers.length > 0 && (
+        <div className="absolute w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+          {customers.map((customer) => (
+            <div
+              key={customer._id}
+              className="px-4 py-3 hover:bg-gray-100 cursor-pointer"
+              onClick={() => {
+                setSale({ ...sale, customerId: customer._id })
+                setCustomerSearch("")
+                setShowCustomerDropdown(false)
+              }}
+            >
+              <h3 className="text-gray-800 font-semibold text-sm mb-1">
+                {customer.name}
+              </h3>
+              <p className="text-gray-600 text-xs">
+                Address: {customer.address || "N/A"}
+                <span className="ml-2">
+                  TRN: {customer.trn || "N/A"}
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</div>
+
         </div>
 
        {/* SELECTED ITEMS */}
