@@ -317,7 +317,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
     const companyStockUnitMap = {};
 
     // Primary company
-    companyStockUnitMap[`${item.companyName}Stock`] = CLOSINGQTY;
+    companyStockUnitMap[`${item.companyName}Stock`] = item.CLOSINGQTY;
     companyStockUnitMap[`${item.companyName}Unit`] = item.UNITS;
 
     // Other companies
