@@ -296,12 +296,10 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       companyName,
       search = "",
       page = 1,
-      limit = 100,
-      includeOutOfStock = "false",
+      limit = 30,
       getRaw = "false",
+      includeOutOfStock = "false",
     } = req.query;
-
-    const isRaw = getRaw === "true";
 
     const parsedLimit = Math.min(parseInt(limit, 10), 200);
     const parsedPage = Math.max(parseInt(page, 10), 1);
@@ -309,7 +307,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
 
     const query = {};
 
-    // ✅ Company filter (primary company)
+    // ✅ Company filter (PRIMARY company only)
     if (companyName && companyName !== "ALL") {
       query.companyName = companyName;
     }
@@ -322,85 +320,75 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       ];
     }
 
-    /* =====================================================
-       🔥 RAW MODE — merged cross-company stock keys
-       ===================================================== */
-    if (isRaw) {
-      if (!search.trim()) {
-        return res.status(400).json({
-          ok: false,
-          error: "search is required when getRaw=true",
-        });
-      }
+    // 1️⃣ Fetch inventory of selected company only
+    const rawItems = await Inventory.find(query)
+      .lean()
+      .sort({ NAME: 1 });
 
-      // Fetch ALL products with the same NAME (all companies)
-      const products = await Inventory.find({
-        NAME: { $regex: `^${search}$`, $options: "i" },
-      }).lean();
+    // 2️⃣ Enrich each item with other-company stock (DISPLAY ONLY)
+ const processedItems = await Promise.all(
+  rawItems.map(async (item) => {
+    const closingQtyPieces = parseClosingQtyToPieces(item.CLOSINGQTY);
 
-      if (products.length === 0) {
-        return res.json({ ok: true, items: [] });
-      }
+    // Base object (ALWAYS returned)
+    const baseItem = {
+      ...item,
+      closingQtyPieces,
+      isOutOfStock: closingQtyPieces <= 0,
+    };
 
-      // Base product (used for shared fields)
-      const base = products[0];
-
-      const companyStockUnitMap = {};
-
-      products.forEach((p) => {
-        companyStockUnitMap[`${p.companyName}Stock`] =
-          parseClosingQtyToPieces(p.CLOSINGQTY);
-
-        companyStockUnitMap[`${p.companyName}Unit`] =
-          p.UNITS;
-      });
-
-      return res.json({
-        ok: true,
-        mode: "raw",
-        items: [
-          {
-            ...base,
-            ...companyStockUnitMap,
-          },
-        ],
-      });
+    // 🚀 Skip cross-company work unless explicitly requested
+    if (!shouldGetRaw) {
+      return baseItem;
     }
 
-    /* =====================================================
-       ⚡ NORMAL MODE — fast inventory listing
-       ===================================================== */
+    // 🔹 Raw mode: fetch same NAME from other companies
+    const sameNameProducts = await Inventory.find({
+      NAME: item.NAME,
+      _id: { $ne: item._id },
+    }).lean();
 
-    const items = await Inventory.find(query)
-      .lean()
-      .sort({ NAME: 1 })
-      .skip(skip)
-      .limit(parsedLimit);
+    const companyStockUnitMap = {};
 
-    const processedItems = items.map((item) => {
-      const closingQtyPieces = parseClosingQtyToPieces(item.CLOSINGQTY);
+    // Primary company
+    companyStockUnitMap[`${item.companyName}Stock`] = closingQtyPieces;
+    companyStockUnitMap[`${item.companyName}Unit`] = item.UNITS;
 
-      return {
-        ...item,
-        closingQtyPieces,
-        isOutOfStock: closingQtyPieces <= 0,
-      };
+    // Other companies
+    sameNameProducts.forEach((p) => {
+      companyStockUnitMap[`${p.companyName}Stock`] =
+        parseClosingQtyToPieces(p.CLOSINGQTY);
+      companyStockUnitMap[`${p.companyName}Unit`] = p.UNITS;
     });
 
-    const finalItems =
+    return {
+      ...baseItem,
+      ...companyStockUnitMap,
+    };
+  })
+);
+
+
+    // 3️⃣ Backend stock filter (PRIMARY company only)
+    const filteredItems =
       includeOutOfStock === "true"
         ? processedItems
         : processedItems.filter((i) => i.closingQtyPieces > 0);
 
-    const total = await Inventory.countDocuments(query);
+    const total = filteredItems.length;
+
+    // 4️⃣ Pagination AFTER filtering
+    const paginatedItems = filteredItems.slice(
+      skip,
+      skip + parsedLimit
+    );
 
     return res.json({
       ok: true,
-      mode: "list",
       total,
       page: parsedPage,
       limit: parsedLimit,
-      items: finalItems,
+      items: paginatedItems,
     });
   } catch (error) {
     console.error("Error fetching inventory:", error);
