@@ -89,22 +89,46 @@ const scanPausedRef = useRef(false)
   // =============================
 
 
- function getCompanyStockInfo(item) {
+  function getCompanyStockInfo(item) {
   return Object.keys(item)
-    .filter(
-      (key) =>
-        key.endsWith("Stock") && key !== "isOutOfStock"
-    )
+    .filter((key) => {
+      const lowerKey = key.toLowerCase();
+
+      // ✅ keep only real stock keys
+      return (
+        key.endsWith("Stock") &&
+        !lowerKey.includes("isoutof")
+      );
+    })
     .map((stockKey) => {
       const company = stockKey.replace("Stock", "");
+
       return {
         company,
-        stock: Number(item[stockKey]) || 0,
-        unit: item[`${company}Unit`] || ""
+        gross: item[`${company}Stock`] || "-",
+        net: item[`${company}-NetAvailable`] || "-",
+        pending: item[`${company}-UnsyncedQty`] ?? 0,
+        unit: item[`${company}Unit`] || "",
       };
-    })
-    .filter((s) => s.stock > 0);
+    });
 }
+
+//  function getCompanyStockInfo(item) {
+//   return Object.keys(item)
+//     .filter(
+//       (key) =>
+//         key.endsWith("Stock") && key !== "isOutOfStock"
+//     )
+//     .map((stockKey) => {
+//       const company = stockKey.replace("Stock", "");
+//       return {
+//         company,
+//         stock: Number(item[stockKey]) || 0,
+//         unit: item[`${company}Unit`] || ""
+//       };
+//     })
+//     .filter((s) => s.stock > 0);
+// }
 
 
   const normalizeUnit = (units = "") => {
@@ -769,18 +793,34 @@ onClick={() => {
                   </span>
                 </div>
 
-                {/* Stock breakdown */}
+               {/* Stock breakdown */}
                 <div className="space-y-1.5">
-                  {getCompanyStockInfo(item).map((s) => (
-                    <div key={s.company} className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-500 font-normal tracking-wide uppercase text-[10px]">
-                        {s.company.replace(/-/g, " ")}
-                      </span>
-                      <span className="font-medium text-neutral-800 tabular-nums">
-                        {s.stock} {s.unit}
-                      </span>
-                    </div>
-                  ))}
+             {getCompanyStockInfo(item).map((s) => (
+  <div
+    key={s.company}
+    className="flex items-center justify-between text-xs"
+  >
+    <span className="text-neutral-500 font-normal tracking-wide uppercase text-[10px]">
+      {s.company.replace(/-/g, " ")}
+    </span>
+
+    <span className="font-medium text-neutral-800 tabular-nums">
+      <span className="text-emerald-600">
+        net: {s.net}
+      </span>
+      {" | "}
+      <span className="text-neutral-700">
+        gross: {s.gross}
+      </span>
+      {" | "}
+      <span className="text-amber-600">
+        pend: {s.pending}
+      </span>
+    </span>
+  </div>
+))}
+
+
 
                   {/* Total stock */}
                   {getCompanyStockInfo(item).length > 1 && (
