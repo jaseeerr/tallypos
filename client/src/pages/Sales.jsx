@@ -235,6 +235,7 @@ lastScannedRef.current = trimmedCode
         params: {
           companyName,
           search: inventorySearch,
+           getRaw:true,
           page: 1,
           limit: 50,
           includeOutOfStock: false,

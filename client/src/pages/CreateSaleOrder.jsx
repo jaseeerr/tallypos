@@ -154,6 +154,7 @@ const closeScanner = () => {
       const res = await axios.get("/inventory", {
         params: {
           companyName,
+          getRaw:true,
           search: inventorySearch,
           page: 1,
           limit: 50,
