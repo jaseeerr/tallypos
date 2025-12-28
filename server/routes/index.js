@@ -125,7 +125,7 @@ router.post("/login", async (req, res) => {
 async function applyUnsyncedSalesDeduction({
   items,
   companyName,
-  getRaw,
+  
 }) {
   if (!items.length) return items;
 
@@ -337,7 +337,6 @@ companyStockUnitMap[`${p.companyName}Unit`] = p.UNITS;
 processedItems = await applyUnsyncedSalesDeduction({
   items: processedItems,
   companyName,
-  getRaw: shouldGetRaw,
 });
 
 
