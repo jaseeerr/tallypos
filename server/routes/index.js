@@ -296,7 +296,7 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
       companyName,
       search = "",
       page = 1,
-      limit = 30,
+      limit = 100,
       includeOutOfStock = "false",
       getRaw = "false",
     } = req.query;

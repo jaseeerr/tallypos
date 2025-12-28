@@ -88,7 +88,7 @@ export default function InventoryPage() {
           companyName: activeCompany,
           search: debouncedSearch,
           page: currentPage,
-          limit: 30,
+          limit: 100,
           includeOutOfStock: includeOutOfStock,
         },
       })
@@ -107,7 +107,7 @@ export default function InventoryPage() {
         pageRef.current = currentPage + 1
       }
 
-      const moreDataAvailable = newItems.length === 30
+      const moreDataAvailable = newItems.length === 100
       hasMoreRef.current = moreDataAvailable
       setHasMore(moreDataAvailable)
 
