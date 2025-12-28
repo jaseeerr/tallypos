@@ -65,7 +65,7 @@ export default function InventoryPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
-    }, 300)
+    }, 600)
     return () => clearTimeout(timer)
   }, [searchQuery])
 
@@ -88,7 +88,7 @@ export default function InventoryPage() {
           companyName: activeCompany,
           search: debouncedSearch,
           page: currentPage,
-          limit: 100,
+          limit: 30,
           includeOutOfStock: includeOutOfStock,
         },
       })
@@ -107,7 +107,7 @@ export default function InventoryPage() {
         pageRef.current = currentPage + 1
       }
 
-      const moreDataAvailable = newItems.length === 100
+      const moreDataAvailable = newItems.length === 30
       hasMoreRef.current = moreDataAvailable
       setHasMore(moreDataAvailable)
 
@@ -491,7 +491,10 @@ setPreviews((prev) => {
                       <>
                         <img
                           src={`${API_BASE}/${primaryImage}`}
+                          
                           alt={item.NAME}
+                            decoding="async"
+
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
