@@ -107,7 +107,11 @@ function getCompanyStockInfo(item) {
 }
 
 
-
+function extractUnitNumber(str = "") {
+  if (typeof str !== "string") return 0;
+  const match = str.match(/(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
 
 
 const formatStockDisplay = (item) => {
@@ -400,21 +404,21 @@ useEffect(() => {
 
     const piecesPerUnit = extractPiecesPerUnit(item.UNITS)
 
-    setSelectedItems((prev) => [
-      ...prev,
-      {
-        itemId: item._id,
-        name: item.NAME,
-        stock: item.closingQtyPieces || 0,
-        stockFormatted: item.CLOSINGQTY || "0",
-        unit: unitDisplay,
-        piecesPerUnit: piecesPerUnit, // Store pieces per unit for validation
-        qty: 1,
-        rate: Number(item.SALESPRICE) || 0,
-        rateOfTax: 5,
-        amount: Number(item.SALESPRICE) || 0,
-      },
-    ])
+   setSelectedItems((prev) => [
+  ...prev,
+  {
+    ...item, // 🔥 KEEP EVERYTHING (company-wise stock, net, pending)
+    itemId: item._id,
+    name: item.NAME,
+    unit: unitDisplay,
+
+    qty: 1,
+    rate: Number(item.SALESPRICE) || 0,
+    rateOfTax: 5,
+    amount: Number(item.SALESPRICE) || 0,
+  },
+])
+
 
     setInventorySearch("")
     setInventory([])
@@ -1000,36 +1004,43 @@ onClick={() => {
                 className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-gray-100 last:border-b-0 last:pb-0"
               >
                 {/* Item Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-gray-900 font-semibold text-sm mb-2">{item.name}</h3>
+             <div className="flex-1 min-w-0">
+  <h3 className="text-gray-900 font-semibold text-sm mb-2">
+    {item.name}
+  </h3>
 
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>
-                      <span className="font-medium text-gray-600">Unit:</span> {item.unit}
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span>
-                      <span className="font-medium text-gray-600">Stock:</span>{" "}
-                    <span
-  className={`font-semibold ${
-    item.stock <= 0
-      ? "text-red-500"
-      : item.stock < item.piecesPerUnit
-        ? "text-amber-500"
-        : "text-emerald-500"
-  }`}
->
-  {formatStockDisplay(item)}
-  {item.unsyncedQty > 0 && (
-    <span className="ml-2 text-[10px] text-amber-600 font-medium">
-      ({item.unsyncedQty} pcs reserved)
+  <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+    <span>
+      <span className="font-medium text-gray-600">Unit:</span>{" "}
+      {item.unit}
     </span>
-  )}
-</span>
+  </div>
 
-                    </span>
-                  </div>
-                </div>
+  {/* Company-wise stock (same as inventory dropdown) */}
+  <div className="space-y-1">
+    {getCompanyStockInfo(item).map((s) => (
+      <div
+        key={s.company}
+        className="flex items-center justify-between text-[11px]"
+      >
+        <span className="text-gray-500 uppercase tracking-wide">
+          {s.company.replace(/-/g, " ")}
+        </span>
+
+        <span className="font-medium text-gray-800">
+          net:{" "}
+          <span className="text-emerald-600">{s.net}</span>{" "}
+          | gross:{" "}
+          <span className="text-gray-700">{s.gross}</span>{" "}
+          | pend:{" "}
+          <span className="text-amber-600">{s.pending}</span>
+        </span>
+      </div>
+    ))}
+  </div>
+</div>
+
+
 
                 {/* Controls */}
                 <div className="flex items-end gap-3">
