@@ -130,10 +130,21 @@ function extractPrimaryUnit(units = "") {
   return "pcs";
 }
 
-function extractUnitCount(closingQty = "") {
+function extractUnitCount(closingQty) {
+  // ✅ If it's already a number, treat it as unit-count directly
+  if (typeof closingQty === "number") {
+    return closingQty;
+  }
+
+  // ✅ If it's not a string, nothing usable
+  if (typeof closingQty !== "string") {
+    return 0;
+  }
+
   const match = closingQty.match(/(\d+)\s*(doz|gross|pair|pcs|pc)/i);
   return match ? parseInt(match[1], 10) : 0;
 }
+
 
 function buildQtyString(qty, unit) {
   return `${qty} ${unit}`;
