@@ -18,6 +18,7 @@ import {
   Camera,
   ChevronLeft,
   Layers,
+  ImageIcon,
   ShoppingCart,
   CheckCircle2,
   ChevronRight
@@ -83,17 +84,29 @@ console.log("Environment:", window.FlutterScanQR ? "Flutter" : "Browser")
 
 function getCompanyStockInfo(item) {
   return Object.keys(item)
-    .filter((key) => key.endsWith("Stock"))
+    .filter((key) => {
+      const lowerKey = key.toLowerCase();
+
+      // ✅ keep only real stock keys
+      return (
+        key.endsWith("Stock") &&
+        !lowerKey.includes("isoutof")
+      );
+    })
     .map((stockKey) => {
       const company = stockKey.replace("Stock", "");
+
       return {
         company,
-        stockDisplay: item[stockKey], // STRING
+        gross: item[`${company}Stock`] || "-",
+        net: item[`${company}-NetAvailable`] || "-",
+        pending: item[`${company}-UnsyncedQty`] ?? 0,
         unit: item[`${company}Unit`] || "",
       };
-    })
-    .filter((s) => s.stockDisplay); // keep if exists
+    });
 }
+
+
 
 
 
@@ -825,17 +838,32 @@ onClick={() => {
 
                 {/* Stock breakdown */}
                 <div className="space-y-1.5">
-                  {getCompanyStockInfo(item).map((s) => (
-                    <div key={s.company} className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-500 font-normal tracking-wide uppercase text-[10px]">
-                        {s.company.replace(/-/g, " ")}
-                      </span>
-                      <span className="font-medium text-neutral-800 tabular-nums">
-                          {s.stockDisplay}
+             {getCompanyStockInfo(item).map((s) => (
+  <div
+    key={s.company}
+    className="flex items-center justify-between text-xs"
+  >
+    <span className="text-neutral-500 font-normal tracking-wide uppercase text-[10px]">
+      {s.company.replace(/-/g, " ")}
+    </span>
 
-                      </span>
-                    </div>
-                  ))}
+    <span className="font-medium text-neutral-800 tabular-nums">
+      <span className="text-emerald-600">
+        net: {s.net}
+      </span>
+      {" | "}
+      <span className="text-neutral-700">
+        gross: {s.gross}
+      </span>
+      {" | "}
+      <span className="text-amber-600">
+        pend: {s.pending}
+      </span>
+    </span>
+  </div>
+))}
+
+
 
                   {/* Total stock */}
                   {getCompanyStockInfo(item).length > 1 && (
@@ -1385,26 +1413,33 @@ onClick={() => {
               </div>
               <p className="font-bold text-slate-800 text-lg">Stock Availability</p>
             </div>
-            <div className="space-y-2.5">
-              {["FANCY-PALACE-TRADING-LLC", "AMANA-FIRST-TRADING-LLC"].map(
-                (company) => (
-                  <div
-                    key={company}
-                    className="flex items-center justify-between bg-white px-4 py-3 rounded-xl text-sm shadow-sm border border-slate-100"
-                  >
-                    <span className="text-slate-600 font-medium">
-                      {company.replace(/-/g, " ")}
-                    </span>
-                    <span className="font-bold text-slate-900 text-base">
-                      {scannedProduct?.[`${company}Stock`]}{" "}
-                      <span className="text-slate-600 font-semibold">
-                        {scannedProduct?.[`${company}Unit`]}
-                      </span>
-                    </span>
-                  </div>
-                )
-              )}
-            </div>
+          <div className="space-y-2.5">
+  {getCompanyStockInfo(scannedProduct).map((s) => (
+    <div
+      key={s.company}
+      className="flex items-center justify-between bg-white px-4 py-3 rounded-xl text-sm shadow-sm border border-slate-100"
+    >
+      <span className="text-slate-600 font-medium">
+        {s.company.replace(/-/g, " ")}
+      </span>
+
+      <span className="font-medium text-slate-800 tabular-nums">
+        <span className="text-emerald-600">
+          net: {s.net}
+        </span>
+        {" | "}
+        <span className="text-slate-700">
+          gross: {s.gross}
+        </span>
+        {" | "}
+        <span className="text-amber-600">
+          pend: {s.pending}
+        </span>
+      </span>
+    </div>
+  ))}
+</div>
+
           </div>
         </div>
 
