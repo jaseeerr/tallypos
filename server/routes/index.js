@@ -145,13 +145,14 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
 
   const itemNames = items.map((i) => i.NAME);
 
+  // Fetch only THIS company’s unsynced sales
   const unsyncedSales = await Sale.find({
     companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // Unsynced qty per item (UNIT COUNT)
+  // Build unit-based unsynced qty map
   const unsyncedQtyMap = {};
 
   unsyncedSales.forEach((sale) => {
@@ -162,27 +163,42 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
   });
 
   return items.map((item) => {
-    const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
-
     const unit = extractPrimaryUnit(item.UNITS);
     const physicalQty = extractUnitCount(item.CLOSINGQTY);
-    const availableQty = Math.max(physicalQty - unsyncedQty, 0);
+    const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
+    const netAvailableQty = Math.max(physicalQty - unsyncedQty, 0);
 
-    const updated = {
-      ...item,
-      unsyncedQty,
-      availableQty,
-      availableQtyDisplay: buildQtyString(availableQty, unit),
-      isOutOfStock: availableQty <= 0,
-    };
+    const updated = { ...item };
 
-    // 🔥 COMPANY-WISE AVAILABLE STOCK
-    const companyKey = `${companyName}AvailableStock`;
-    updated[companyKey] = buildQtyString(availableQty, unit);
+    // 🔹 Company-wise keys
+    const stockKey = `${item.companyName}Stock`;
+    const netKey = `${item.companyName}-NetAvailable`;
+    const unsyncedKey = `${item.companyName}-UnsyncedQty`;
+
+    updated[netKey] = buildQtyString(netAvailableQty, unit);
+    updated[unsyncedKey] = unsyncedQty;
+
+    // 🔹 Ensure other companies have defaults
+    Object.keys(item)
+      .filter((k) => k.endsWith("Stock"))
+      .forEach((k) => {
+        const company = k.replace("Stock", "");
+        if (!updated[`${company}-NetAvailable`]) {
+          const qty = extractUnitCount(item[k]);
+          updated[`${company}-NetAvailable`] =
+            buildQtyString(qty, unit);
+        }
+        if (updated[`${company}-UnsyncedQty`] == null) {
+          updated[`${company}-UnsyncedQty`] = 0;
+        }
+      });
+
+    updated.isOutOfStock = netAvailableQty <= 0;
 
     return updated;
   });
 }
+
 
 
 
