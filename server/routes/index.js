@@ -130,25 +130,16 @@ function extractPrimaryUnit(units = "") {
   return "pcs";
 }
 
-function extractUnitCount(closingQty) {
-  // ✅ If it's already a number, treat it as unit-count directly
-  if (typeof closingQty === "number") {
-    return closingQty;
-  }
-
-  // ✅ If it's not a string, nothing usable
-  if (typeof closingQty !== "string") {
-    return 0;
-  }
-
-  const match = closingQty.match(/(\d+)\s*(doz|gross|pair|pcs|pc)/i);
-  return match ? parseInt(match[1], 10) : 0;
+function extractUnitCount(stockStr = "") {
+  if (typeof stockStr !== "string") return 0;
+  const match = stockStr.match(/(-?\d+)/);
+  return match ? Number(match[1]) : 0;
 }
-
 
 function buildQtyString(qty, unit) {
   return `${qty} ${unit}`;
 }
+
 
 
 async function applyUnsyncedSalesDeduction({ items, companyName }) {
@@ -156,57 +147,55 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
 
   const itemNames = items.map((i) => i.NAME);
 
-  // Fetch only THIS company’s unsynced sales
+  // 1️⃣ Fetch unsynced sales ONCE
   const unsyncedSales = await Sale.find({
     companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // Build unit-based unsynced qty map
-  const unsyncedQtyMap = {};
+  // 2️⃣ Build pending map IN UNITS (NOT PIECES)
+  // key format: `${companyName}::${itemName}`
+  const pendingMap = {};
 
   unsyncedSales.forEach((sale) => {
-    sale.items.forEach((si) => {
-      unsyncedQtyMap[si.itemName] =
-        (unsyncedQtyMap[si.itemName] || 0) + si.qty;
+    sale.items.forEach((saleItem) => {
+      if (!itemNames.includes(saleItem.itemName)) return;
+
+      const key = `${sale.companyName}::${saleItem.itemName}`;
+
+      pendingMap[key] =
+        (pendingMap[key] || 0) + Number(saleItem.qty || 0);
     });
   });
 
+  // 3️⃣ Apply per-company calculation
   return items.map((item) => {
-    const unit = extractPrimaryUnit(item.UNITS);
-    const physicalQty = extractUnitCount(item.CLOSINGQTY);
-    const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
-    const netAvailableQty = Math.max(physicalQty - unsyncedQty, 0);
+    const updatedItem = { ...item };
 
-    const updated = { ...item };
-
-    // 🔹 Company-wise keys
-    const stockKey = `${item.companyName}Stock`;
-    const netKey = `${item.companyName}-NetAvailable`;
-    const unsyncedKey = `${item.companyName}-UnsyncedQty`;
-
-    updated[netKey] = buildQtyString(netAvailableQty, unit);
-    updated[unsyncedKey] = unsyncedQty;
-
-    // 🔹 Ensure other companies have defaults
     Object.keys(item)
       .filter((k) => k.endsWith("Stock"))
-      .forEach((k) => {
-        const company = k.replace("Stock", "");
-        if (!updated[`${company}-NetAvailable`]) {
-          const qty = extractUnitCount(item[k]);
-          updated[`${company}-NetAvailable`] =
-            buildQtyString(qty, unit);
-        }
-        if (updated[`${company}-UnsyncedQty`] == null) {
-          updated[`${company}-UnsyncedQty`] = 0;
-        }
+      .forEach((stockKey) => {
+        const company = stockKey.replace("Stock", "");
+
+        const grossStr = item[`${company}Stock`];
+        if (typeof grossStr !== "string") return;
+
+        // Extract unit count ONLY (Doz, pcs, card — whatever)
+        const grossUnits = extractUnitCount(grossStr);
+
+        const pending =
+          pendingMap[`${company}::${item.NAME}`] || 0;
+
+        // 🔥 CORE FIX — NO CLAMPING
+        const netUnits = grossUnits - pending;
+
+        updatedItem[`${company}-UnsyncedQty`] = pending;
+        updatedItem[`${company}-NetAvailable`] =
+          `${netUnits} ${extractUnitLabel(grossStr)}`;
       });
 
-    updated.isOutOfStock = netAvailableQty <= 0;
-
-    return updated;
+    return updatedItem;
   });
 }
 
