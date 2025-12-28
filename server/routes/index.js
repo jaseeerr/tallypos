@@ -147,57 +147,52 @@ async function applyUnsyncedSalesDeduction({ items, companyName }) {
 
   const itemNames = items.map((i) => i.NAME);
 
-  // 1️⃣ Fetch unsynced sales ONCE
+  // 1️⃣ Fetch unsynced sales
   const unsyncedSales = await Sale.find({
     companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // 2️⃣ Build pending map IN UNITS (NOT PIECES)
-  // key format: `${companyName}::${itemName}`
-  const pendingMap = {};
+  // 2️⃣ Build unsynced qty map (IN UNITS, NOT PIECES)
+  const unsyncedQtyMap = {};
 
   unsyncedSales.forEach((sale) => {
     sale.items.forEach((saleItem) => {
       if (!itemNames.includes(saleItem.itemName)) return;
 
-      const key = `${sale.companyName}::${saleItem.itemName}`;
-
-      pendingMap[key] =
-        (pendingMap[key] || 0) + Number(saleItem.qty || 0);
+      unsyncedQtyMap[saleItem.itemName] =
+        (unsyncedQtyMap[saleItem.itemName] || 0) + saleItem.qty;
     });
   });
 
-  // 3️⃣ Apply per-company calculation
+  // 3️⃣ Apply deduction COMPANY-WISE
   return items.map((item) => {
-    const updatedItem = { ...item };
+    const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
 
-    Object.keys(item)
-      .filter((k) => k.endsWith("Stock"))
-      .forEach((stockKey) => {
-        const company = stockKey.replace("Stock", "");
+    // ✅ unit comes ONLY from UNITS
+    const unit = extractPrimaryUnit(item.UNITS);
 
-        const grossStr = item[`${company}Stock`];
-        if (typeof grossStr !== "string") return;
+    // ✅ gross comes from STOCK STRING
+    const grossQty = extractUnitCount(item.CLOSINGQTY);
 
-        // Extract unit count ONLY (Doz, pcs, card — whatever)
-        const grossUnits = extractUnitCount(grossStr);
+    // ✅ net can go NEGATIVE (important!)
+    const netQty = grossQty - unsyncedQty;
 
-        const pending =
-          pendingMap[`${company}::${item.NAME}`] || 0;
+    const company = item.companyName;
 
-        // 🔥 CORE FIX — NO CLAMPING
-        const netUnits = grossUnits - pending;
+    return {
+      ...item,
 
-        updatedItem[`${company}-UnsyncedQty`] = pending;
-        updatedItem[`${company}-NetAvailable`] =
-          `${netUnits} ${extractUnitLabel(grossStr)}`;
-      });
+      // company-wise fields
+      [`${company}-UnsyncedQty`]: unsyncedQty,
+      [`${company}-NetAvailable`]: buildQtyString(netQty, unit),
 
-    return updatedItem;
+      // DO NOT touch other companies
+    };
   });
 }
+
 
 
 
