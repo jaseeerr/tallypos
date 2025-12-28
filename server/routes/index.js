@@ -183,7 +183,7 @@ function parseClosingQtyToPieces(closingQty = "") {
 /* ============================================================
    GET INVENTORY (With Cross-Company Stock Insight)
    ============================================================ */
-router.get("/inventory", Auth.userAuth, async (req, res) => {
+router.get("/inventoryOldStableSlow", Auth.userAuth, async (req, res) => {
   try {
     const {
       companyName,
@@ -290,15 +290,134 @@ router.get("/inventory", Auth.userAuth, async (req, res) => {
   }
 });
 
+router.get("/inventory", Auth.userAuth, async (req, res) => {
+  try {
+    const {
+      companyName,
+      search = "",
+      page = 1,
+      limit = 30,
+      includeOutOfStock = "false",
+      getRaw = "false",
+    } = req.query;
+
+    const isRaw = getRaw === "true";
+
+    const parsedLimit = Math.min(parseInt(limit, 10), 200);
+    const parsedPage = Math.max(parseInt(page, 10), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const query = {};
+
+    // ✅ Company filter (primary company)
+    if (companyName && companyName !== "ALL") {
+      query.companyName = companyName;
+    }
+
+    // ✅ Text search
+    if (search.trim()) {
+      query.$or = [
+        { NAME: { $regex: search, $options: "i" } },
+        { GROUP: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    /* =====================================================
+       🔥 RAW MODE — merged cross-company stock keys
+       ===================================================== */
+    if (isRaw) {
+      if (!search.trim()) {
+        return res.status(400).json({
+          ok: false,
+          error: "search is required when getRaw=true",
+        });
+      }
+
+      // Fetch ALL products with the same NAME (all companies)
+      const products = await Inventory.find({
+        NAME: { $regex: `^${search}$`, $options: "i" },
+      }).lean();
+
+      if (products.length === 0) {
+        return res.json({ ok: true, items: [] });
+      }
+
+      // Base product (used for shared fields)
+      const base = products[0];
+
+      const companyStockUnitMap = {};
+
+      products.forEach((p) => {
+        companyStockUnitMap[`${p.companyName}Stock`] =
+          parseClosingQtyToPieces(p.CLOSINGQTY);
+
+        companyStockUnitMap[`${p.companyName}Unit`] =
+          p.UNITS;
+      });
+
+      return res.json({
+        ok: true,
+        mode: "raw",
+        items: [
+          {
+            ...base,
+            ...companyStockUnitMap,
+          },
+        ],
+      });
+    }
+
+    /* =====================================================
+       ⚡ NORMAL MODE — fast inventory listing
+       ===================================================== */
+
+    const items = await Inventory.find(query)
+      .lean()
+      .sort({ NAME: 1 })
+      .skip(skip)
+      .limit(parsedLimit);
+
+    const processedItems = items.map((item) => {
+      const closingQtyPieces = parseClosingQtyToPieces(item.CLOSINGQTY);
+
+      return {
+        ...item,
+        closingQtyPieces,
+        isOutOfStock: closingQtyPieces <= 0,
+      };
+    });
+
+    const finalItems =
+      includeOutOfStock === "true"
+        ? processedItems
+        : processedItems.filter((i) => i.closingQtyPieces > 0);
+
+    const total = await Inventory.countDocuments(query);
+
+    return res.json({
+      ok: true,
+      mode: "list",
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      items: finalItems,
+    });
+  } catch (error) {
+    console.error("Error fetching inventory:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
 
 /**
  * GET PRODUCT BY ID
  * body: { companyName: String }
  */
-router.post(
-  "/inventory/:id",
-  Auth.userAuth, // optional
-  async (req, res) => {
+router.post("/inventory/:id", Auth.userAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { companyName } = req.body;
@@ -372,10 +491,7 @@ router.post(
  * BULK FETCH INVENTORY BY IDS
  * body: { ids: string[] }
  */
-router.post(
-  "/inventoryBulk",
-  Auth.userAuth,
-  async (req, res) => {
+router.post("/inventoryBulk", Auth.userAuth, async (req, res) => {
     try {
       const { ids } = req.body;
 console.log(ids)
