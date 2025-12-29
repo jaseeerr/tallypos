@@ -1614,10 +1614,10 @@ router.delete("/deleteSale/:id", async (req, res) => {
 
 // convert order to sale
 router.post("/convertOrderToSale/:id", async (req, res) => {
-  try {
+   try {
     const { id } = req.params;
 
-    // 1️⃣ Fetch sale order
+    // 1️⃣ Fetch Sale Order
     const saleOrder = await SaleOrder.findById(id);
     if (!saleOrder) {
       return res.status(404).json({ message: "Sale Order not found" });
@@ -1631,7 +1631,15 @@ router.post("/convertOrderToSale/:id", async (req, res) => {
       });
     }
 
-    // 3️⃣ Recalculate totals
+    // 3️⃣ Generate bill number (SAME LOGIC AS /salesCount)
+    const saleCount = await Sale.countDocuments({
+      companyName: saleOrder.companyName
+    });
+
+    const companyLetter = saleOrder.companyName.charAt(0).toUpperCase();
+    const billNo = `${companyLetter}${1000 + saleCount + 1}`;
+
+    // 4️⃣ Recalculate totals
     const subtotal = saleOrder.items.reduce(
       (sum, item) => sum + item.amount,
       0
@@ -1645,11 +1653,11 @@ router.post("/convertOrderToSale/:id", async (req, res) => {
 
     const totalAmount = subtotal + vatAmount;
 
-    // 4️⃣ Create Sale
+    // 5️⃣ Create Sale
     const sale = await Sale.create({
       companyName: saleOrder.companyName,
 
-      billNo: saleOrder.billNo,
+      billNo,
       date: saleOrder.date,
       reference: saleOrder.reference || "",
       remarks: saleOrder.remarks || "",
@@ -1684,15 +1692,16 @@ router.post("/convertOrderToSale/:id", async (req, res) => {
       updatedBy: req.user?._id
     });
 
-    // 5️⃣ Mark sale order as converted
+    // 6️⃣ Mark Sale Order as converted
     saleOrder.converted = true;
     saleOrder.convertedAt = new Date();
     await saleOrder.save();
 
-    // 6️⃣ Response
+    // 7️⃣ Respond
     res.status(201).json({
       message: "Sale Order converted to Sale successfully",
-      saleId: sale._id
+      saleId: sale._id,
+      billNo
     });
 
   } catch (err) {
@@ -1701,117 +1710,6 @@ router.post("/convertOrderToSale/:id", async (req, res) => {
     res.status(500).json({
       message: "Failed to convert Sale Order",
       error: err.message
-    });
-  }
-});
-
-
-
-
-
-// customer-apis
-
-router.get("/customers", Auth.userAuth, async (req, res) => {
-  try {
-    let {
-      page = 1,
-      limit = 100,
-      search = "",
-      companyName = "",
-    } = req.query;
-
-    page = Math.max(Number(page), 1);
-    limit = Math.min(Number(limit), 200);
-    const skip = (page - 1) * limit;
-
-    const query = {};
-
-    // Company filter
-    if (companyName && companyName !== "ALL") {
-      query.companyName = companyName;
-    }
-
-    // Search filter
-    if (search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      query.$or = [
-        { name: regex },
-        { group: regex },
-        { address: regex },
-         { trn: regex }, // works for array fields
-      ];
-    }
-
-    // Total count
-    const total = await Customer.countDocuments(query);
-
-    // Paginated fetch
-    const items = await Customer.find(query)
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    return res.json({
-      ok: true,
-      items,
-      total,
-      page,
-      limit,
-      hasMore: skip + items.length < total,
-    });
-  } catch (error) {
-    console.error("Error fetching customers:", error);
-    return res.status(500).json({
-      ok: false,
-      error: error.message,
-    });
-  }
-});
-
-
-
-// sale-order-api
-
-
-/**
- * CREATE SALE ORDER
- */
-router.post("/sale-orders", Auth.userAuth, async (req, res) => {
-  try {
-    const payload = req.body;
-
-    if (!payload.companyName) {
-      return res.status(400).json({
-        ok: false,
-        message: "companyName is required",
-      });
-    }
-
-    const saleOrder = await SaleOrder.create({
-      ...payload,
-      createdBy: req.user?._id,
-      updatedBy: req.user?._id,
-    });
-
-    return res.status(201).json({
-      ok: true,
-      item: saleOrder,
-    });
-  } catch (error) {
-    console.error("Error creating sale order:", error);
-
-    // Duplicate billNo handling
-    if (error.code === 11000) {
-      return res.status(400).json({
-        ok: false,
-        message: "Bill number already exists",
-      });
-    }
-
-    return res.status(500).json({
-      ok: false,
-      error: error.message,
     });
   }
 });
