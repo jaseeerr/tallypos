@@ -1612,6 +1612,98 @@ router.delete("/deleteSale/:id", async (req, res) => {
   }
 });
 
+// convert order to sale
+router.post("/convertOrderToSale/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Fetch sale order
+    const saleOrder = await SaleOrder.findById(id);
+    if (!saleOrder) {
+      return res.status(404).json({ message: "Sale Order not found" });
+    }
+
+    // 2️⃣ Prevent double conversion
+    if (saleOrder.converted) {
+      return res.status(400).json({
+        message: "Sale Order already converted",
+        convertedAt: saleOrder.convertedAt
+      });
+    }
+
+    // 3️⃣ Recalculate totals
+    const subtotal = saleOrder.items.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
+
+    const vatAmount = saleOrder.items.reduce(
+      (sum, item) =>
+        sum + (item.amount * (item.rateOfTax || 0)) / 100,
+      0
+    );
+
+    const totalAmount = subtotal + vatAmount;
+
+    // 4️⃣ Create Sale
+    const sale = await Sale.create({
+      companyName: saleOrder.companyName,
+
+      billNo: saleOrder.billNo,
+      date: saleOrder.date,
+      reference: saleOrder.reference || "",
+      remarks: saleOrder.remarks || "",
+
+      subtotal,
+      vatAmount,
+      totalAmount,
+
+      isCashSale: saleOrder.isCashSale || false,
+      cashLedgerName: saleOrder.cashLedgerName || "",
+
+      partyName: saleOrder.partyName || "",
+      partyCode: saleOrder.partyCode || "",
+      partyVatNo: saleOrder.partyVatNo || "",
+      partyAddress: saleOrder.partyAddress || [],
+
+      items: saleOrder.items.map((item) => ({
+        itemName: item.itemName,
+        itemGroup: item.itemGroup || "",
+        unit: item.unit,
+        qty: item.qty,
+        rate: item.rate,
+        amount: item.amount,
+        rateOfTax: item.rateOfTax || 0,
+        itemCode: item.itemCode || "",
+        description: item.description || ""
+      })),
+
+      ledgers: saleOrder.ledgers || [],
+
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id
+    });
+
+    // 5️⃣ Mark sale order as converted
+    saleOrder.converted = true;
+    saleOrder.convertedAt = new Date();
+    await saleOrder.save();
+
+    // 6️⃣ Response
+    res.status(201).json({
+      message: "Sale Order converted to Sale successfully",
+      saleId: sale._id
+    });
+
+  } catch (err) {
+    console.error("Convert SaleOrder Error:", err);
+
+    res.status(500).json({
+      message: "Failed to convert Sale Order",
+      error: err.message
+    });
+  }
+});
 
 
 

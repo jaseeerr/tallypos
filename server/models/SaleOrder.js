@@ -63,9 +63,14 @@ const SaleOrderSchema = new mongoose.Schema(
     syncAttempts: { type: Number, default: 0 },
     syncError: { type: String, default: "" },
 
+    // CONVERSION TRACKING
+converted: { type: Boolean, default: false },
+convertedAt: { type: Date },
+
     tallyInvoiceNumber: { type: String, default: "" },
 
     tallyResponseLogs: [TallyResponseSchema],
+
 
     // META
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

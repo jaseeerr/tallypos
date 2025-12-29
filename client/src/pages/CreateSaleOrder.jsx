@@ -362,39 +362,47 @@ const resetSaleOrderForm = () => {
   // =============================
   // ADD ITEM
   // =============================
-  const addItem = (item) => {
-    if (selectedItems.find((i) => i.itemId === item._id)) {
-      showNotification(
-        "warning",
-        "Item already added",
-        `${item.NAME} is already in the list. You can update its quantity.`,
-      )
-      return
-    }
-
-    const { display: unit, multiplier: piecesPerUnit } = normalizeUnit(item.UNITS)
-
-    setSelectedItems((prev) => [
-      ...prev,
-      {
-        itemId: item._id,
-        name: item.NAME,
-        stock: item.closingQtyPieces || 0, // PCS (source of truth)
-        stockFormatted: item.CLOSINGQTY || "0", // display only
-        unit,
-        piecesPerUnit, // 12 for Doz
-        qty: 1,
-        rate: Number(item.SALESPRICE) || 0,
-        rateOfTax: 5,
-        amount: Number(item.SALESPRICE) || 0,
-      },
-    ])
-
-    setInventorySearch("")
-    setInventory([])
-    setShowInventoryDropdown(false)
-    showNotification("success", "Item added", `${item.NAME} has been added to the sale order.`)
+const addItem = (item) => {
+  if (selectedItems.find((i) => i.itemId === item._id)) {
+    showNotification(
+      "warning",
+      "Item already added",
+      `${item.NAME} is already in the list.`
+    )
+    return
   }
+
+  const { display: unit, multiplier: piecesPerUnit } = normalizeUnit(item.UNITS)
+
+  setSelectedItems((prev) => [
+    ...prev,
+    {
+      ...item, // 🔥 KEEP ALL COMPANY-WISE STOCK FIELDS
+
+      itemId: item._id,
+      name: item.NAME,
+
+      unit,
+      piecesPerUnit,
+
+      qty: 1,
+      rate: Number(item.SALESPRICE) || 0,
+      rateOfTax: 5,
+      amount: Number(item.SALESPRICE) || 0,
+    },
+  ])
+
+  setInventorySearch("")
+  setInventory([])
+  setShowInventoryDropdown(false)
+
+  showNotification(
+    "success",
+    "Item added",
+    `${item.NAME} has been added to the sale order.`
+  )
+}
+
 
   const updateItem = (index, field, value) => {
     const updated = [...selectedItems]
@@ -883,77 +891,114 @@ onClick={() => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {selectedItems.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-800">{item.name}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Stock: {item.stockFormatted}
-                          {item.stock !== undefined && (
-                            <span className="text-xs text-gray-400 ml-1">({item.stock} pcs)</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-sm font-medium text-gray-600">{item.unit}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col items-center gap-1">
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={item.qty}
-                            onChange={(e) => updateItem(idx, "qty", e.target.value)}
-                            className={`w-24 px-3 py-1.5 border rounded-lg text-center focus:ring-2 focus:ring-blue-500 outline-none ${
-                              item.qty * (item.piecesPerUnit || 1) > item.stock
-                                ? "border-red-500 bg-red-50"
-                                : "border-gray-300"
-                            }`}
-                          />
-                          {item.qty * (item.piecesPerUnit || 1) > item.stock && (
-                            <span className="text-xs text-red-600 font-medium">Exceeds stock!</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.rate}
-                          onChange={(e) => updateItem(idx, "rate", e.target.value)}
-                          className="w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={item.rateOfTax}
-                          onChange={(e) => updateItem(idx, "rateOfTax", e.target.value)}
-                          disabled={!includeVAT}
-                          className="w-20 px-3 py-1.5 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 disabled:text-gray-500"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="font-semibold text-gray-800">AED {item.amount.toFixed(2)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={() => removeItem(idx)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Remove item"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+           <tbody className="divide-y divide-gray-100">
+  {selectedItems.map((item, idx) => (
+    <tr key={idx} className="hover:bg-gray-50 transition-colors align-top">
+      {/* ITEM + STOCK */}
+      <td className="px-6 py-4">
+        <div className="font-medium text-gray-800">{item.name}</div>
+
+        {/* Company-wise stock */}
+        <div className="mt-2 space-y-1">
+          {getCompanyStockInfo(item).map((s) => (
+            <div
+              key={s.company}
+              className="flex items-center justify-between text-[11px]"
+            >
+              <span className="text-gray-500 uppercase tracking-wide">
+                {s.company.replace(/-/g, " ")}
+              </span>
+
+              <span className="font-medium text-gray-800 tabular-nums">
+                <span className="text-emerald-600">
+                  net: {s.net}
+                </span>
+                {" | "}
+                <span className="text-gray-700">
+                  gross: {s.gross}
+                </span>
+                {" | "}
+                <span className="text-amber-600">
+                  pend: {s.pending}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </td>
+
+      {/* UNIT */}
+      <td className="px-6 py-4 text-center">
+        <span className="text-sm font-medium text-gray-600">
+          {item.unit}
+        </span>
+      </td>
+
+      {/* QUANTITY */}
+      <td className="px-6 py-4">
+        <div className="flex flex-col items-center gap-1">
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={item.qty}
+            onChange={(e) => updateItem(idx, "qty", e.target.value)}
+            className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-center
+              focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+      </td>
+
+      {/* RATE */}
+      <td className="px-6 py-4">
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={item.rate}
+          onChange={(e) => updateItem(idx, "rate", e.target.value)}
+          className="w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-center
+            focus:ring-2 focus:ring-blue-500 outline-none"
+        />
+      </td>
+
+      {/* TAX */}
+      <td className="px-6 py-4">
+        <input
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          value={item.rateOfTax}
+          onChange={(e) => updateItem(idx, "rateOfTax", e.target.value)}
+          disabled={!includeVAT}
+          className="w-20 px-3 py-1.5 border border-gray-300 rounded-lg text-center
+            focus:ring-2 focus:ring-blue-500 outline-none
+            disabled:bg-gray-100 disabled:text-gray-500"
+        />
+      </td>
+
+      {/* AMOUNT */}
+      <td className="px-6 py-4 text-right">
+        <span className="font-semibold text-gray-800">
+          AED {item.amount.toFixed(2)}
+        </span>
+      </td>
+
+      {/* ACTION */}
+      <td className="px-6 py-4 text-center">
+        <button
+          onClick={() => removeItem(idx)}
+          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          title="Remove item"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
               </table>
             </div>
 

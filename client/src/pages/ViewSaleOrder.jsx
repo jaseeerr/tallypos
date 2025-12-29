@@ -13,6 +13,8 @@ export default function ViewOrder() {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [converting, setConverting] = useState(false)
+const [convertError, setConvertError] = useState(null)
 
   // =============================
   // FETCH ORDER
@@ -32,6 +34,30 @@ export default function ViewOrder() {
 
     fetchOrder()
   }, [id])
+
+
+  const handleConvertToSale = async () => {
+  try {
+    setConverting(true)
+    setConvertError(null)
+
+    const res = await axios.post(`/convertOrderToSale/${id}`)
+
+    // update local order state
+    setOrder((prev) => ({
+      ...prev,
+      converted: true,
+      convertedAt: new Date().toISOString()
+    }))
+  } catch (err) {
+    setConvertError(
+      err.response?.data?.message || "Failed to convert sale order"
+    )
+  } finally {
+    setConverting(false)
+  }
+}
+
 
   // =============================
   // STATES
@@ -88,6 +114,61 @@ export default function ViewOrder() {
           <ArrowLeft size={18} />
           <span className="font-medium">Back to Orders</span>
         </button>
+
+        {/* CONVERT TO SALE SECTION */}
+<div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-shadow duration-300">
+  <div className="flex items-center justify-between flex-wrap gap-4">
+    <div>
+      <h2 className="text-xl font-bold text-gray-800">
+        Convert to Sale
+      </h2>
+
+      {order.converted ? (
+        <p className="text-sm text-emerald-600 mt-1 font-medium">
+          Converted to Sale on{" "}
+          {new Date(order.convertedAt).toLocaleString()}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-500 mt-1">
+          This sale order has not been converted yet
+        </p>
+      )}
+    </div>
+
+    {!order.converted && (
+      <button
+        onClick={handleConvertToSale}
+        disabled={converting}
+        className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700
+          hover:from-emerald-700 hover:to-emerald-800
+          text-white rounded-xl font-semibold shadow-lg
+          disabled:opacity-50 disabled:cursor-not-allowed
+          flex items-center gap-2 transition-all"
+      >
+        {converting ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Converting...
+          </>
+        ) : (
+          <>
+            <FileText className="w-5 h-5" />
+            Convert to Sale
+          </>
+        )}
+      </button>
+    )}
+  </div>
+
+  {convertError && (
+    <div className="mt-4 flex items-center gap-2 text-red-600 text-sm font-medium">
+      <AlertCircle className="w-4 h-4" />
+      {convertError}
+    </div>
+  )}
+</div>
+
+
 
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-shadow duration-300">
           <div className="flex items-center gap-3 mb-6">
