@@ -327,15 +327,21 @@ const handleScanResult = async (code) => {
 
 
 
-    // Manual mode
 // Manual mode
 scanPausedRef.current = true
 setScannedProduct(product)
-
-// ❗ DO NOT close scanner here for Flutter
-if (!isFlutterApp) {
+scanCooldownRef.current = true
+setTimeout(() => {
+  scanCooldownRef.current = false
+  lastScannedRef.current = null
+}, 500)
+// 🔥 ALWAYS close scanner when manual mode
+if (isFlutterApp) {
+  window.FlutterScanQR?.postMessage("close")
+} else {
   setScannerOpen(false)
 }
+
 
 
   } finally {
