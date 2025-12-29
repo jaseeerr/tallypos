@@ -34,6 +34,7 @@ export default function ViewSale() {
     const fetchSale = async () => {
       try {
         const res = await axiosInstance.get(`/sale/${billNo}`)
+        console.log(res.data)
         setSale(res.data.sale)
       } catch (err) {
         const errorMessage = err.response?.data?.message || err.message || "Failed to fetch sale details"
@@ -52,6 +53,21 @@ export default function ViewSale() {
 
     fetchSale()
   }, [billNo])
+
+  const formatDateTime = (isoString) => {
+  if (!isoString) return "-"
+
+  const date = new Date(isoString)
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  })
+}
 
   const closeNotification = () => {
     setNotification(null)
@@ -167,38 +183,47 @@ export default function ViewSale() {
         )}
 
         {/* Header */}
-   <div className="mb-6 flex items-center justify-between">
-  {/* Back */}
-  <button
-    onClick={() => navigate(-1)}
-    className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-slate-700 hover:text-slate-900"
-  >
-    <ArrowLeft className="w-4 h-4" />
-    <span className="font-medium">Back</span>
-  </button>
+<div className="mb-6 grid grid-cols-3 items-center gap-4">
+  {/* LEFT — Back */}
+  <div className="flex justify-start">
+    <button
+      onClick={() => navigate(-1)}
+      className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-slate-700 hover:text-slate-900"
+    >
+      <ArrowLeft className="w-4 h-4" />
+      <span className="font-medium">Back</span>
+    </button>
+  </div>
 
-  {/* Actions */}
-  <div className="flex items-center gap-3">
+  {/* CENTER — Created At */}
+  <div className="text-center">
+    <div className="text-xs uppercase tracking-wide text-slate-500">
+      Created At
+    </div>
+    <div className="text-sm font-semibold text-slate-800">
+      {formatDateTime(sale.createdAt)}
+    </div>
+  </div>
+
+  {/* RIGHT — Actions */}
+  <div className="flex justify-end items-center gap-3">
     {/* Edit Sale */}
-    {sale.status && (
-   <button
-  disabled={sale.status !== "pending"}
-  onClick={() => {
-    if (sale.status === "pending") {
-      navigate(`/editSale/${billNo}`)
-    }
-  }}
-  className={`hidden px-4 py-2 rounded-lg font-medium transition-all ${
-    sale.status === "pending"
-      ? "bg-blue-600 text-white hover:bg-blue-700"
-      : "bg-gray-200 text-gray-500 cursor-not-allowed"
-  }`}
->
-  Edit Sale
-</button>
-
-
-    )}
+    <button
+    hidden
+      disabled={sale.status !== "pending"}
+      onClick={() => {
+        if (sale.status === "pending") {
+          navigate(`/editSale/${billNo}`)
+        }
+      }}
+      className={`px-4 py-2 rounded-lg font-medium transition-all ${
+        sale.status === "pending"
+          ? "bg-blue-600 text-white hover:bg-blue-700"
+          : "bg-gray-200 text-gray-500 cursor-not-allowed"
+      }`}
+    >
+      Edit Sale
+    </button>
 
     {/* Status */}
     <div
@@ -210,6 +235,7 @@ export default function ViewSale() {
     </div>
   </div>
 </div>
+
 
 
         {/* Sale Header Card */}

@@ -249,6 +249,21 @@ const closeScanner = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  useEffect(() => {
+  if (!isFlutterApp) return
+
+  window.onFlutterQrScanned = (code) => {
+    if (!code) return
+    handleScanResult(code)
+  }
+
+  return () => {
+    delete window.onFlutterQrScanned
+  }
+}, [companyName, isFlutterApp])
+
+
+
   // =============================
   // FETCH PRODUCT BY QR
   // =============================
@@ -274,18 +289,18 @@ const closeScanner = () => {
 const handleScanResult = async (code) => {
   if (!code) return
   if (loadingScan) return
-  if (scanCooldownRef.current) return
-  if (scanPausedRef.current) return
-
 
   if (!companyName) {
-    showNotification("warning", "Select Company", "Please select a company before scanning.")
+    showNotification(
+      "warning",
+      "Select Company",
+      "Please select a company before scanning."
+    )
     return
   }
 
   const trimmedCode = code.trim()
 
-  // Prevent duplicate scan
   if (lastScannedRef.current === trimmedCode) return
   lastScannedRef.current = trimmedCode
 
@@ -297,53 +312,35 @@ const handleScanResult = async (code) => {
     if (!product) return
 
     if (product.companyName !== companyName) {
-      setScannerError({
-        type: "warning",
-        message: `This product belongs to ${product.companyName}`,
-      })
+      showNotification(
+        "warning",
+        "Company Mismatch",
+        `This product belongs to ${product.companyName}`
+      )
       return
     }
 
-  if (autoAdd) {
-  scanPausedRef.current = false   // ✅ IMPORTANT
+    // AUTO ADD MODE (same as AddSale)
+    if (autoAdd) {
+      addItem(product)
+      showNotification(
+        "success",
+        "Product Added",
+        `${product.NAME} added successfully`
+      )
+      lastScannedRef.current = null
+      return
+    }
 
-  addItem(product)
-  showNotification("success", "Product Added", `${product.NAME} added successfully`)
+    // ✅ MANUAL MODE (KEY FIX)
+    setScannedProduct(product)
 
-  scanCooldownRef.current = true
-  setTimeout(() => {
-    scanCooldownRef.current = false
-    lastScannedRef.current = null
-  }, 400)
-
-  // 🔥 DO NOT reopen Flutter scanner manually
-  if (!isFlutterApp) {
-    setScannerOpen(true)
-  }
-
-  return
-}
-
-
-
-
-// Manual mode
-scanPausedRef.current = true
-setScannedProduct(product)
-scanCooldownRef.current = true
-setTimeout(() => {
-  scanCooldownRef.current = false
-  lastScannedRef.current = null
-}, 500)
-// 🔥 ALWAYS close scanner when manual mode
-if (isFlutterApp) {
-  window.FlutterScanQR?.postMessage("close")
-} else {
-  setScannerOpen(false)
-}
-
-
-
+  } catch (err) {
+    showNotification(
+      "error",
+      "Scan Failed",
+      "Unable to process scanned product."
+    )
   } finally {
     setLoadingScan(false)
   }
