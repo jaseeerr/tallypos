@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Package,
+  ImageIcon,
   Users,
   Calendar,
   FileText,
@@ -27,7 +28,6 @@ import { API_BASE } from "../utils/url"
 export default function CreateSaleOrder() {
   const axios = MyAxiosInstance()
 const lastScannedRef = useRef(null)
-const scanCooldownRef = useRef(false)
 const inventoryDebounceRef = useRef(null)
 
 const [isFlutterApp, setIsFlutterApp] = useState(false)
@@ -67,14 +67,13 @@ useEffect(() => {
 
   // Scanner state
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [autoAdd, setAutoAdd] = useState(true)
+  const [autoAdd, setAutoAdd] = useState(false)
   const [scannedProduct, setScannedProduct] = useState(null)
   const [loadingScan, setLoadingScan] = useState(false)
   const [scannerError, setScannerError] = useState(null)
 
   const inventorySearchRef = useRef(null)
   const customerSearchRef = useRef(null)
-const scanPausedRef = useRef(false)
 
   // =============================
   // NOTIFICATION HANDLER
@@ -275,7 +274,7 @@ const closeScanner = () => {
       setScannerError({ type: "error", message: "Product not found" })
       return null
     }
-
+console.log(res.data)
     return res.data.product
   } catch (err) {
     setScannerError({
@@ -1325,24 +1324,25 @@ onClick={() => {
               <p className="font-bold text-slate-800 text-xs sm:text-sm">Stock Availability</p>
             </div>
             <div className="space-y-1.5">
-              {["FANCY-PALACE-TRADING-LLC", "AMANA-FIRST-TRADING-LLC"].map(
-                (company) => (
-                  <div
-                    key={company}
-                    className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg text-xs shadow-sm border border-slate-100 gap-2"
-                  >
-                    <span className="text-slate-600 font-medium truncate flex-1 min-w-0">
-                      {company.replace(/-/g, " ")}
-                    </span>
-                    <span className="font-bold text-slate-900 text-xs flex-shrink-0 whitespace-nowrap">
-                      {scannedProduct?.[`${company}Stock`]}{" "}
-                      <span className="text-slate-600 font-semibold">
-                        {scannedProduct?.[`${company}Unit`]}
-                      </span>
-                    </span>
-                  </div>
-                )
-              )}
+             {getCompanyStockInfo(scannedProduct).map((s) => (
+  <div
+    key={s.company}
+    className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg text-xs shadow-sm border border-slate-100 gap-2"
+  >
+    <span className="text-slate-600 font-medium truncate">
+      {s.company.replace(/-/g, " ")}
+    </span>
+
+    <span className="font-medium text-slate-800 tabular-nums">
+      <span className="text-emerald-600">net: {s.net}</span>
+      {" | "}
+      <span className="text-slate-700">gross: {s.gross}</span>
+      {" | "}
+      <span className="text-amber-600">pend: {s.pending}</span>
+    </span>
+  </div>
+))}
+
             </div>
           </div>
         </div>
@@ -1356,7 +1356,6 @@ onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
-                scanPausedRef.current = false;
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1376,7 +1375,6 @@ onClick={() => {
                 addItem(scannedProduct);
                 setScannedProduct(null);
                 lastScannedRef.current = null;
-                scanPausedRef.current = false;
                 window.__currentImageIndex = 0;
 
                 if (isFlutterApp) {
@@ -1397,7 +1395,6 @@ onClick={() => {
             onClick={() => {
               setScannedProduct(null);
               lastScannedRef.current = null;
-              scanPausedRef.current = false;
               window.__currentImageIndex = 0;
 
               if (isFlutterApp) {

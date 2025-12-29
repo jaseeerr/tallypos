@@ -142,56 +142,57 @@ function buildQtyString(qty, unit) {
 
 
 
-async function applyUnsyncedSalesDeduction({ items, companyName }) {
+async function applyUnsyncedSalesDeduction({ items }) {
   if (!items.length) return items;
 
   const itemNames = items.map((i) => i.NAME);
 
-  // 1️⃣ Fetch unsynced sales
+  // 1️⃣ Fetch ALL unsynced sales (all companies)
   const unsyncedSales = await Sale.find({
-    companyName,
     status: { $in: ["pending", "processing"] },
     "items.itemName": { $in: itemNames },
   }).lean();
 
-  // 2️⃣ Build unsynced qty map (IN UNITS, NOT PIECES)
-  const unsyncedQtyMap = {};
+  // 2️⃣ Build map: company → item → qty
+  const unsyncedMap = {};
 
   unsyncedSales.forEach((sale) => {
+    const company = sale.companyName;
+
     sale.items.forEach((saleItem) => {
       if (!itemNames.includes(saleItem.itemName)) return;
 
-      unsyncedQtyMap[saleItem.itemName] =
-        (unsyncedQtyMap[saleItem.itemName] || 0) + saleItem.qty;
+      if (!unsyncedMap[company]) unsyncedMap[company] = {};
+      unsyncedMap[company][saleItem.itemName] =
+        (unsyncedMap[company][saleItem.itemName] || 0) + saleItem.qty;
     });
   });
 
-  // 3️⃣ Apply deduction COMPANY-WISE
+  // 3️⃣ Apply deduction PER COMPANY
   return items.map((item) => {
-    const unsyncedQty = unsyncedQtyMap[item.NAME] || 0;
+    const result = { ...item };
 
-    // ✅ unit comes ONLY from UNITS
-    const unit = extractPrimaryUnit(item.UNITS);
+    Object.keys(item)
+      .filter((k) => k.endsWith("Stock"))
+      .forEach((stockKey) => {
+        const company = stockKey.replace("Stock", "");
 
-    // ✅ gross comes from STOCK STRING
-    const grossQty = extractUnitCount(item.CLOSINGQTY);
+        const unit = extractPrimaryUnit(item[`${company}Unit`] || "");
+        const grossQty = extractUnitCount(item[stockKey]);
+        const unsyncedQty =
+          unsyncedMap[company]?.[item.NAME] || 0;
 
-    // ✅ net can go NEGATIVE (important!)
-    const netQty = grossQty - unsyncedQty;
+        const netQty = grossQty - unsyncedQty;
 
-    const company = item.companyName;
+        result[`${company}-UnsyncedQty`] = unsyncedQty;
+        result[`${company}-NetAvailable`] =
+          buildQtyString(netQty, unit);
+      });
 
-    return {
-      ...item,
-
-      // company-wise fields
-      [`${company}-UnsyncedQty`]: unsyncedQty,
-      [`${company}-NetAvailable`]: buildQtyString(netQty, unit),
-
-      // DO NOT touch other companies
-    };
+    return result;
   });
 }
+
 
 
 
