@@ -1614,7 +1614,7 @@ router.delete("/deleteSale/:id", async (req, res) => {
 
 // convert order to sale
 router.post("/convertOrderToSale/:id", async (req, res) => {
-   try {
+  try {
     const { id } = req.params;
 
     // 1️⃣ Fetch Sale Order
@@ -1710,6 +1710,117 @@ router.post("/convertOrderToSale/:id", async (req, res) => {
     res.status(500).json({
       message: "Failed to convert Sale Order",
       error: err.message
+    });
+  }
+});
+
+
+
+
+
+// customer-apis
+
+router.get("/customers", Auth.userAuth, async (req, res) => {
+  try {
+    let {
+      page = 1,
+      limit = 100,
+      search = "",
+      companyName = "",
+    } = req.query;
+
+    page = Math.max(Number(page), 1);
+    limit = Math.min(Number(limit), 200);
+    const skip = (page - 1) * limit;
+
+    const query = {};
+
+    // Company filter
+    if (companyName && companyName !== "ALL") {
+      query.companyName = companyName;
+    }
+
+    // Search filter
+    if (search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      query.$or = [
+        { name: regex },
+        { group: regex },
+        { address: regex },
+         { trn: regex }, // works for array fields
+      ];
+    }
+
+    // Total count
+    const total = await Customer.countDocuments(query);
+
+    // Paginated fetch
+    const items = await Customer.find(query)
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    return res.json({
+      ok: true,
+      items,
+      total,
+      page,
+      limit,
+      hasMore: skip + items.length < total,
+    });
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
+
+// sale-order-api
+
+
+/**
+ * CREATE SALE ORDER
+ */
+router.post("/sale-orders", Auth.userAuth, async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload.companyName) {
+      return res.status(400).json({
+        ok: false,
+        message: "companyName is required",
+      });
+    }
+
+    const saleOrder = await SaleOrder.create({
+      ...payload,
+      createdBy: req.user?._id,
+      updatedBy: req.user?._id,
+    });
+
+    return res.status(201).json({
+      ok: true,
+      item: saleOrder,
+    });
+  } catch (error) {
+    console.error("Error creating sale order:", error);
+
+    // Duplicate billNo handling
+    if (error.code === 11000) {
+      return res.status(400).json({
+        ok: false,
+        message: "Bill number already exists",
+      });
+    }
+
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
     });
   }
 });
