@@ -2090,11 +2090,17 @@ router.get("/fetch-sales", async (req, res) => {
         .json({ ok: false, message: "company is required" });
     }
 
+    // 1️⃣ Fetch pending sales
     const pendingSales = await Sale.find({
       companyName: company,
       status: "pending",
     }).lean();
 
+    if (pendingSales.length === 0) {
+      return res.json({ Vouchers: [] });
+    }
+
+    // 2️⃣ Build vouchers for Tally
     const vouchers = pendingSales.map((sale) => ({
       TYPE: "Sales Invoice",
       BILLNO: sale.billNo,
@@ -2123,20 +2129,47 @@ router.get("/fetch-sales", async (req, res) => {
       LEDGERS: sale.ledgers.map((l) => ({
         LEDGERSNAME: l.ledgerName,
         Percentage:
-          l.percentage != null ? Number(l.percentage).toFixed(2) : "5.00",
+          l.percentage != null
+            ? Number(l.percentage).toFixed(2)
+            : "5.00",
         Amount: Number(l.amount).toFixed(2),
       })),
     }));
 
-    // console.log(vouchers)
-    console.log(JSON.stringify(vouchers, null, 2));
+    // 3️⃣ Update fetched sales:
+    //    - mark as processing
+    //    - log that Tally fetched them
+    const now = new Date();
 
+    await Sale.updateMany(
+      { _id: { $in: pendingSales.map((s) => s._id) } },
+      {
+        $set: { status: "processing" },
+        $push: {
+          tallyResponseLogs: {
+            timestamp: now,
+            data: {
+              event: "FETCHED_BY_TALLY",
+              message: "Sale fetched by Tally",
+            },
+          },
+        },
+      }
+    );
+
+    console.log(
+      "Tally fetched sales:",
+      pendingSales.map((s) => s.billNo)
+    );
+
+    // 4️⃣ Respond to Tally
     return res.json({ Vouchers: vouchers });
   } catch (error) {
     console.error("Error in /fetch-sales:", error);
     return res.status(500).json({ ok: false, error: error.message });
   }
 });
+
 
 
 
