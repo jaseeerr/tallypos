@@ -9,7 +9,7 @@ const PrivacyPolicy = () => {
         </h1>
 
         <p className="text-sm text-gray-500 mb-6">
-          <strong>Last Updated:</strong> &#123;Insert Date&#125;
+          <strong>Last Updated:</strong> 1 Dec 2025
           <br />
           <strong>Applies To:</strong> Internal staff and authorized personnel only
         </p>
@@ -234,16 +234,18 @@ const PrivacyPolicy = () => {
         </section>
 
         {/* Section 11 */}
-        <section>
-          <h2 className="text-xl font-semibold mb-2">
-            11. Contact / Internal Support
-          </h2>
-          <p>
-            For any questions or concerns, employees may contact:
-            <br />
-            <strong>IT Team / System Administrator</strong>
-          </p>
-        </section>
+     <section>
+  <h2 className="text-xl font-semibold mb-2">
+    11. Contact / Support
+  </h2>
+  <p>
+    For any questions or concerns regarding this Privacy Policy or the
+    application, authorized users may contact:
+    <br />
+    <strong>Email:</strong> Fancypalace1@gmail.com
+  </p>
+</section>
+
       </div>
     </div>
   );
