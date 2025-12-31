@@ -461,27 +461,49 @@ export default function ViewSale() {
             </button>
           </div>
 
-          {showLogs && (
-            <div className="mt-4 space-y-3">
-              {(!sale.tallyResponseLogs || sale.tallyResponseLogs.length === 0) && (
-                <div className="bg-slate-50 rounded-lg p-6 text-center border-2 border-dashed border-slate-200">
-                  <Activity className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                  <p className="text-slate-600 font-medium">No logs available</p>
-                </div>
-              )}
+      {showLogs && (
+  <div className="mt-4 space-y-3">
+    {(!sale.tallyResponseLogs || sale.tallyResponseLogs.length === 0) && (
+      <div className="bg-slate-50 rounded-lg p-6 text-center border-2 border-dashed border-slate-200">
+        <Activity className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+        <p className="text-slate-600 font-medium">No logs available</p>
+      </div>
+    )}
 
-              {sale.tallyResponseLogs?.map((log, idx) => (
-                <div key={idx} className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                  <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-                    <span className="text-xs font-semibold text-slate-600">Log #{idx + 1}</span>
-                  </div>
-                  <pre className="p-4 text-xs text-slate-700 overflow-auto max-h-96">
-                    {JSON.stringify(log.data, null, 2)}
-                  </pre>
-                </div>
-              ))}
-            </div>
-          )}
+    {sale.tallyResponseLogs?.map((log, idx) => (
+      <div
+        key={idx}
+        className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden"
+      >
+        <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-600">
+            Log #{idx + 1}
+          </span>
+
+          <span className="text-xs text-slate-500">
+            {log.timestamp
+              ? new Date(log.timestamp).toLocaleString("en-US", {
+                  month: "short",
+                  day: "2-digit",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true,
+                })
+              : "Unknown time"}
+          </span>
+        </div>
+
+        <pre className="p-4 text-xs text-slate-700 overflow-auto max-h-96">
+          {JSON.stringify(log.data, null, 2)}
+        </pre>
+      </div>
+    ))}
+  </div>
+)}
+
+
         </div>
       </div>
     </div>
