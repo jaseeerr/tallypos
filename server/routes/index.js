@@ -2164,6 +2164,7 @@ router.get("/fetch-sales", async (req, res) => {
     );
 
     // 4️⃣ Respond to Tally
+    console.log(vouchers)
     return res.json({ Vouchers: vouchers });
   } catch (error) {
     console.error("Error in /fetch-sales:", error);
