@@ -21,7 +21,7 @@ const InventorySchema = new mongoose.Schema({
   },
   SALESPRICE: {
     type: String,
-    default: ""
+    default: "0"
   },
   STDCOST: {
     type: String,

@@ -182,7 +182,7 @@ router.post("/inventory-sync", async (req, res) => {
     GROUP: itemGroup || "",
     UNITS: unit || "",
     CLOSINGQTY: closingQty || "",
-    SALESPRICE: salesPrice || "",
+    // SALESPRICE: salesPrice || "",
     STDCOST: stdCost || "",
     lastSyncedAt: new Date()
   };
