@@ -34,6 +34,9 @@ export default function InventoryPage() {
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
+  const [salesPrice, setSalesPrice] = useState("")
+const [savingPrice, setSavingPrice] = useState(false)
+
   const [qrModalOpen, setQrModalOpen] = useState(false)
   const [modalItem, setModalItem] = useState(null)
   const [selectedFiles, setSelectedFiles] = useState([])
@@ -225,6 +228,7 @@ export default function InventoryPage() {
 
   function openModal(item) {
     setModalItem(item)
+      setSalesPrice(item.SALESPRICE || "")
     setSelectedFiles([])
     // Handle imageUrl as an array
     const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
@@ -273,6 +277,42 @@ setPreviews((prev) => {
       }
     }
   }
+
+  async function handleUpdateSalesPrice() {
+  if (!modalItem) return
+
+  try {
+    setSavingPrice(true)
+
+    await axiosInstance.put(`/editInventoryItem/${modalItem._id}`, {
+      SALESPRICE: salesPrice,
+    })
+
+    // Update modal item locally
+    setModalItem((prev) => ({
+      ...prev,
+      SALESPRICE: salesPrice,
+    }))
+
+    // Refresh inventory list
+    setInventory([])
+    loadedIdsRef.current = new Set()
+    pageRef.current = 1
+    hasMoreRef.current = true
+    isFetchingRef.current = false
+    firstLoadCompleteRef.current = false
+    setInitialLoading(true)
+    fetchInventory(true)
+
+    alert("Sales price updated")
+  } catch (err) {
+    console.error("Sales price update failed:", err)
+    alert("Failed to update sales price")
+  } finally {
+    setSavingPrice(false)
+  }
+}
+
 
   async function handleUpload() {
     if (selectedFiles.length === 0) {
@@ -767,6 +807,28 @@ setPreviews((prev) => {
                 )}
               </div>
             )}
+
+             <div className="mb-6">
+      <label className="block text-sm font-semibold text-slate-700 mb-1">
+        Sales Price (AED)
+      </label>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          step="0.01"
+          value={salesPrice}
+          onChange={(e) => setSalesPrice(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+        />
+        <button
+          onClick={handleUpdateSalesPrice}
+          disabled={savingPrice}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition disabled:opacity-50"
+        >
+          {savingPrice ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </div>
 
             <input
               type="file"

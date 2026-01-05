@@ -680,6 +680,58 @@ console.log(ids)
 );
 
 
+// EDIT INVENTORY ITEM
+router.put("/editInventoryItem/:id", async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Only allow editable fields (security)
+    const allowedFields = [
+      "SALESPRICE",
+      "STDCOST",
+      "GROUP",
+      "UNITS",
+      "NAME",
+    ]
+
+    const updates = {}
+
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        updates[key] = req.body[key]
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        message: "No valid fields provided for update",
+      })
+    }
+
+    const updatedItem = await Inventory.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true }
+    )
+
+    if (!updatedItem) {
+      return res.status(404).json({
+        message: "Inventory item not found",
+      })
+    }
+
+    res.json({
+      message: "Inventory item updated successfully",
+      item: updatedItem,
+    })
+  } catch (err) {
+    console.error("Edit inventory error:", err)
+    res.status(500).json({
+      message: "Server error while updating inventory item",
+    })
+  }
+})
+
 
 router.put("/inventory/add-images/:id",Auth.userAuth,upload.array("images", 10), async (req, res) => {
     try {
