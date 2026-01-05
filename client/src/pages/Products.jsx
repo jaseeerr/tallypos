@@ -6,6 +6,7 @@ import {
   Search,
   X,
   Upload,
+  Pencil ,
   Trash2,
   Download,
   Package,
@@ -598,7 +599,7 @@ setPreviews((prev) => {
                           className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
                           title="Edit Image"
                         >
-                          <Upload size={14} className="text-slate-700" />
+                          <Pencil  size={14} className="text-slate-700" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -646,13 +647,28 @@ setPreviews((prev) => {
 
           {/* ACTIONS */}
           <div className="flex items-center gap-2 shrink-0">
-            <button className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+            <button 
+              onClick={(e) => {
+                            e.stopPropagation()
+                            openQRModal(item)
+                          }}
+            className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
               <Download size={14} />
             </button>
-            <button className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Upload size={14} className="text-blue-600" />
+            <button
+              onClick={(e) => {
+                            e.stopPropagation()
+                            openModal(item)
+                          }}
+                           className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Pencil  size={14} className="text-blue-600" />
             </button>
-            <button className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+            <button 
+             onClick={(e) => {
+                            e.stopPropagation()
+                            addToCart(item._id)
+                          }}
+            className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
               <ShoppingCart size={14} className="text-white" />
             </button>
           </div>
@@ -711,7 +727,7 @@ setPreviews((prev) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-800">Manage Images</h2>
+              <h2 className="text-xl font-bold text-slate-800">Manage Item</h2>
               <button
                 onClick={() => setModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
