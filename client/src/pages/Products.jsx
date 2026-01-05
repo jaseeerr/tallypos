@@ -716,6 +716,9 @@ setPreviews((prev) => {
               </span>
             )}
           </div>
+          <p className=" text-slate-500 truncate">
+            {item?.note || ""}
+          </p>
         </div>
       </div>
     )
