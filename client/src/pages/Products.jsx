@@ -577,10 +577,17 @@ setPreviews((prev) => {
                         <p className="text-emerald-300 font-bold text-sm mb-1">
                           AED {Number(item.SALESPRICE || 0).toFixed(2)}
                         </p>
-                        <p className={`text-xs font-semibold ${isOutOfStock ? "text-red-300" : "text-emerald-300"}`}>
+                        <p className={`text-sm font-semibold ${isOutOfStock ? "text-red-300" : "text-emerald-300"}`}>
                           Stock: {item.CLOSINGQTY || "0"}
                           {item.closingQtyPieces !== undefined && ` (${item.closingQtyPieces} pcs)`}
                         </p>
+                        {item?.note &&
+                        <p className="text-emerald-300 font-bold text-sm mb-1">
+                          Note: {item.note }
+                        </p>
+                         }
+                        
+
                       </div>
 
                       {/* Action Buttons */}
