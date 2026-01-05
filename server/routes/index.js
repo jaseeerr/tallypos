@@ -692,6 +692,7 @@ router.put("/editInventoryItem/:id", async (req, res) => {
       "GROUP",
       "UNITS",
       "NAME",
+      "note", // 👈 added
     ]
 
     const updates = {}
@@ -731,6 +732,7 @@ router.put("/editInventoryItem/:id", async (req, res) => {
     })
   }
 })
+
 
 
 router.put("/inventory/add-images/:id",Auth.userAuth,upload.array("images", 10), async (req, res) => {

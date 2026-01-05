@@ -35,6 +35,10 @@ const InventorySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  note:{
+    type:String,
+    default:""
+  },
   imageUrl: {
     type: [String],
       default: []

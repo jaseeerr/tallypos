@@ -36,6 +36,7 @@ export default function InventoryPage() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [salesPrice, setSalesPrice] = useState("")
+  const [productNote,setProductNote] = useState('')
 const [savingPrice, setSavingPrice] = useState(false)
 
   const [qrModalOpen, setQrModalOpen] = useState(false)
@@ -230,6 +231,7 @@ const [savingPrice, setSavingPrice] = useState(false)
   function openModal(item) {
     setModalItem(item)
       setSalesPrice(item.SALESPRICE || "")
+      setProductNote(item.note || "")
     setSelectedFiles([])
     // Handle imageUrl as an array
     const imageArray = Array.isArray(item.imageUrl) ? item.imageUrl : item.imageUrl ? [item.imageUrl] : []
@@ -287,12 +289,14 @@ setPreviews((prev) => {
 
     await axiosInstance.put(`/editInventoryItem/${modalItem._id}`, {
       SALESPRICE: salesPrice,
+      note:productNote
     })
 
     // Update modal item locally
     setModalItem((prev) => ({
       ...prev,
       SALESPRICE: salesPrice,
+      productNote:productNote
     }))
 
     // Refresh inventory list
@@ -824,27 +828,46 @@ setPreviews((prev) => {
               </div>
             )}
 
-             <div className="mb-6">
-      <label className="block text-sm font-semibold text-slate-700 mb-1">
-        Sales Price (AED)
-      </label>
-      <div className="flex gap-2">
-        <input
-          type="number"
-          step="0.01"
-          value={salesPrice}
-          onChange={(e) => setSalesPrice(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-        />
-        <button
-          onClick={handleUpdateSalesPrice}
-          disabled={savingPrice}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition disabled:opacity-50"
-        >
-          {savingPrice ? "Saving..." : "Save"}
-        </button>
-      </div>
-    </div>
+         <div className="mb-6">
+  <label className="block text-sm font-semibold text-slate-700 mb-2">
+    Sales Price
+  </label>
+
+  <div className="flex flex-col gap-3">
+    {/* Sales Price */}
+    <input
+      type="number"
+      step="0.01"
+      value={salesPrice}
+      onChange={(e) => setSalesPrice(e.target.value)}
+      placeholder="Sales Price (AED)"
+      className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+    />
+ <label className="block text-sm font-semibold text-slate-700">
+    Product Note
+  </label>
+    {/* Note */}
+    <textarea
+      rows={3}
+      value={productNote}
+      onChange={(e) => setProductNote(e.target.value)}
+      placeholder="Add internal note for this item..."
+      className="w-full resize-none px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+    />
+
+    {/* Save Button */}
+    <button
+      onClick={handleUpdateSalesPrice}
+      disabled={savingPrice}
+      className="self-end px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition disabled:opacity-50"
+    >
+      {savingPrice ? "Saving..." : "Save Changes"}
+    </button>
+  </div>
+</div>
+
+
+
 
             <input
               type="file"
