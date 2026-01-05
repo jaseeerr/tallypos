@@ -309,7 +309,7 @@ setPreviews((prev) => {
     setInitialLoading(true)
     fetchInventory(true)
 
-    alert("Sales price updated")
+    alert("item updated")
   } catch (err) {
     console.error("Sales price update failed:", err)
     alert("Failed to update sales price")
