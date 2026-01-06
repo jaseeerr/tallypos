@@ -177,7 +177,7 @@ const [savingPrice, setSavingPrice] = useState(false)
     }
   }, [firstLoadCompleteRef.current, loading])
 
-  function handleQRDownload(item) {
+  function handleQRDownloadOldStableBigSize(item) {
     const qrContainer = document.getElementById(`qr-${modalItem._id}`)
     if (!qrContainer) return
 
@@ -227,6 +227,86 @@ const [savingPrice, setSavingPrice] = useState(false)
 
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
   }
+
+  function handleQRDownload(item) {
+  const qrContainer = document.getElementById(`qr-${modalItem._id}`)
+  if (!qrContainer) return
+
+  const svg = qrContainer.querySelector("svg")
+  if (!svg) return
+
+  const serializer = new XMLSerializer()
+  const svgString = serializer.serializeToString(svg)
+
+  // ===== PRINT SETTINGS =====
+  const DPI = 300
+
+  // Label size: 2.5 x 1.5 inches
+  const LABEL_WIDTH_PX = 2.5 * DPI   // 750
+  const LABEL_HEIGHT_PX = 1.5 * DPI  // 450
+
+  const QR_SIZE_PX = 600              // Large, sharp QR
+  const QR_TOP_MARGIN = 30
+  const TEXT_GAP = 20
+  const FONT_SIZE = 48
+
+  // ==========================
+
+  const canvas = document.createElement("canvas")
+  canvas.width = LABEL_WIDTH_PX
+  canvas.height = LABEL_HEIGHT_PX
+
+  const ctx = canvas.getContext("2d", { alpha: false })
+  ctx.imageSmoothingEnabled = false
+
+  const img = new Image()
+
+  img.onload = () => {
+    // White background
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Center QR horizontally
+    const qrX = (canvas.width - QR_SIZE_PX) / 2
+
+    ctx.drawImage(
+      img,
+      qrX,
+      QR_TOP_MARGIN,
+      QR_SIZE_PX,
+      QR_SIZE_PX
+    )
+
+    // Draw text
+    ctx.fillStyle = "#000000"
+    ctx.font = `bold ${FONT_SIZE}px Arial`
+    ctx.textAlign = "center"
+    ctx.textBaseline = "top"
+
+    ctx.fillText(
+      modalItem.NAME,
+      canvas.width / 2,
+      QR_TOP_MARGIN + QR_SIZE_PX + TEXT_GAP
+    )
+
+    // Export PNG (lossless)
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `QR-${item.NAME.replace(/[^a-zA-Z0-9]/g, "-")}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }, "image/png")
+  }
+
+  img.src =
+    "data:image/svg+xml;base64," +
+    btoa(unescape(encodeURIComponent(svgString)))
+}
+
 
   function openModal(item) {
     setModalItem(item)
