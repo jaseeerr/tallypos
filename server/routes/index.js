@@ -2538,4 +2538,90 @@ const MODULES = ["customers", "inventory"];
   }
 });
 
+
+
+
+
+router.get("/sales-attention", async (req, res) => {
+  const ATTENTION_THRESHOLD_MS = (2 * 60 + 30) * 1000;
+
+  
+  try {
+    const now = Date.now();
+
+    // Only fetch needed fields
+    const sales = await Sale.find(
+      {},
+      {
+        companyName: 1,
+        billNo: 1,
+        status: 1,
+        tallyResponseLogs: 1
+      }
+    ).lean();
+
+    const result = [];
+    let erroredCount = 0;
+    let attentionCount = 0;
+
+    for (const sale of sales) {
+      const logs = sale.tallyResponseLogs || [];
+
+      // ✅ Ignore if success exists
+      const hasSuccess = logs.some(
+        (log) => log.data?.status === "success"
+      );
+      if (hasSuccess) continue;
+
+      // 🔴 Explicit error
+      if (sale.status === "error") {
+        erroredCount++;
+        result.push({
+          companyName: sale.companyName,
+          billNo: sale.billNo,
+          type: "errored"
+        });
+        continue;
+      }
+
+      // 🟠 Check fetched timestamp
+      const fetchedLog = logs.find(
+        (log) => log.data?.event === "FETCHED_BY_TALLY"
+      );
+      if (!fetchedLog) continue;
+
+      const fetchedAt = new Date(fetchedLog.timestamp).getTime();
+      const elapsed = now - fetchedAt;
+
+      if (elapsed > ATTENTION_THRESHOLD_MS) {
+        attentionCount++;
+        result.push({
+          companyName: sale.companyName,
+          billNo: sale.billNo,
+          type: "needs_attention",
+          fetchedAt: fetchedLog.timestamp,
+          stuckForSeconds: Math.floor(elapsed / 1000)
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      summary: {
+        errored: erroredCount,
+        needsAttention: attentionCount
+      },
+      data: result
+    });
+  } catch (err) {
+    console.error("❌ Sales attention API failed:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
+
 module.exports = router;
