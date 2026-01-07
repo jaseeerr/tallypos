@@ -2474,4 +2474,68 @@ router.get(
 
 
 
+
+
+
+// dashboard apis
+
+
+router.get("/fetch-health", async (req, res) => {
+
+  const COMPANIES = [
+  "AMANA-FIRST-TRADING-LLC",
+  "FANCY-PALACE-TRADING-LLC"
+];
+
+const MODULES = ["customers", "inventory"];
+
+
+  try {
+    const response = {};
+
+    for (const company of COMPANIES) {
+      response[company] = {};
+
+      for (const module of MODULES) {
+        const latestLog = await EventLog.findOne({
+          company,
+          module,
+          action: "fetch",
+          stage: "fetch"
+        })
+          .sort({ timestamp: -1 })
+          .lean();
+
+        if (!latestLog) {
+          response[company][module] = {
+            state: "broken",
+            lastChecked: null,
+            reason: "No fetch log found"
+          };
+          continue;
+        }
+
+        response[company][module] = {
+          state: latestLog.status === "success" ? "live" : "broken",
+          lastChecked: latestLog.timestamp,
+          message: latestLog.message
+        };
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: response
+    });
+
+  } catch (err) {
+    console.error("❌ Fetch health check failed:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
 module.exports = router;
