@@ -2541,11 +2541,10 @@ const MODULES = ["customers", "inventory"];
 
 
 
-
 router.get("/sales-attention", async (req, res) => {
-  const ATTENTION_THRESHOLD_MS = (2 * 60 + 30) * 1000;
+  const ATTENTION_THRESHOLD_MS = (1 * 60 + 30) * 1000;
 
-  
+
   try {
     const now = Date.now();
 
@@ -2622,6 +2621,62 @@ router.get("/sales-attention", async (req, res) => {
     });
   }
 });
+
+
+router.post("/reset-sales-status", async (req, res) => {
+  try {
+    const { billNos } = req.body;
+
+    if (!Array.isArray(billNos) || billNos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "billNos must be a non-empty array"
+      });
+    }
+
+    const sales = await Sale.find({
+      billNo: { $in: billNos }
+    });
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const sale of sales) {
+      if (sale.status === "pending") {
+        skipped++;
+        continue;
+      }
+
+      const currentStatus = sale.status;
+
+      sale.status = "pending";
+
+      sale.tallyResponseLogs.push({
+        timestamp: new Date(),
+        data: {
+          event: `Changing status from ${currentStatus} to pending`
+        }
+      });
+
+      await sale.save();
+      updated++;
+    }
+
+    return res.json({
+      success: true,
+      updated,
+      skipped
+    });
+  } catch (err) {
+    console.error("❌ Reset sales status failed:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error"
+    });
+  }
+});
+
 
 
 module.exports = router;
