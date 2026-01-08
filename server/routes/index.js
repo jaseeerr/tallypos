@@ -859,6 +859,9 @@ router.put("/inventory/add-images/:id",Auth.userAuth,upload.array("images", 10),
         file => `uploads/inventory/${file.filename}`
       );
 
+      console.log(typeof inv.imageUrl, inv.imageUrl);
+
+      
       inv.imageUrl = [...inv.imageUrl, ...newImages];
       await inv.save();
 

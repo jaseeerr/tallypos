@@ -117,104 +117,171 @@ async function loadImageAsBase64(imagePath) {
 const generateSaleOrderPDF = async () => {
   const doc = new jsPDF("p", "mm", "a4")
 
+  const pageWidth = doc.internal.pageSize.getWidth()
   const marginX = 14
-  let cursorY = 18
+  let cursorY = 20
 
-  // ===== HEADER =====
-  doc.setFontSize(18)
+  // ===== HEADER - Company Name Centered =====
+  doc.setFillColor(37, 99, 235)
+  doc.rect(0, 0, pageWidth, 35, "F")
+
+  doc.setFontSize(22)
   doc.setFont("helvetica", "bold")
-  doc.text(order.companyName, marginX, cursorY)
+  doc.setTextColor(255, 255, 255)
+  doc.text(order.companyName, pageWidth / 2, cursorY, { align: "center" })
 
-  cursorY += 6
-  doc.setFontSize(11)
+  cursorY += 10
+  doc.setFontSize(12)
   doc.setFont("helvetica", "normal")
-  doc.text(`Sale Order #${order.billNo}`, marginX, cursorY)
+  doc.text("SALE ORDER", pageWidth / 2, cursorY, { align: "center" })
 
-  cursorY += 5
-  doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, marginX, cursorY)
+  cursorY += 20
+  doc.setTextColor(0, 0, 0)
 
-  cursorY += 5
-  doc.text(`Party: ${order.partyName || "-"}`, marginX, cursorY)
+  // ===== ORDER DETAILS BOX =====
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(marginX, cursorY, pageWidth - marginX * 2, 28, 3, 3, "F")
 
   cursorY += 8
+  doc.setFontSize(11)
+  doc.setFont("helvetica", "bold")
+  doc.text(`Order No: #${order.billNo}`, marginX + 6, cursorY)
+  doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, pageWidth - marginX - 6, cursorY, { align: "right" })
 
-  // ===== ITEMS TABLE =====
+  cursorY += 8
+  doc.setFont("helvetica", "normal")
+  doc.text(`Party: ${order.partyName || "-"}`, marginX + 6, cursorY)
+
+  cursorY += 18
+
+  // ===== ITEMS TABLE (Without Tax Column) =====
   autoTable(doc, {
     startY: cursorY,
-    theme: "grid",
+    theme: "striped",
     headStyles: {
       fillColor: [37, 99, 235],
       textColor: 255,
       fontStyle: "bold",
+      halign: "center",
+      cellPadding: 4,
+    },
+    bodyStyles: {
+      halign: "center",
+      cellPadding: 4,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
     },
     styles: {
       fontSize: 10,
-      cellPadding: 3,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
     },
-    head: [["Item", "Qty", "Unit", "Rate", "Tax %", "Amount"]],
+    head: [["Item", "Qty", "Unit", "Rate", "Amount"]],
     body: order.items.map((i) => [
       i.itemName,
       i.qty,
       i.unit,
       `AED ${Number(i.rate).toFixed(2)}`,
-      i.rateOfTax,
       `AED ${Number(i.amount).toFixed(2)}`,
     ]),
   })
 
-  cursorY = doc.lastAutoTable.finalY + 8
+  cursorY = doc.lastAutoTable.finalY + 10
 
-  // ===== TOTALS =====
+  // ===== TOTALS BOX =====
+  const totalsBoxWidth = 80
+  const totalsX = pageWidth - marginX - totalsBoxWidth
+
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(totalsX, cursorY, totalsBoxWidth, 36, 3, 3, "F")
+
+  cursorY += 8
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "normal")
+  doc.text("Subtotal:", totalsX + 6, cursorY)
+  doc.text(`AED ${subtotal.toFixed(2)}`, totalsX + totalsBoxWidth - 6, cursorY, { align: "right" })
+
+  cursorY += 8
+  doc.text("VAT:", totalsX + 6, cursorY)
+  doc.text(`AED ${vat.toFixed(2)}`, totalsX + totalsBoxWidth - 6, cursorY, { align: "right" })
+
+  cursorY += 2
+  doc.setDrawColor(200, 200, 200)
+  doc.line(totalsX + 6, cursorY, totalsX + totalsBoxWidth - 6, cursorY)
+
+  cursorY += 8
+  doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
-  doc.text(`Subtotal: AED ${subtotal.toFixed(2)}`, 140, cursorY)
+  doc.text("Total:", totalsX + 6, cursorY)
+  doc.setTextColor(37, 99, 235)
+  doc.text(`AED ${total.toFixed(2)}`, totalsX + totalsBoxWidth - 6, cursorY, { align: "right" })
 
-  cursorY += 5
-  doc.text(`VAT: AED ${vat.toFixed(2)}`, 140, cursorY)
+  cursorY += 20
+  doc.setTextColor(0, 0, 0)
 
-  cursorY += 5
-  doc.text(`Total: AED ${total.toFixed(2)}`, 140, cursorY)
-
-  cursorY += 10
-
-  // ===== PRODUCT IMAGES =====
+  // ===== PRODUCT IMAGES IN CARDS (3 per row) =====
   const itemNames = order.items.map((i) => i.itemName)
   const imageMap = await fetchInventoryImages(itemNames)
-console.log(order)
+
   doc.setFontSize(14)
+  doc.setFont("helvetica", "bold")
   doc.text("Product Images", marginX, cursorY)
-  cursorY += 6
+  cursorY += 8
 
-  let x = marginX
-  let y = cursorY
-  const imgSize = 32
+  const cardWidth = 58
+  const cardHeight = 70
+  const cardGap = 5
+  const imgSize = 40
+  let cardIndex = 0
 
-  for (const name of itemNames) {
-    const images = imageMap[name] || []
+  for (const item of order.items) {
+    const images = imageMap[item.itemName] || []
 
     for (const img of images) {
-      if (y + imgSize > 280) {
+      const col = cardIndex % 3
+      const x = marginX + col * (cardWidth + cardGap)
+
+      if (col === 0 && cardIndex > 0) {
+        cursorY += cardHeight + cardGap
+      }
+
+      if (cursorY + cardHeight > 280) {
         doc.addPage()
-        x = marginX
-        y = 20
+        cursorY = 20
+        cardIndex = 0
       }
 
-     const image = await loadImageAsBase64(img)
-if (!image) continue
+      // Card background
+      doc.setFillColor(255, 255, 255)
+      doc.setDrawColor(226, 232, 240)
+      doc.roundedRect(x, cursorY, cardWidth, cardHeight, 3, 3, "FD")
 
-doc.addImage(
-  image.base64,
-  image.type,
-  x,
-  y,
-  imgSize,
-  imgSize
-)
-
-      x += imgSize + 4
-      if (x > 170) {
-        x = marginX
-        y += imgSize + 6
+      // Load and add image
+      const image = await loadImageAsBase64(img)
+      if (image) {
+        const imgX = x + (cardWidth - imgSize) / 2
+        const imgY = cursorY + 4
+        doc.addImage(image.base64, image.type, imgX, imgY, imgSize, imgSize)
       }
+
+      // Item name
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(0, 0, 0)
+      const nameText = item.itemName.length > 18 ? item.itemName.substring(0, 18) + "..." : item.itemName
+      doc.text(nameText, x + cardWidth / 2, cursorY + imgSize + 10, { align: "center" })
+
+      // Quantity and Price
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(100, 100, 100)
+      doc.text(`Qty: ${item.qty}`, x + cardWidth / 2, cursorY + imgSize + 16, { align: "center" })
+
+      doc.setTextColor(37, 99, 235)
+      doc.text(`AED ${Number(item.rate).toFixed(2)}`, x + cardWidth / 2, cursorY + imgSize + 22, { align: "center" })
+
+      cardIndex++
     }
   }
 
