@@ -18,9 +18,18 @@ import {
 } from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
-
+import CustomAlert from "../components/CustomAlert"
 export default function InventoryPage() {
   const axiosInstance = MyAxiosInstance()
+
+  const [alert, setAlert] = useState({
+  open: false,
+  type: "message",
+  title: "",
+  message: "",
+})
+
+
 
   // State
   const [inventory, setInventory] = useState([])
@@ -61,9 +70,20 @@ const [savingPrice, setSavingPrice] = useState(false)
     if (!cartItems.includes(productId)) {
       cartItems.push(productId)
       localStorage.setItem("cartItems", JSON.stringify(cartItems))
-      alert("Item added to cart!")
+    setAlert({
+  open: true,
+  type: "success",
+  title: "Added to Cart",
+  message: "Item has been successfully added to your cart.",
+})
+
     } else {
-      alert("Item already in cart!")
+setAlert({
+  open: true,
+  type: "warning",
+  title: "Already in Cart",
+  message: "This item is already present in your cart.",
+})
     }
   }
 
@@ -389,10 +409,20 @@ setPreviews((prev) => {
     setInitialLoading(true)
     fetchInventory(true)
 
-    alert("item updated")
+setAlert({
+  open: true,
+  type: "success",
+  title: "Item Updated",
+  message: "The item has been successfully updated.",
+})
   } catch (err) {
     console.error("Sales price update failed:", err)
-    alert("Failed to update sales price")
+setAlert({
+  open: true,
+  type: "error",
+  title: "Update Failed",
+  message: "Failed to update the sales price. Please try again.",
+})
   } finally {
     setSavingPrice(false)
   }
@@ -401,7 +431,12 @@ setPreviews((prev) => {
 
   async function handleUpload() {
     if (selectedFiles.length === 0) {
-      alert("Select at least one image first!")
+setAlert({
+  open: true,
+  type: "warning",
+  title: "No Image Selected",
+  message: "Please select at least one image before continuing.",
+})
       return
     }
 
@@ -427,7 +462,12 @@ setPreviews((prev) => {
       fetchInventory(true)
     } catch (err) {
       console.error("Image upload error:", err)
-      alert("Failed to upload images")
+setAlert({
+  open: true,
+  type: "error",
+  title: "Upload Failed",
+  message: "Failed to upload images. Please try again.",
+})
       setUploading(false)
     }
   }
@@ -469,7 +509,12 @@ setPreviews((prev) => {
       fetchInventory(true)
     } catch (err) {
       console.error("Remove image error:", err)
-      alert("Failed to remove image")
+setAlert({
+  open: true,
+  type: "error",
+  title: "Remove Failed",
+  message: "Failed to remove the image. Please try again.",
+})
       setUploading(false)
     }
   }
@@ -1017,6 +1062,16 @@ setPreviews((prev) => {
           </div>
         </div>
       )}
+
+      <CustomAlert
+  open={alert.open}
+  type={alert.type}
+  title={alert.title}
+  message={alert.message}
+  onClose={() => setAlert({ ...alert, open: false })}
+/>
+
+
     </div>
   )
 }

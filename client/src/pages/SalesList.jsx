@@ -223,10 +223,15 @@ const goToSaleDetails = (billNo) => {
 
     setSales((prev) => prev.filter((s) => s._id !== saleId));
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "Failed to delete sale. Only pending sales can be deleted."
-    );
+  setAlert({
+  open: true,
+  type: "error",
+  title: "Delete Failed",
+  message:
+    error.response?.data?.message ||
+    "Failed to delete sale. Only pending sales can be deleted.",
+})
+
   }
 };
 
