@@ -14,6 +14,9 @@ import {
   AlertCircle,
 } from "lucide-react"
 
+import Scanner from "./Scanner"
+
+
 // Note: You'll need to update this path to match your axios instance location
 import MyAxiosInstance from "../utils/axios";
 
@@ -493,6 +496,11 @@ export default function Home() {
           </div>
         </div>
 
+{/* Scan Product Section */}
+<div className="mb-8">
+  <Scanner />
+</div>
+
         {/* Heartbeat Monitors Grid - improved mobile responsiveness */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-10 lg:mb-12">
           {companies.map((company) =>
@@ -538,7 +546,7 @@ export default function Home() {
 
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button
-                  hidden
+                  
                     onClick={fetchSalesAttention}
                     disabled={salesLoading}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl
@@ -624,7 +632,7 @@ export default function Home() {
 
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button
-                  hidden
+                  
                     onClick={fetchSalesAttention}
                     disabled={salesLoading}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl

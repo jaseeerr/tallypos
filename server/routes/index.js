@@ -2642,7 +2642,7 @@ router.post("/reset-sales-status", async (req, res) => {
     let skipped = 0;
 
     for (const sale of sales) {
-      if (sale.status === "pending") {
+      if (sale.status === "pending" || sale.status === "synced") {
         skipped++;
         continue;
       }
