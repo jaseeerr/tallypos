@@ -2549,15 +2549,18 @@ router.get("/sales-attention", async (req, res) => {
     const now = Date.now();
 
     // Only fetch needed fields
-    const sales = await Sale.find(
-      {},
-      {
-        companyName: 1,
-        billNo: 1,
-        status: 1,
-        tallyResponseLogs: 1
-      }
-    ).lean();
+  const sales = await Sale.find(
+  {
+    status: { $in: ["processing", "error"] }
+  },
+  {
+    companyName: 1,
+    billNo: 1,
+    status: 1,
+    tallyResponseLogs: 1
+  }
+).lean();
+
 
     const result = [];
     let erroredCount = 0;

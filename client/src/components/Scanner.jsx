@@ -26,7 +26,7 @@ function Scanner() {
   const axios = MyAxiosInstance()
   const lastScannedRef = useRef(null)
 
-  const [companyName] = useState("AMANA-FIRST-TRADING-LLC") // 🔧 change if needed
+  const [companyName] = useState("") // 🔧 change if needed
   const [isFlutterApp, setIsFlutterApp] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [loadingScan, setLoadingScan] = useState(false)
@@ -72,9 +72,9 @@ function Scanner() {
 
       const prod = await fetchProductById(trimmed)
 
-      if (prod.companyName !== companyName) {
-        throw new Error(`Product belongs to ${prod.companyName}`)
-      }
+      // if (prod.companyName !== companyName) {
+      //   throw new Error(`Product belongs to ${prod.companyName}`)
+      // }
 
       setProduct(prod)
     } catch (err) {

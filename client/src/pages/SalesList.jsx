@@ -224,7 +224,7 @@ const goToSaleDetails = (billNo) => {
     setSales((prev) => prev.filter((s) => s._id !== saleId));
   } catch (error) {
   setAlert({
-  open: true,
+  open: true, 
   type: "error",
   title: "Delete Failed",
   message:
