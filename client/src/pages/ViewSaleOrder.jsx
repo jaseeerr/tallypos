@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import MyAxiosInstance from "../utils/axios"
 import jsPDF from "jspdf"
+import { API_BASE } from "../utils/url"
 import autoTable from "jspdf-autotable"
 
 import { ArrowLeft, FileText, Calendar, User, Building2, Package, Loader2, AlertCircle, DollarSign } from "lucide-react"
@@ -64,43 +65,46 @@ const [convertError, setConvertError] = useState(null)
 
 const fetchInventoryImages = async (itemNames) => {
   try {
-    const res = await axios.post("/inventoryBulk", {
+    const res = await axios.post("/inventoryBulkImages", {
       names: itemNames,
     })
 
-    const map = {}
-    for (const item of res.data.items || []) {
-      map[item.NAME] = item.imageUrl || []
+    // API already returns a map by product name
+    // Normalize to { [name]: images[] }
+    const imageMap = {}
+
+    const items = res.data?.items || {}
+
+    for (const name of itemNames) {
+      imageMap[name] = items[name]?.images || []
     }
-    return map
-  } catch {
+
+    return imageMap
+  } catch (err) {
+    console.error("Failed to fetch inventory images", err)
     return {}
   }
 }
 
-const loadImageAsBase64 = async (url) => {
-  try {
-    const res = await fetch(url, { mode: "cors" })
-    const blob = await res.blob()
 
-    return await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        resolve({
-          base64: reader.result,
-          type: blob.type.includes("png")
-            ? "PNG"
-            : blob.type.includes("webp")
-            ? "WEBP"
-            : "JPEG",
-        })
-      }
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
+async function loadImageAsBase64(imagePath) {
+  const res = await fetch(
+    `${API_BASE}/inventory-image?path=${encodeURIComponent(imagePath)}`
+  )
+
+  if (!res.ok) {
+    throw new Error("Image load failed")
   }
+
+  const blob = await res.blob()
+
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result)
+    reader.readAsDataURL(blob)
+  })
 }
+
 
 
 
@@ -189,7 +193,7 @@ console.log(order)
       }
 
       const imgUrl = `${API_BASE}/${img}`
-     const image = await loadImageAsBase64(imgUrl)
+     const image = await loadImageAsBase64(img)
 if (!image) continue
 
 doc.addImage(

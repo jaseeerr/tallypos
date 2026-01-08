@@ -679,6 +679,33 @@ console.log(ids)
   }
 );
 
+
+// image file proxy for pdf
+router.get("/inventory-image", async (req, res) => {
+  try {
+    const { path } = req.query
+
+    if (!path) {
+      return res.status(400).json({ message: "Missing image path" })
+    }
+
+    const fullPath = require("path").join(
+      __dirname,
+      "..",
+      "uploads",
+      path.replace(/^\/?uploads\//, "")
+    )
+
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    res.setHeader("Cache-Control", "public, max-age=86400")
+
+    res.sendFile(fullPath)
+  } catch (err) {
+    res.status(404).end()
+  }
+})
+
+
 router.post(
   "/inventoryBulkImages",
   Auth.userAuth,
