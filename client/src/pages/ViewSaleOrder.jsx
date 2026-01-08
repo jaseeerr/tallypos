@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import MyAxiosInstance from "../utils/axios"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+
 import { ArrowLeft, FileText, Calendar, User, Building2, Package, Loader2, AlertCircle, DollarSign } from "lucide-react"
 
 export default function ViewOrder() {
@@ -57,6 +60,156 @@ const [convertError, setConvertError] = useState(null)
   } finally {
     setConverting(false)
   }
+}
+
+const fetchInventoryImages = async (itemNames) => {
+  try {
+    const res = await axios.post("/inventoryBulk", {
+      names: itemNames,
+    })
+
+    const map = {}
+    for (const item of res.data.items || []) {
+      map[item.NAME] = item.imageUrl || []
+    }
+    return map
+  } catch {
+    return {}
+  }
+}
+
+const loadImageAsBase64 = async (url) => {
+  try {
+    const res = await fetch(url, { mode: "cors" })
+    const blob = await res.blob()
+
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        resolve({
+          base64: reader.result,
+          type: blob.type.includes("png")
+            ? "PNG"
+            : blob.type.includes("webp")
+            ? "WEBP"
+            : "JPEG",
+        })
+      }
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+
+
+const generateSaleOrderPDF = async () => {
+  const doc = new jsPDF("p", "mm", "a4")
+
+  const marginX = 14
+  let cursorY = 18
+
+  // ===== HEADER =====
+  doc.setFontSize(18)
+  doc.setFont("helvetica", "bold")
+  doc.text(order.companyName, marginX, cursorY)
+
+  cursorY += 6
+  doc.setFontSize(11)
+  doc.setFont("helvetica", "normal")
+  doc.text(`Sale Order #${order.billNo}`, marginX, cursorY)
+
+  cursorY += 5
+  doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, marginX, cursorY)
+
+  cursorY += 5
+  doc.text(`Party: ${order.partyName || "-"}`, marginX, cursorY)
+
+  cursorY += 8
+
+  // ===== ITEMS TABLE =====
+  autoTable(doc, {
+    startY: cursorY,
+    theme: "grid",
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: 255,
+      fontStyle: "bold",
+    },
+    styles: {
+      fontSize: 10,
+      cellPadding: 3,
+    },
+    head: [["Item", "Qty", "Unit", "Rate", "Tax %", "Amount"]],
+    body: order.items.map((i) => [
+      i.itemName,
+      i.qty,
+      i.unit,
+      `AED ${Number(i.rate).toFixed(2)}`,
+      i.rateOfTax,
+      `AED ${Number(i.amount).toFixed(2)}`,
+    ]),
+  })
+
+  cursorY = doc.lastAutoTable.finalY + 8
+
+  // ===== TOTALS =====
+  doc.setFont("helvetica", "bold")
+  doc.text(`Subtotal: AED ${subtotal.toFixed(2)}`, 140, cursorY)
+
+  cursorY += 5
+  doc.text(`VAT: AED ${vat.toFixed(2)}`, 140, cursorY)
+
+  cursorY += 5
+  doc.text(`Total: AED ${total.toFixed(2)}`, 140, cursorY)
+
+  cursorY += 10
+
+  // ===== PRODUCT IMAGES =====
+  const itemNames = order.items.map((i) => i.itemName)
+  const imageMap = await fetchInventoryImages(itemNames)
+console.log(order)
+  doc.setFontSize(14)
+  doc.text("Product Images", marginX, cursorY)
+  cursorY += 6
+
+  let x = marginX
+  let y = cursorY
+  const imgSize = 32
+
+  for (const name of itemNames) {
+    const images = imageMap[name] || []
+
+    for (const img of images) {
+      if (y + imgSize > 280) {
+        doc.addPage()
+        x = marginX
+        y = 20
+      }
+
+      const imgUrl = `${API_BASE}/${img}`
+     const image = await loadImageAsBase64(imgUrl)
+if (!image) continue
+
+doc.addImage(
+  image.base64,
+  image.type,
+  x,
+  y,
+  imgSize,
+  imgSize
+)
+
+      x += imgSize + 4
+      if (x > 170) {
+        x = marginX
+        y += imgSize + 6
+      }
+    }
+  }
+
+  doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
 
 
@@ -176,9 +329,23 @@ const [convertError, setConvertError] = useState(null)
             <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md">
               <FileText className="text-white" size={24} />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Sale Order #{order.billNo}</h1>
+            <div className="flex justify-between w-full">
+              <span>
+ <h1 className="text-3xl font-bold text-gray-800">Sale Order #{order.billNo}</h1>
               <p className="text-sm text-gray-500 mt-0.5">Order Details</p>
+              </span>
+             
+              <button
+  onClick={generateSaleOrderPDF}
+  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600
+    hover:from-blue-700 hover:to-indigo-700
+    text-white rounded-xl font-semibold shadow-lg
+    flex items-center gap-2 transition-all"
+>
+  <FileText className="w-5 h-5" />
+  Download PDF
+</button>
+
             </div>
           </div>
 

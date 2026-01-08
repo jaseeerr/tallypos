@@ -4,12 +4,14 @@ import { useEffect, useState, useMemo } from "react"
 import { Trash2, Package, ShoppingCart, ChevronLeft, ChevronRight, X } from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
+import { useNavigate } from "react-router-dom"
 
 export default function CartPage() {
   const axiosInstance = MyAxiosInstance()
+const navigate = useNavigate()
 
   const [cartItems, setCartItems] = useState([])
-  const [activeCompany, setActiveCompany] = useState("ALL")
+  const [activeCompany, setActiveCompany] = useState(null)
   const [loading, setLoading] = useState(true)
   const [imageModalOpen, setImageModalOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
@@ -42,25 +44,61 @@ export default function CartPage() {
     }
   }
 
-  function removeFromCart(id) {
-    const updatedIds = JSON.parse(localStorage.getItem("cartItems") || "[]").filter((pid) => pid !== id)
+function removeFromCart(id) {
+  // 1️⃣ Remove item from state first
+  const remainingItems = cartItems.filter(
+    (item) => item._id !== id
+  )
 
-    localStorage.setItem("cartItems", JSON.stringify(updatedIds))
-    setCartItems((prev) => prev.filter((item) => item._id !== id))
-  }
+  // 2️⃣ Persist remaining item IDs
+  localStorage.setItem(
+    "cartItems",
+    JSON.stringify(remainingItems.map((item) => item._id))
+  )
 
-  function clearCart() {
-    if (activeCompany === "ALL") {
-      // Clear entire cart
-      localStorage.setItem("cartItems", JSON.stringify([]))
-      setCartItems([])
-    } else {
-      // Clear only items from the selected company
-      const idsToKeep = cartItems.filter((item) => item.companyName !== activeCompany).map((item) => item._id)
-      localStorage.setItem("cartItems", JSON.stringify(idsToKeep))
-      setCartItems((prev) => prev.filter((item) => item.companyName !== activeCompany))
-    }
+  // 3️⃣ Update state
+  setCartItems(remainingItems)
+
+  // 4️⃣ Fix activeCompany if it no longer exists
+  if (
+    activeCompany &&
+    !remainingItems.some((item) => item.companyName === activeCompany)
+  ) {
+    setActiveCompany(
+      remainingItems.length > 0
+        ? remainingItems[0].companyName
+        : null
+    )
   }
+}
+
+
+function clearCart() {
+  // 1️⃣ Remove items of the active company
+  const remainingItems = cartItems.filter(
+    (item) => item.companyName !== activeCompany
+  )
+
+  // 2️⃣ Persist remaining items
+  localStorage.setItem(
+    "cartItems",
+    JSON.stringify(remainingItems.map((item) => item._id))
+  )
+
+  // 3️⃣ Update state FIRST
+  setCartItems(remainingItems)
+
+  // 4️⃣ Switch to another available company (if any)
+  if (remainingItems.length > 0) {
+    const nextCompany = remainingItems[0].companyName
+    setActiveCompany(nextCompany)
+  } else {
+    setActiveCompany(null)
+  }
+}
+
+
+
 
   function getPrimaryImage(item) {
     if (Array.isArray(item.imageUrl) && item.imageUrl.length > 0) {
@@ -79,14 +117,71 @@ export default function CartPage() {
      Derived Data
   ---------------------------------- */
 
-  const companies = useMemo(() => {
-    const unique = new Set(cartItems.map((i) => i.companyName))
-    return ["ALL", ...Array.from(unique)]
-  }, [cartItems])
+ const companies = useMemo(() => {
+  return Array.from(new Set(cartItems.map((i) => i.companyName)))
+}, [cartItems])
 
-  const filteredItems = activeCompany === "ALL" ? cartItems : cartItems.filter((i) => i.companyName === activeCompany)
+useEffect(() => {
+  if (!activeCompany && companies.length > 0) {
+    setActiveCompany(companies[0])
+  }
+}, [companies, activeCompany])
+
+const filteredItems = activeCompany
+  ? cartItems.filter((i) => i.companyName === activeCompany)
+  : []
 
   const totalAmount = filteredItems.reduce((sum, item) => sum + Number(item.SALESPRICE || 0), 0)
+
+
+
+
+  // create sale order
+function createSaleOrder() {
+  if (!activeCompany || filteredItems.length === 0) return
+
+  // 1️⃣ Decide correct storage key
+  const isFancy =
+    activeCompany === "FANCY-PALACE-TRADING-LLC"
+
+  const currentKey = isFancy
+    ? "fancy-sale-order"
+    : "amana-sale-order"
+
+  const otherKey = isFancy
+    ? "amana-sale-order"
+    : "fancy-sale-order"
+
+  // 2️⃣ Store selected company product IDs
+  const saleOrderIds = filteredItems.map((item) => item._id)
+  localStorage.setItem(currentKey, JSON.stringify(saleOrderIds))
+
+  // 3️⃣ 🔥 CLEAR the other company's sale-order (IMPORTANT)
+  localStorage.removeItem(otherKey)
+
+  // 4️⃣ Remove these items from cart
+  const remainingItems = cartItems.filter(
+    (item) => item.companyName !== activeCompany
+  )
+
+  localStorage.setItem(
+    "cartItems",
+    JSON.stringify(remainingItems.map((item) => item._id))
+  )
+
+  setCartItems(remainingItems)
+
+  // 5️⃣ Switch company if needed
+  if (remainingItems.length > 0) {
+    setActiveCompany(remainingItems[0].companyName)
+  } else {
+    setActiveCompany(null)
+  }
+
+  // 6️⃣ Navigate (React Router)
+  navigate("/addSaleOrder")
+}
+
 
   /* ----------------------------------
      UI
@@ -241,9 +336,10 @@ export default function CartPage() {
 
               <button
                 className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:scale-[1.02]"
-                onClick={() => alert("Proceed to checkout")}
+                onClick={createSaleOrder}
               >
-                Proceed to Checkout
+                Create Sale Order
+
               </button>
             </div>
           </>

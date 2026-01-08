@@ -54,6 +54,12 @@ useEffect(() => {
   const [showInventoryDropdown, setShowInventoryDropdown] = useState(false)
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
 
+
+  const [hydrating, setHydrating] = useState(false)
+const [pendingSaleOrderIds, setPendingSaleOrderIds] = useState(null)
+const [showCartDecision, setShowCartDecision] = useState(false)
+
+
   const [saleOrder, setSaleOrder] = useState({
     billNo: "",
     date: new Date().toISOString().slice(0, 10),
@@ -230,7 +236,7 @@ const closeScanner = () => {
 
   useEffect(() => {
     fetchCustomers()
-    setSelectedItems([])
+    // setSelectedItems([])
   }, [companyName])
 
   // Close dropdowns when clicking outside
@@ -284,6 +290,109 @@ console.log(res.data)
     return null
   }
 }
+
+const hydrateSaleOrderItems = async (ids, detectedCompany) => {
+  setHydrating(true)
+
+  try {
+    setCompanyName(detectedCompany)
+
+    const fetchedItems = []
+
+    for (const id of ids) {
+      const product = await fetchProductById(id)
+      if (!product) continue
+
+      const { display: unit, multiplier: piecesPerUnit } =
+        normalizeUnit(product.UNITS)
+
+      fetchedItems.push({
+        ...product,
+
+        itemId: product._id,
+        name: product.NAME,
+
+        unit,
+        piecesPerUnit,
+
+        qty: 1,
+        rate: Number(product.SALESPRICE) || 0,
+        rateOfTax: 5,
+        amount: Number(product.SALESPRICE) || 0,
+      })
+    }
+
+    setSelectedItems(fetchedItems)
+  } finally {
+    setHydrating(false)
+  }
+}
+
+
+
+const loadSaleOrderFromStorage = async () => {
+  // 1️⃣ Decide source
+  const fancyIds = JSON.parse(localStorage.getItem("fancy-sale-order") || "[]")
+  const amanaIds = JSON.parse(localStorage.getItem("amana-sale-order") || "[]")
+
+  let ids = []
+  let detectedCompany = ""
+
+  if (fancyIds.length > 0) {
+    ids = fancyIds
+    detectedCompany = "FANCY-PALACE-TRADING-LLC"
+  } else if (amanaIds.length > 0) {
+    ids = amanaIds
+    detectedCompany = "AMANA-FIRST-TRADING-LLC"
+  } else {
+    return // nothing to load
+  }
+
+  // 2️⃣ Set company FIRST
+  setCompanyName(detectedCompany)
+
+  try {
+    // 3️⃣ Fetch products in bulk
+    const res = await axios.post("/inventoryBulk", {
+      ids,
+    })
+
+    const products = res.data.items || []
+
+    // 4️⃣ Add items exactly like manual add
+    const itemsToAdd = products.map((item) => {
+      const { display: unit, multiplier: piecesPerUnit } = normalizeUnit(item.UNITS)
+
+      return {
+        ...item,
+
+        itemId: item._id,
+        name: item.NAME,
+
+        unit,
+        piecesPerUnit,
+
+        qty: 1,
+        rate: Number(item.SALESPRICE) || 0,
+        rateOfTax: 5,
+        amount: Number(item.SALESPRICE) || 0,
+      }
+    })
+
+    setSelectedItems(itemsToAdd)
+showNotification(
+  "info",
+  "Sale Order Loaded",
+  "Items loaded from cart successfully."
+)
+    // 5️⃣ Cleanup storage (IMPORTANT)
+    localStorage.removeItem("fancy-sale-order")
+    localStorage.removeItem("amana-sale-order")
+  } catch (err) {
+    console.error("Failed to load sale order from storage", err)
+  }
+}
+
 
 const handleScanResult = async (code) => {
   if (!code) return
@@ -533,6 +642,68 @@ const addItem = (item) => {
       setSubmitting(false)
     }
   }
+useEffect(() => {
+  loadSaleOrderFromStorage()
+}, [])
+useEffect(() => {
+  const fancyIds = JSON.parse(localStorage.getItem("fancy-sale-order") || "[]")
+  const amanaIds = JSON.parse(localStorage.getItem("amana-sale-order") || "[]")
+
+  if (fancyIds.length > 0) {
+    setPendingSaleOrderIds({
+      ids: fancyIds,
+      company: "FANCY-PALACE-TRADING-LLC",
+      key: "fancy-sale-order",
+    })
+    setShowCartDecision(true)
+  } else if (amanaIds.length > 0) {
+    setPendingSaleOrderIds({
+      ids: amanaIds,
+      company: "AMANA-FIRST-TRADING-LLC",
+      key: "amana-sale-order",
+    })
+    setShowCartDecision(true)
+  }
+}, [])
+
+
+const handleKeepCartItems = () => {
+  if (!pendingSaleOrderIds) return
+
+  const { ids, company } = pendingSaleOrderIds
+
+  // restore cart
+  const existingCart =
+    JSON.parse(localStorage.getItem("cartItems") || "[]")
+
+  const merged = Array.from(new Set([...existingCart, ...ids]))
+
+  localStorage.setItem("cartItems", JSON.stringify(merged))
+
+  hydrateSaleOrderItems(ids, company)
+
+  localStorage.removeItem("fancy-sale-order")
+  localStorage.removeItem("amana-sale-order")
+
+  setShowCartDecision(false)
+}
+
+const handleRemoveCartItems = () => {
+  if (!pendingSaleOrderIds) return
+
+  hydrateSaleOrderItems(
+    pendingSaleOrderIds.ids,
+    pendingSaleOrderIds.company
+  )
+
+  localStorage.removeItem("fancy-sale-order")
+  localStorage.removeItem("amana-sale-order")
+
+  setShowCartDecision(false)
+}
+
+
+
 
   // =============================
   // RENDER
@@ -1413,6 +1584,62 @@ onClick={() => {
     </div>
   </div>
 )}
+
+
+
+
+{hydrating && (
+  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+    <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-sm text-center">
+      <div className="flex justify-center mb-4">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+      <p className="font-semibold text-gray-800">
+        Loading products…
+      </p>
+      <p className="text-sm text-gray-500 mt-1">
+        Fetching live stock from inventory
+      </p>
+    </div>
+  </div>
+)}
+
+
+{showCartDecision && (
+  <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="p-5 border-b bg-gradient-to-r from-blue-600 to-indigo-600">
+        <h3 className="text-lg font-bold text-white">
+          Cart Items Detected
+        </h3>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <p className="text-sm text-gray-700">
+          Items were moved from cart to create this sale order.
+          What would you like to do with the cart?
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleKeepCartItems}
+            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold"
+          >
+            Keep in Cart
+          </button>
+
+          <button
+            onClick={handleRemoveCartItems}
+            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold"
+          >
+            Remove from Cart
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
 
     </div>

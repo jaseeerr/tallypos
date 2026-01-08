@@ -679,6 +679,77 @@ console.log(ids)
   }
 );
 
+router.post(
+  "/inventoryBulkImages",
+  Auth.userAuth,
+  async (req, res) => {
+    try {
+      const { names } = req.body
+
+      if (!Array.isArray(names) || names.length === 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "names must be a non-empty array",
+        })
+      }
+
+      // Normalize names (trim + uppercase safety)
+      const normalizedNames = names.map((n) => n.trim())
+
+      // Fetch all matching inventory records
+      const products = await Inventory.find({
+        NAME: { $in: normalizedNames },
+      })
+        .select("NAME imageUrl companyName")
+        .lean()
+
+      /**
+       * Build image map:
+       * {
+       *   "PRODUCT NAME": {
+       *     images: [...],
+       *     companyName: "XYZ"
+       *   }
+       * }
+       */
+      const imageMap = {}
+
+      for (const name of normalizedNames) {
+        // Find first product with images
+        const productWithImages = products.find(
+          (p) =>
+            p.NAME === name &&
+            Array.isArray(p.imageUrl) &&
+            p.imageUrl.length > 0
+        )
+
+        if (productWithImages) {
+          imageMap[name] = {
+            images: productWithImages.imageUrl,
+            companyName: productWithImages.companyName,
+          }
+        } else {
+          imageMap[name] = {
+            images: [],
+            companyName: null,
+          }
+        }
+      }
+
+      return res.json({
+        ok: true,
+        items: imageMap,
+      })
+    } catch (error) {
+      console.error("Bulk inventory image fetch error:", error)
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      })
+    }
+  }
+)
+
 
 // EDIT INVENTORY ITEM
 router.put("/editInventoryItem/:id", async (req, res) => {
