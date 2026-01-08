@@ -16,6 +16,12 @@ import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
 
 function Scanner() {
+    const [alert, setAlert] = useState({
+  open: false,
+  type: "message",
+  title: "",
+  message: "",
+})
   const axios = MyAxiosInstance()
   const lastScannedRef = useRef(null)
 
@@ -91,15 +97,26 @@ function Scanner() {
         }
       })
 
-      function addToCart(productId) {
+function addToCart(productId) {
   const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
 
   if (!cartItems.includes(productId)) {
     cartItems.push(productId)
     localStorage.setItem("cartItems", JSON.stringify(cartItems))
-    alert("Item added to cart!")
+
+    setAlert({
+      open: true,
+      type: "success",
+      title: "Added to Cart",
+      message: "Item has been successfully added to your cart.",
+    })
   } else {
-    alert("Item already in cart!")
+    setAlert({
+      open: true,
+      type: "warning",
+      title: "Already in Cart",
+      message: "This item is already present in your cart.",
+    })
   }
 }
 
@@ -271,6 +288,14 @@ function Scanner() {
           </div>
         </div>
       )}
+      <CustomAlert
+  open={alert.open}
+  type={alert.type}
+  title={alert.title}
+  message={alert.message}
+  onClose={() => setAlert({ ...alert, open: false })}
+/>
+
     </div>
   )
 }
