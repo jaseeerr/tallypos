@@ -114,7 +114,7 @@ async function loadImageAsBase64(imagePath) {
 
 
 
-const generateSaleOrderPDF = async () => {
+const generateSaleOrderPDFOLdStableTemplate = async () => {
   const doc = new jsPDF("p", "mm", "a4")
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -287,6 +287,170 @@ const generateSaleOrderPDF = async () => {
 
   doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
+
+const generateSaleOrderPDF = async () => {
+  const doc = new jsPDF("p", "mm", "a4")
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const marginX = 14
+  let cursorY = 20
+
+  // ===== HEADER - Company Name Centered =====
+  doc.setFillColor(37, 99, 235)
+  doc.rect(0, 0, pageWidth, 35, "F")
+
+  doc.setFontSize(22)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(255, 255, 255)
+  doc.text(order.companyName, pageWidth / 2, cursorY, { align: "center" })
+
+  cursorY += 10
+  doc.setFontSize(12)
+  doc.setFont("helvetica", "normal")
+  doc.text("SALE ORDER", pageWidth / 2, cursorY, { align: "center" })
+
+  cursorY += 20
+  doc.setTextColor(0, 0, 0)
+
+  // ===== ORDER DETAILS BOX =====
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(marginX, cursorY, pageWidth - marginX * 2, 28, 3, 3, "F")
+
+  cursorY += 8
+  doc.setFontSize(11)
+  doc.setFont("helvetica", "bold")
+  doc.text(`Order No: #${order.billNo}`, marginX + 6, cursorY)
+  doc.text(`Date: ${new Date(order.date).toLocaleDateString()}`, pageWidth - marginX - 6, cursorY, { align: "right" })
+
+  cursorY += 8
+  doc.setFont("helvetica", "normal")
+  doc.text(`Party: ${order.partyName || "-"}`, marginX + 6, cursorY)
+
+  cursorY += 18
+
+  // ===== FETCH IMAGES =====
+  const itemNames = order.items.map((i) => i.itemName)
+  const imageMap = await fetchInventoryImages(itemNames)
+
+  // ===== ITEMS TABLE (2 Columns: Image | Details) =====
+  const imgSize = 45
+  const rowHeight = 55
+
+  const tableBody = []
+
+  for (const item of order.items) {
+    const images = imageMap[item.itemName] || []
+    let imageBase64 = null
+
+    if (images.length > 0) {
+      const loaded = await loadImageAsBase64(images[0])
+      if (loaded) {
+        imageBase64 = loaded
+      }
+    }
+
+    tableBody.push([
+      { content: "", styles: { minCellHeight: rowHeight }, imageBase64: imageBase64 },
+      {
+        content: `${item.itemName}\n\nQty: ${item.qty} ${item.unit}    |    Rate: AED ${Number(item.rate).toFixed(2)}\n\nAmount: AED ${Number(item.amount).toFixed(2)}`,
+        styles: { cellPadding: 8, fontSize: 10, minCellHeight: rowHeight },
+      },
+    ])
+  }
+
+  autoTable(doc, {
+    startY: cursorY,
+    theme: "plain",
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: 255,
+      fontStyle: "bold",
+      halign: "center",
+      cellPadding: 4,
+    },
+    bodyStyles: {
+      valign: "middle",
+      minCellHeight: rowHeight,
+    },
+    styles: {
+      fontSize: 10,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
+      overflow: "linebreak",
+    },
+    columnStyles: {
+      0: { cellWidth: 55, halign: "center" },
+      1: { cellWidth: "auto" },
+    },
+    head: [["Product", "Details"]],
+    body: tableBody.map((row) => [row[0].content, row[1].content]),
+    rowPageBreak: "avoid",
+    showHead: "firstPage",
+    didDrawCell: (data) => {
+      if (data.section === "body" && data.column.index === 0) {
+        const rowData = tableBody[data.row.index]
+        if (rowData && rowData[0].imageBase64) {
+          const x = data.cell.x + (data.cell.width - imgSize) / 2
+          const y = data.cell.y + (data.cell.height - imgSize) / 2
+          doc.addImage(rowData[0].imageBase64.base64, rowData[0].imageBase64.type, x, y, imgSize, imgSize)
+        }
+      }
+    },
+  })
+
+  cursorY = doc.lastAutoTable.finalY + 12
+
+  // ===== TOTALS BOX =====
+  const totalsBoxWidth = 90
+  const totalsX = pageWidth - marginX - totalsBoxWidth
+
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(totalsX, cursorY, totalsBoxWidth, 42, 3, 3, "F")
+
+  cursorY += 10
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(80, 80, 80)
+  doc.text("Subtotal:", totalsX + 8, cursorY)
+  doc.text(`AED ${subtotal.toFixed(2)}`, totalsX + totalsBoxWidth - 8, cursorY, { align: "right" })
+
+  cursorY += 8
+  doc.text("VAT (5%):", totalsX + 8, cursorY)
+  doc.text(`AED ${vat.toFixed(2)}`, totalsX + totalsBoxWidth - 8, cursorY, { align: "right" })
+
+  cursorY += 4
+  doc.setDrawColor(200, 200, 200)
+  doc.line(totalsX + 8, cursorY, totalsX + totalsBoxWidth - 8, cursorY)
+
+  cursorY += 10
+  doc.setFontSize(12)
+  doc.setFont("helvetica", "bold")
+  doc.setTextColor(0, 0, 0)
+  doc.text("Grand Total:", totalsX + 8, cursorY)
+  doc.setTextColor(37, 99, 235)
+  doc.text(`AED ${total.toFixed(2)}`, totalsX + totalsBoxWidth - 8, cursorY, { align: "right" })
+
+  // ===== FOOTER ON EACH PAGE =====
+  const totalPages = doc.internal.getNumberOfPages()
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i)
+    const footerY = pageHeight - 15
+    doc.setDrawColor(226, 232, 240)
+    doc.line(marginX, footerY - 5, pageWidth - marginX, footerY - 5)
+
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "italic")
+    doc.setTextColor(130, 130, 130)
+    doc.text("This is a system-generated document. No signature required.", pageWidth / 2, footerY, { align: "center" })
+
+    doc.setFontSize(7)
+    doc.text(`Page ${i} of ${totalPages}  |  Generated on ${new Date().toLocaleString()}`, pageWidth / 2, footerY + 5, { align: "center" })
+  }
+
+  doc.save(`SaleOrder-${order.billNo}.pdf`)
+}
+
 
 
   // =============================
