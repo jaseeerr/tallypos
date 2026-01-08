@@ -100,10 +100,16 @@ async function loadImageAsBase64(imagePath) {
 
   return new Promise((resolve) => {
     const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result)
+    reader.onloadend = () => {
+      const base64 = reader.result
+      const type = blob.type.includes("png") ? "PNG" : "JPEG"
+
+      resolve({ base64, type })
+    }
     reader.readAsDataURL(blob)
   })
 }
+
 
 
 
@@ -192,7 +198,6 @@ console.log(order)
         y = 20
       }
 
-      const imgUrl = `${API_BASE}/${img}`
      const image = await loadImageAsBase64(img)
 if (!image) continue
 
