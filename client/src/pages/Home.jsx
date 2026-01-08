@@ -14,7 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 
-import Scanner from "./Scanner"
+import Scanner from "../components/Scanner"
 
 
 // Note: You'll need to update this path to match your axios instance location
