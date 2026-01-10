@@ -6,7 +6,8 @@ import MyAxiosInstance from "../utils/axios"
 import jsPDF from "jspdf"
 import { API_BASE } from "../utils/url"
 import autoTable from "jspdf-autotable"
-
+import ExcelJS from "exceljs"
+import { saveAs } from "file-saver"
 import { ArrowLeft, FileText, Calendar, User, Building2, Package, Loader2, AlertCircle, DollarSign } from "lucide-react"
 
 export default function ViewOrder() {
@@ -451,7 +452,133 @@ const generateSaleOrderPDF = async () => {
   doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
 
+const generateSaleOrderExcel = async () => {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("Sale Order")
 
+  // ======================
+  // COLUMN DEFINITIONS
+  // ======================
+  sheet.columns = [
+    { key: "image", width: 22 },
+    { key: "product", width: 40 },
+    { key: "qty", width: 12 },
+    { key: "unit", width: 12 },
+    { key: "rate", width: 16 },
+    { key: "amount", width: 18 },
+  ]
+
+  // ======================
+  // HEADER (MERGED CELLS)
+  // ======================
+  sheet.mergeCells("A1:F1")
+  sheet.mergeCells("A2:F2")
+
+  const companyRow = sheet.getRow(1)
+  companyRow.getCell(1).value = order.companyName
+  companyRow.height = 35
+
+  const titleRow = sheet.getRow(2)
+  titleRow.getCell(1).value = "SALE ORDER"
+  titleRow.height = 22
+
+  sheet.addRow([])
+  sheet.addRow(["Order No", `#${order.billNo}`])
+  sheet.addRow(["Date", new Date(order.date).toLocaleDateString()])
+  sheet.addRow(["Party", order.partyName || "-"])
+  sheet.addRow([])
+
+  // ======================
+  // TABLE HEADER
+  // ======================
+  const headerRow = sheet.addRow([
+    "Image",
+    "Product",
+    "Qty",
+    "Unit",
+    "Rate (AED)",
+    "Amount (AED)",
+  ])
+  headerRow.height = 25
+
+  // ======================
+  // FETCH IMAGES
+  // ======================
+  const itemNames = order.items.map((i) => i.itemName)
+  const imageMap = await fetchInventoryImages(itemNames)
+
+  let rowIndex = sheet.rowCount + 1
+
+  for (const item of order.items) {
+    const row = sheet.addRow([
+      "",
+      item.itemName,
+      item.qty,
+      item.unit,
+      Number(item.rate),
+      Number(item.amount),
+    ])
+
+    // BIG ROW HEIGHT FOR IMAGE
+    row.height = 120
+
+    // Wrap product name
+    row.getCell(2).alignment = { wrapText: true, vertical: "middle" }
+
+    const images = imageMap[item.itemName] || []
+
+    if (images.length > 0) {
+      const img = await loadImageAsBase64(images[0])
+
+      if (img) {
+        const imageId = workbook.addImage({
+          base64: img.base64,
+          extension: img.type === "image/png" ? "png" : "jpeg",
+        })
+
+        sheet.addImage(imageId, {
+          tl: { col: 0, row: rowIndex - 1 },
+          ext: { width: 120, height: 120 },
+          editAs: "oneCell",
+        })
+      }
+    }
+
+    rowIndex++
+  }
+
+  // ======================
+  // TOTALS (AUTO WIDTH SAFE)
+  // ======================
+  sheet.addRow([])
+  sheet.addRow(["", "", "", "", "Subtotal", subtotal])
+  sheet.addRow(["", "", "", "", "VAT (5%)", vat])
+  sheet.addRow(["", "", "", "", "Grand Total", total])
+
+  // ======================
+  // AUTO-ADJUST ROW HEIGHTS
+  // ======================
+  sheet.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.alignment = {
+        vertical: "middle",
+        wrapText: true,
+      }
+    })
+  })
+
+  // ======================
+  // EXPORT FILE
+  // ======================
+  const buffer = await workbook.xlsx.writeBuffer()
+  saveAs(
+    new Blob([buffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `SaleOrder-${order.billNo}.xlsx`
+  )
+}
 
   // =============================
   // STATES
@@ -564,57 +691,84 @@ const generateSaleOrderPDF = async () => {
 
 
 
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md">
-              <FileText className="text-white" size={24} />
-            </div>
-            <div className="flex justify-between w-full">
-              <span>
- <h1 className="text-3xl font-bold text-gray-800">Sale Order #{order.billNo}</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Order Details</p>
-              </span>
-             
-              <button
-  onClick={generateSaleOrderPDF}
-  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600
-    hover:from-blue-700 hover:to-indigo-700
-    text-white rounded-xl font-semibold shadow-lg
-    flex items-center gap-2 transition-all"
->
-  <FileText className="w-5 h-5" />
-  Download PDF
-</button>
+    <div className="relative bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 shadow-md hover:shadow-xl transition-shadow duration-300 p-4 sm:p-6 lg:p-8">
+  
+  {/* Header */}
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+    
+    {/* Title */}
+    <div className="flex items-start sm:items-center gap-4">
+      <div className="flex-shrink-0 p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md">
+        <FileText className="text-white w-6 h-6" />
+      </div>
 
-            </div>
-          </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 leading-tight">
+          Sale Order #{order.billNo}
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">Order Details</p>
+      </div>
+    </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
-              <Calendar className="text-blue-600" size={20} />
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Date</p>
-                <p className="font-semibold text-gray-800">{new Date(order.date).toLocaleDateString()}</p>
-              </div>
-            </div>
+    {/* Actions */}
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+      <button
+        onClick={generateSaleOrderPDF}
+        className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+        <FileText className="w-5 h-5" />
+        Download PDF
+      </button>
 
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-              <User className="text-purple-600" size={20} />
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Party</p>
-                <p className="font-semibold text-gray-800">{order.partyName || "-"}</p>
-              </div>
-            </div>
+      <button
+        onClick={generateSaleOrderExcel}
+        className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      >
+        <FileText className="w-5 h-5" />
+        Download Excel
+      </button>
+    </div>
+  </div>
 
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl">
-              <Building2 className="text-emerald-600" size={20} />
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Company</p>
-                <p className="font-semibold text-gray-800">{order.companyName}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+  {/* Info Grid */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    
+    {/* Date */}
+    <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50">
+      <Calendar className="text-blue-600 w-5 h-5 flex-shrink-0" />
+      <div>
+        <p className="text-xs text-gray-500 uppercase tracking-wide">Date</p>
+        <p className="font-semibold text-gray-800">
+          {new Date(order.date).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+
+    {/* Party */}
+    <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50">
+      <User className="text-purple-600 w-5 h-5 flex-shrink-0" />
+      <div>
+        <p className="text-xs text-gray-500 uppercase tracking-wide">Party</p>
+        <p className="font-semibold text-gray-800 truncate max-w-[220px]">
+          {order.partyName || "-"}
+        </p>
+      </div>
+    </div>
+
+    {/* Company */}
+    <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50">
+      <Building2 className="text-emerald-600 w-5 h-5 flex-shrink-0" />
+      <div>
+        <p className="text-xs text-gray-500 uppercase tracking-wide">Company</p>
+        <p className="font-semibold text-gray-800 truncate max-w-[220px]">
+          {order.companyName}
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 overflow-hidden hover:shadow-xl transition-shadow duration-300">
           <div className="p-6 border-b border-gray-200/50 flex items-center gap-3">

@@ -23,40 +23,46 @@ export default function SaleOrdersList() {
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-
+const [fromDate, setFromDate] = useState("")
+const [toDate, setToDate] = useState("")
   const observerRef = useRef(null)
   const bottomRef = useRef(null)
 
   // =============================
   // FETCH SALE ORDERS
   // =============================
-  const fetchOrders = async (pageToLoad = 1, reset = false) => {
-    if (loading) return
+const fetchOrders = async (pageToLoad = 1, reset = false) => {
+  if (loading) return
 
-    try {
-      setLoading(true)
-      setError(null)
+  try {
+    setLoading(true)
+    setError(null)
 
-      const res = await axios.get("/sale-orders", {
-        params: {
-          companyName,
-          search,
-          page: pageToLoad,
-          limit: 20,
-        },
-      })
+    const res = await axios.get("/sale-orders", {
+      params: {
+        companyName,
+        search,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        page: pageToLoad,
+        limit: 20,
+      },
+    })
 
-      if (res.data.ok) {
-        setOrders((prev) => (reset ? res.data.items : [...prev, ...res.data.items]))
-        setHasMore(res.data.hasMore)
-        setPage(pageToLoad)
-      }
-    } catch (err) {
-      setError("Failed to load sale orders")
-    } finally {
-      setLoading(false)
+    if (res.data.ok) {
+      setOrders((prev) =>
+        reset ? res.data.items : [...prev, ...res.data.items]
+      )
+      setHasMore(res.data.hasMore)
+      setPage(pageToLoad)
     }
+  } catch (err) {
+    setError("Failed to load sale orders")
+  } finally {
+    setLoading(false)
   }
+}
+
 
   // =============================
   // INITIAL LOAD / FILTER CHANGE
@@ -66,7 +72,7 @@ export default function SaleOrdersList() {
     setPage(1)
     setHasMore(true)
     fetchOrders(1, true)
-  }, [companyName, search])
+  }, [companyName, search,fromDate,toDate])
 
   // =============================
   // INFINITE SCROLL OBSERVER
@@ -108,49 +114,76 @@ export default function SaleOrdersList() {
         </div>
 
         {/* FILTERS CARD */}
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg p-6 mb-8 border border-white/50">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-          </div>
+       <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg p-5 sm:p-6 mb-8 border border-white/50">
+  <div className="flex items-center gap-2 mb-5">
+    <Filter className="w-5 h-5 text-indigo-600" />
+    <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+  </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Company Dropdown */}
-            <div className="flex-1">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <Building2 className="w-4 h-4" />
-                Company
-              </label>
-              <select
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-              >
-                <option value="AMANA-FIRST-TRADING-LLC">AMANA FIRST</option>
-                <option value="FANCY-PALACE-TRADING-LLC">Fancy Palace</option>
-                <option value="ALL">All Companies</option>
-              </select>
-            </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {/* Company */}
+    <div>
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+        <Building2 className="w-4 h-4" />
+        Company
+      </label>
+      <select
+        value={companyName}
+        onChange={(e) => setCompanyName(e.target.value)}
+        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+      >
+        <option value="AMANA-FIRST-TRADING-LLC">AMANA FIRST</option>
+        <option value="FANCY-PALACE-TRADING-LLC">Fancy Palace</option>
+        <option value="ALL">All Companies</option>
+      </select>
+    </div>
 
-            {/* Search Input */}
-            <div className="flex-1">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <Search className="w-4 h-4" />
-                Search
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search bill, party, reference..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-4 py-3 pl-10 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-            </div>
-          </div>
-        </div>
+    {/* Search */}
+    <div>
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+        <Search className="w-4 h-4" />
+        Search
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Bill, party, reference..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-4 py-3 pl-10 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+        />
+        <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      </div>
+    </div>
+
+    {/* Start Date */}
+    <div>
+      <label className="text-sm font-medium text-gray-700 mb-2 block">
+        Start Date
+      </label>
+      <input
+        type="date"
+        value={fromDate}
+        onChange={(e) => setFromDate(e.target.value)}
+        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+    </div>
+
+    {/* End Date */}
+    <div>
+      <label className="text-sm font-medium text-gray-700 mb-2 block">
+        End Date
+      </label>
+      <input
+        type="date"
+        value={toDate}
+        onChange={(e) => setToDate(e.target.value)}
+        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+      />
+    </div>
+  </div>
+</div>
+
 
         {/* LOADING STATE (Initial) */}
         {loading && orders.length === 0 && (

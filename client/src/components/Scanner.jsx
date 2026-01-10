@@ -274,11 +274,16 @@ function Scanner() {
 
   {/* Scan Another */}
   <button
-    onClick={() => {
-      setProduct(null)
-      setScannerError(null)
-      lastScannedRef.current = null
-    }}
+     onClick={() => {
+          setScannerOpen(true)
+          setProduct(null)
+          setScannerError(null)
+          lastScannedRef.current = null
+
+          if (window.FlutterScanQR?.postMessage) {
+            window.FlutterScanQR.postMessage("open")
+          }
+        }}
     className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold"
   >
     Scan Another
