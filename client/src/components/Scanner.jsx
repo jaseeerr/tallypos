@@ -5,28 +5,28 @@ import QRBarcodeScanner from "react-qr-barcode-scanner"
 import {
   Camera,
   X,
-  Package,
   DollarSign,
   Layers,
   ChevronLeft,
   ChevronRight,
-  ImageIcon
+  ImageIcon,
 } from "lucide-react"
 import MyAxiosInstance from "../utils/axios"
 import { API_BASE } from "../utils/url"
 import CustomAlert from "./CustomAlert"
-function Scanner() {
-  const [alert, setAlert] = useState({
-  open: false,
-  type: "message",
-  title: "",
-  message: "",
-})
 
+function Scanner() {
   const axios = MyAxiosInstance()
   const lastScannedRef = useRef(null)
 
-  const [companyName] = useState("") // 🔧 change if needed
+  const [alert, setAlert] = useState({
+    open: false,
+    type: "message",
+    title: "",
+    message: "",
+  })
+
+  const [companyName] = useState("")
   const [isFlutterApp, setIsFlutterApp] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [loadingScan, setLoadingScan] = useState(false)
@@ -41,9 +41,9 @@ function Scanner() {
     }
   }, [])
 
-  /* Flutter scan bridge */
+  /* ✅ FIX: Flutter scan listener registered ONCE */
   useEffect(() => {
-    if (!isFlutterApp || !scannerOpen) return
+    if (!isFlutterApp) return
 
     window.onFlutterQrScanned = (code) => {
       if (code) handleScan(code)
@@ -52,7 +52,7 @@ function Scanner() {
     return () => {
       delete window.onFlutterQrScanned
     }
-  }, [scannerOpen, isFlutterApp])
+  }, [isFlutterApp])
 
   const fetchProductById = async (id) => {
     const res = await axios.post(`/inventory/${id}`, { companyName })
@@ -62,6 +62,7 @@ function Scanner() {
 
   const handleScan = async (code) => {
     if (!code || loadingScan) return
+
     const trimmed = code.trim()
     if (lastScannedRef.current === trimmed) return
     lastScannedRef.current = trimmed
@@ -71,11 +72,6 @@ function Scanner() {
       setScannerError(null)
 
       const prod = await fetchProductById(trimmed)
-
-      // if (prod.companyName !== companyName) {
-      //   throw new Error(`Product belongs to ${prod.companyName}`)
-      // }
-
       setProduct(prod)
     } catch (err) {
       setScannerError(err.message || "Scan failed")
@@ -87,62 +83,80 @@ function Scanner() {
 
   const getStockInfo = (item) =>
     Object.keys(item)
-      .filter(k => k.endsWith("Stock") && !k.toLowerCase().includes("isoutof"))
-      .map(k => {
+      .filter(
+        (k) =>
+          k.endsWith("Stock") &&
+          !k.toLowerCase().includes("isoutof")
+      )
+      .map((k) => {
         const company = k.replace("Stock", "")
         return {
           company,
           gross: item[k],
           net: item[`${company}-NetAvailable`],
-          pending: item[`${company}-UnsyncedQty`] ?? 0
+          pending: item[`${company}-UnsyncedQty`] ?? 0,
         }
       })
 
-    function addToCart(productId) {
-  const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
+  function addToCart(productId) {
+    const cartItems = JSON.parse(
+      localStorage.getItem("cartItems") || "[]"
+    )
 
-  if (!cartItems.includes(productId)) {
-    cartItems.push(productId)
-    localStorage.setItem("cartItems", JSON.stringify(cartItems))
+    if (!cartItems.includes(productId)) {
+      cartItems.push(productId)
+      localStorage.setItem(
+        "cartItems",
+        JSON.stringify(cartItems)
+      )
 
-    setAlert({
-      open: true,
-      type: "success",
-      title: "Added to Cart",
-      message: "Item has been successfully added to your cart.",
-    })
-  } else {
-    setAlert({
-      open: true,
-      type: "warning",
-      title: "Already in Cart",
-      message: "This item is already present in your cart.",
-    })
+      setAlert({
+        open: true,
+        type: "success",
+        title: "Added to Cart",
+        message: "Item has been successfully added to your cart.",
+      })
+    } else {
+      setAlert({
+        open: true,
+        type: "warning",
+        title: "Already in Cart",
+        message: "This item is already present in your cart.",
+      })
+    }
   }
-}
 
+  const openScanner = () => {
+    setProduct(null)
+    setScannerError(null)
+    lastScannedRef.current = null
+    setImageIndex(0)
 
+    if (window.FlutterScanQR?.postMessage) {
+      window.FlutterScanQR.postMessage("open")
+    } else {
+      setScannerOpen(true)
+    }
+  }
+
+  const closeScanner = () => {
+    if (window.FlutterScanQR?.postMessage) {
+      window.FlutterScanQR.postMessage("close")
+    } else {
+      setScannerOpen(false)
+    }
+  }
 
   return (
-<div className="w-full max-h-screen py-2">
+    <div className="w-full max-h-screen py-2">
       <button
-        onClick={() => {
-          setScannerOpen(true)
-          setProduct(null)
-          setScannerError(null)
-          lastScannedRef.current = null
-
-          if (window.FlutterScanQR?.postMessage) {
-            window.FlutterScanQR.postMessage("open")
-          }
-        }}
+        onClick={openScanner}
         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 shadow-lg"
       >
         <Camera className="w-5 h-5" />
         Scan Product
       </button>
 
-      {/* SCANNER MODAL */}
       {scannerOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
@@ -153,18 +167,14 @@ function Scanner() {
                 Scan Product
               </h2>
               <button
-                onClick={() => {
-                  setScannerOpen(false)
-                  setProduct(null)
-                  lastScannedRef.current = null
-                }}
+                onClick={closeScanner}
                 className="text-white hover:bg-white/20 p-2 rounded-lg"
               >
                 <X />
               </button>
             </div>
 
-            {/* SCANNER */}
+            {/* Scanner */}
             {!product && (
               <div className="p-6 space-y-4">
                 {!isFlutterApp && (
@@ -190,22 +200,26 @@ function Scanner() {
               </div>
             )}
 
-            {/* PRODUCT MODAL */}
+            {/* Product */}
             {product && (
               <div className="p-6 space-y-6">
                 {/* Image */}
-                {Array.isArray(product.imageUrl) && product.imageUrl.length > 0 ? (
+                {Array.isArray(product.imageUrl) &&
+                product.imageUrl.length > 0 ? (
                   <div className="relative flex justify-center">
                     <img
                       src={`${API_BASE}/${product.imageUrl[imageIndex]}`}
                       className="w-64 h-64 object-cover rounded-xl"
                     />
+
                     {product.imageUrl.length > 1 && (
                       <>
                         <button
                           onClick={() =>
-                            setImageIndex(i =>
-                              i === 0 ? product.imageUrl.length - 1 : i - 1
+                            setImageIndex((i) =>
+                              i === 0
+                                ? product.imageUrl.length - 1
+                                : i - 1
                             )
                           }
                           className="absolute left-2 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow"
@@ -214,8 +228,10 @@ function Scanner() {
                         </button>
                         <button
                           onClick={() =>
-                            setImageIndex(i =>
-                              (i + 1) % product.imageUrl.length
+                            setImageIndex(
+                              (i) =>
+                                (i + 1) %
+                                product.imageUrl.length
                             )
                           }
                           className="absolute right-2 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow"
@@ -235,7 +251,9 @@ function Scanner() {
 
                 {/* Info */}
                 <div className="text-center">
-                  <h3 className="text-2xl font-bold">{product.NAME}</h3>
+                  <h3 className="text-2xl font-bold">
+                    {product.NAME}
+                  </h3>
                   <div className="flex justify-center items-center gap-2 mt-2 text-emerald-600">
                     <DollarSign />
                     <span className="text-2xl font-bold">
@@ -246,77 +264,61 @@ function Scanner() {
 
                 {/* Stock */}
                 <div className="space-y-2">
-                  {getStockInfo(product).map(s => (
+                  {getStockInfo(product).map((s) => (
                     <div
                       key={s.company}
                       className="flex justify-between bg-gray-50 p-3 rounded-lg"
                     >
-                      <span>{s.company.replace(/-/g, " ")}</span>
+                      <span>
+                        {s.company.replace(/-/g, " ")}
+                      </span>
                       <span className="font-medium">
-                        <span className="text-emerald-600">net: {s.net}</span>
+                        <span className="text-emerald-600">
+                          net: {s.net}
+                        </span>
                         {" | "}
                         <span>gross: {s.gross}</span>
                         {" | "}
-                        <span className="text-amber-600">pend: {s.pending}</span>
+                        <span className="text-amber-600">
+                          pend: {s.pending}
+                        </span>
                       </span>
                     </div>
                   ))}
                 </div>
 
-              <div className="space-y-3">
-  {/* Add to Cart */}
-  <button
-    onClick={() => addToCart(product._id)}
-    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl font-semibold hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-lg"
-  >
-    Add to Cart
-  </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => addToCart(product._id)}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl font-semibold shadow-lg"
+                  >
+                    Add to Cart
+                  </button>
 
-  {/* Scan Another */}
-  <button
-   onClick={() => {
-  // FULL reset
-  setScannerOpen(false)
-  setProduct(null)
-  setScannerError(null)
-  lastScannedRef.current = null
-  setImageIndex(0)
-
-  // allow React to unmount everything
-  setTimeout(() => {
-    setScannerOpen(true)
-
-    if (window.FlutterScanQR?.postMessage) {
-      window.FlutterScanQR.postMessage(
-        JSON.stringify({ action: "open", ts: Date.now() })
-      )
-    }
-  }, 50)
-}}
-
-
-    className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold"
-  >
-    Scan Another
-  </button>
-</div>
-
+                  <button
+                    onClick={openScanner}
+                    className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold"
+                  >
+                    Scan Another
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
-      <CustomAlert
-  open={alert.open}
-  type={alert.type}
-  title={alert.title}
-  message={alert.message}
-  onClose={() => setAlert({ ...alert, open: false })}
-/>
 
+      <CustomAlert
+        open={alert.open}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onClose={() =>
+          setAlert({ ...alert, open: false })
+        }
+      />
     </div>
   )
 }
-
 
 export default Scanner
