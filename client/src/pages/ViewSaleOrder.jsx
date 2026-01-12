@@ -14,7 +14,14 @@ export default function ViewOrder() {
   const { id } = useParams()
   const navigate = useNavigate()
   const axios = MyAxiosInstance()
+const [showExcelModal, setShowExcelModal] = useState(false)
 
+const [excelValues, setExcelValues] = useState({
+  cRow1: "Murshid Bazar-Deira-Dubai",
+  cRow2: "Tel: 04-5232322",
+  cRow3: "--",
+  vendor: "1121212",
+})
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -452,54 +459,112 @@ const generateSaleOrderPDF = async () => {
   doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
 
-const generateSaleOrderExcel = async () => {
+const generateSaleOrderExcel = async (values) => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet("Sale Order")
 
   // ======================
   // COLUMN DEFINITIONS
   // ======================
-  sheet.columns = [
-    { key: "image", width: 22 },
-    { key: "product", width: 40 },
-    { key: "qty", width: 12 },
-    { key: "unit", width: 12 },
-    { key: "rate", width: 16 },
-    { key: "amount", width: 18 },
-  ]
+ sheet.columns = [
+  { key: "sno", width: 8 },
+  { key: "image", width: 22 },
+  { key: "description", width: 40 },
+  { key: "itemCode", width: 16 },
+  { key: "qty", width: 10 },
+  { key: "unit", width: 10 },
+  { key: "rate", width: 14 },
+  { key: "amount", width: 16 },
+]
 
-  // ======================
-  // HEADER (MERGED CELLS)
-  // ======================
-  sheet.mergeCells("A1:F1")
-  sheet.mergeCells("A2:F2")
 
-  const companyRow = sheet.getRow(1)
-  companyRow.getCell(1).value = order.companyName
-  companyRow.height = 35
+// ======================
+// HEADER (NEW FORMAT)
+// ======================
 
-  const titleRow = sheet.getRow(2)
-  titleRow.getCell(1).value = "SALE ORDER"
-  titleRow.height = 22
+// SALE ORDER (TOP)
+sheet.mergeCells("A1:H1")
+const saleOrderRow = sheet.getRow(1)
+saleOrderRow.getCell(1).value = "SALE ORDER"
+saleOrderRow.height = 30
+saleOrderRow.font = { bold: true, size: 16 }
+saleOrderRow.alignment = { horizontal: "center", vertical: "middle" }
+saleOrderRow.getCell(1).border = {
+  bottom: { style: "thin" },
+}
 
-  sheet.addRow([])
-  sheet.addRow(["Order No", `#${order.billNo}`])
-  sheet.addRow(["Date", new Date(order.date).toLocaleDateString()])
-  sheet.addRow(["Party", order.partyName || "-"])
-  sheet.addRow([])
+// COMPANY NAME
+sheet.mergeCells("A2:H2")
+const companyRow = sheet.getRow(2)
+companyRow.getCell(1).value = order.companyName
+companyRow.font = { bold: true, size: 14 }
+companyRow.alignment = { horizontal: "center", vertical: "middle" }
+companyRow.height = 26
+
+// COMPANY ROW 1
+sheet.mergeCells("A3:H3")
+sheet.getRow(3).getCell(1).value = values.cRow1
+
+// COMPANY ROW 2
+sheet.mergeCells("A4:H4")
+sheet.getRow(4).getCell(1).value = values.cRow2
+
+// COMPANY ROW 3
+sheet.mergeCells("A5:H5")
+sheet.getRow(5).getCell(1).value = values.cRow3
+
+// STYLE COMPANY EXTRA ROWS (SAFE – NO VARIABLES)
+for (let i = 3; i <= 5; i++) {
+  const row = sheet.getRow(i)
+  row.font = { bold: true, size: 14 }
+  row.alignment = { horizontal: "center", vertical: "middle" }
+  row.height = 26
+}
+
+
+// SPACE
+sheet.addRow([])
+
+// VENDOR
+const vendorRow = sheet.addRow(["Vendor:", values.vendor])
+vendorRow.font = { bold: true, size: 12 }
+
+// ORDER INFO
+const orderRow = sheet.addRow(["Order No", `#${order.billNo}`])
+orderRow.font = { bold: true, size: 12 }
+
+const dateRow = sheet.addRow([
+  "Date",
+  new Date(order.date).toLocaleDateString(),
+])
+dateRow.font = { bold: true, size: 12 }
+
+const partyRow = sheet.addRow(["Party", order.partyName || "-"])
+partyRow.font = { bold: true, size: 12 }
+
+// SPACE BEFORE TABLE
+sheet.addRow([])
+
 
   // ======================
   // TABLE HEADER
   // ======================
-  const headerRow = sheet.addRow([
-    "Image",
-    "Product",
-    "Qty",
-    "Unit",
-    "Rate (AED)",
-    "Amount (AED)",
-  ])
-  headerRow.height = 25
+const headerRow = sheet.addRow([
+  "S No",
+  "Image",
+  "DESCRIPTION",
+  "ITEM CODE",
+  "Qty",
+  "Unit",
+  "Rate (AED)",
+  "Amount (AED)",
+])
+
+headerRow.height = 30
+headerRow.font = { bold: true, size: 12 }
+headerRow.alignment = { horizontal: "center", vertical: "middle" }
+
+
 
   // ======================
   // FETCH IMAGES
@@ -510,20 +575,33 @@ const generateSaleOrderExcel = async () => {
   let rowIndex = sheet.rowCount + 1
 
   for (const item of order.items) {
-    const row = sheet.addRow([
-      "",
-      item.itemName,
-      item.qty,
-      item.unit,
-      Number(item.rate),
-      Number(item.amount),
-    ])
+ const row = sheet.addRow([
+  
+  rowIndex - headerRow.number, // S No
+  "",                           // Image
+  item.itemName,                // Description
+  "",                           // Item Code (empty)
+  "",                           // Qty (empty)
+  item.unit,                    // Unit
+  Number(item.rate),            // Rate
+  "",                           // Amount (empty)
+])
+
+// CENTER ALL ITEM ROW CELLS
+row.eachCell((cell) => {
+  cell.alignment = {
+    horizontal: "center",
+    vertical: "middle",
+    wrapText: true,
+  }
+})
 
     // BIG ROW HEIGHT FOR IMAGE
     row.height = 120
 
     // Wrap product name
-    row.getCell(2).alignment = { wrapText: true, vertical: "middle" }
+row.font = { size: 11 }
+row.getCell(2).alignment = { wrapText: true, vertical: "middle" }
 
     const images = imageMap[item.itemName] || []
 
@@ -536,11 +614,22 @@ const generateSaleOrderExcel = async () => {
           extension: img.type === "image/png" ? "png" : "jpeg",
         })
 
-        sheet.addImage(imageId, {
-          tl: { col: 0, row: rowIndex - 1 },
-          ext: { width: 120, height: 120 },
-          editAs: "oneCell",
-        })
+     // --- FIT IMAGE TO CELL WIDTH ---
+const imageColumnWidthPx = sheet.getColumn(2).width * 7 // column B (Image)
+const imageHeightPx = imageColumnWidthPx * 0.9 // keep aspect ratio visually
+
+sheet.addImage(imageId, {
+  tl: {
+    col: 1 + 0.1,              // horizontal centering
+    row: rowIndex - 1 + 0.05,  // vertical centering
+  },
+  ext: {
+    width: imageColumnWidthPx,
+    height: imageHeightPx,
+  },
+  editAs: "oneCell",
+})
+
       }
     }
 
@@ -551,21 +640,30 @@ const generateSaleOrderExcel = async () => {
   // TOTALS (AUTO WIDTH SAFE)
   // ======================
   sheet.addRow([])
-  sheet.addRow(["", "", "", "", "Subtotal", subtotal])
-  sheet.addRow(["", "", "", "", "VAT (5%)", vat])
-  sheet.addRow(["", "", "", "", "Grand Total", total])
+ sheet.addRow(["", "", "", "", "Subtotal", subtotal]).font = { bold: true, size: 12 }
+sheet.addRow(["", "", "", "", "VAT (5%)", vat]).font = { bold: true, size: 12 }
+
+const grandTotalRow = sheet.addRow(["", "", "", "", "Grand Total", total])
+grandTotalRow.font = { bold: true, size: 13 }
+
 
   // ======================
   // AUTO-ADJUST ROW HEIGHTS
   // ======================
-  sheet.eachRow((row) => {
-    row.eachCell((cell) => {
-      cell.alignment = {
-        vertical: "middle",
-        wrapText: true,
-      }
-    })
+ const headerEndRow = headerRow.number
+
+sheet.eachRow((row, rowNumber) => {
+  row.eachCell((cell) => {
+    cell.alignment = {
+      ...(cell.alignment || {}),
+      vertical: "middle",
+      wrapText: true,
+    }
   })
+})
+
+
+
 
   // ======================
   // EXPORT FILE
@@ -720,13 +818,16 @@ const generateSaleOrderExcel = async () => {
         Download PDF
       </button>
 
-      <button
-        onClick={generateSaleOrderExcel}
-        className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
-      >
-        <FileText className="w-5 h-5" />
-        Download Excel
-      </button>
+     <button
+  onClick={() => setShowExcelModal(true)}
+  className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600
+    hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-semibold
+    shadow-lg flex items-center justify-center gap-2 transition-all"
+>
+  <FileText className="w-5 h-5" />
+  Download Excel
+</button>
+
     </div>
   </div>
 
@@ -843,6 +944,110 @@ const generateSaleOrderExcel = async () => {
           </div>
         </div>
       </div>
+
+
+
+      {showExcelModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
+
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-800">
+          Excel Header Details
+        </h2>
+        <button
+          onClick={() => setShowExcelModal(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Inputs */}
+      <div className="space-y-4">
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">
+            Company Row 1
+          </label>
+          <input
+            value={excelValues.cRow1}
+            onChange={(e) =>
+              setExcelValues({ ...excelValues, cRow1: e.target.value })
+            }
+            className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">
+            Company Row 2
+          </label>
+          <input
+            value={excelValues.cRow2}
+            onChange={(e) =>
+              setExcelValues({ ...excelValues, cRow2: e.target.value })
+            }
+            className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">
+            Company Row 3
+          </label>
+          <input
+            value={excelValues.cRow3}
+            onChange={(e) =>
+              setExcelValues({ ...excelValues, cRow3: e.target.value })
+            }
+            className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-600">
+            Vendor
+          </label>
+          <input
+            value={excelValues.vendor}
+            onChange={(e) =>
+              setExcelValues({ ...excelValues, vendor: e.target.value })
+            }
+            className="w-full mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-4">
+        <button
+          onClick={() => setShowExcelModal(false)}
+          className="px-5 py-2 rounded-lg border text-gray-700 hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={async () => {
+            setShowExcelModal(false)
+            await generateSaleOrderExcel(excelValues)
+          }}
+          className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-semibold
+            hover:bg-emerald-700 shadow-md"
+        >
+          Generate Excel
+        </button>
+      </div>
     </div>
+  </div>
+)}
+
+
+    </div>
+
+    
   )
 }
