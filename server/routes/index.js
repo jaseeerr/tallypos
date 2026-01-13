@@ -2791,34 +2791,37 @@ router.post("/reset-sales-status", async (req, res) => {
 
 
 
+
+
+
 router.get(
   "/CurrentLiveStockCount",
+  
   async (req, res) => {
     try {
-      const result = await Inventory.aggregate([
-        // 1️⃣ Only rows that are in stock
-        {
-          $match: {
-            CLOSINGQTY: { $gt: 0 },
-          },
-        },
+      // 1️⃣ Fetch only what we need
+      const items = await Inventory.find(
+        {},
+        { NAME: 1, CLOSINGQTY: 1 }
+      ).lean();
 
-        // 2️⃣ Group by product NAME (ignore company)
-        {
-          $group: {
-            _id: "$NAME",
-          },
-        },
+      // 2️⃣ Track products that are in stock
+      const inStockProducts = new Set();
 
-        // 3️⃣ Count unique product names
-        {
-          $count: "uniqueInStockProducts",
-        },
-      ]);
+      for (const item of items) {
+        // Already counted → skip
+        if (inStockProducts.has(item.NAME)) continue;
+
+        const pieces = parseClosingQtyToPieces(item.CLOSINGQTY);
+
+        if (pieces > 0) {
+          inStockProducts.add(item.NAME);
+        }
+      }
 
       return res.json({
         ok: true,
-        count: result[0]?.uniqueInStockProducts || 0,
+        count: inStockProducts.size,
       });
     } catch (error) {
       console.error("Unique in-stock count error:", error);
