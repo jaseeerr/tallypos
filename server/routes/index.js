@@ -2793,7 +2793,6 @@ router.post("/reset-sales-status", async (req, res) => {
 
 router.get(
   "/CurrentLiveStockCount",
-  Auth.userAuth,
   async (req, res) => {
     try {
       const result = await Inventory.aggregate([
