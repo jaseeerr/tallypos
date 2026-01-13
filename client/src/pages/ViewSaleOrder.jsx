@@ -100,23 +100,32 @@ async function loadImageAsBase64(imagePath) {
     `${API_BASE}/inventory-image?path=${encodeURIComponent(imagePath)}`
   )
 
-  if (!res.ok) {
-    throw new Error("Image load failed")
-  }
+  if (!res.ok) throw new Error("Image load failed")
 
   const blob = await res.blob()
 
-  return new Promise((resolve) => {
+  const base64 = await new Promise((resolve) => {
     const reader = new FileReader()
     reader.onloadend = () => {
-      const base64 = reader.result
-      const type = blob.type.includes("png") ? "PNG" : "JPEG"
-
-      resolve({ base64, type })
+      resolve(reader.result.split(",")[1]) // ✅ strip data URL
     }
     reader.readAsDataURL(blob)
   })
+
+  const img = new Image()
+  const imgLoaded = new Promise((resolve) => (img.onload = resolve))
+  img.src = URL.createObjectURL(blob)
+  await imgLoaded
+
+  return {
+    base64,
+    type: blob.type.includes("png") ? "PNG" : "JPEG",
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+  }
 }
+
+
 
 
 
@@ -296,7 +305,13 @@ const generateSaleOrderPDFOLdStableTemplate = async () => {
   doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
 
+
+
+
 const generateSaleOrderPDF = async () => {
+
+ 
+
   const doc = new jsPDF("p", "mm", "a4")
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -459,7 +474,230 @@ const generateSaleOrderPDF = async () => {
   doc.save(`SaleOrder-${order.billNo}.pdf`)
 }
 
+
+
 const generateSaleOrderExcel = async (values) => {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("Sale Order")
+
+  // ======================
+  // COLUMN DEFINITIONS
+  // ======================
+  sheet.columns = [
+    { key: "sno", width: 8 },
+    { key: "image", width: 22 },
+    { key: "description", width: 40 },
+    { key: "itemCode", width: 16 },
+    { key: "qty", width: 10 },
+    { key: "unit", width: 10 },
+    { key: "rate", width: 14 },
+    { key: "amount", width: 16 },
+  ]
+
+  // Force image column width (global)
+  sheet.getColumn(2).width = 40
+
+  // ======================
+  // IMAGE SCALING CONSTANTS (SAFE TO COMPUTE NOW)
+  // ======================
+  const IMAGE_COLUMN_INDEX = 2
+  const PX_PER_COL_UNIT = 17
+  const PX_PER_ROW_UNIT = 0.75
+
+  const MAX_IMAGE_WIDTH_PX =
+    sheet.getColumn(IMAGE_COLUMN_INDEX).width * PX_PER_COL_UNIT
+  const MAX_IMAGE_HEIGHT_PX = 280
+  const MIN_ROW_HEIGHT = 90
+
+  // ======================
+  // HEADER
+  // ======================
+  sheet.mergeCells("A1:H1")
+  const saleOrderRow = sheet.getRow(1)
+  saleOrderRow.getCell(1).value = "SALE ORDER"
+  saleOrderRow.height = 30
+  saleOrderRow.font = { bold: true, size: 16 }
+  saleOrderRow.alignment = { horizontal: "center", vertical: "middle" }
+  saleOrderRow.getCell(1).border = { bottom: { style: "thin" } }
+
+  sheet.mergeCells("A2:H2")
+  const companyRow = sheet.getRow(2)
+  companyRow.getCell(1).value = order.companyName
+  companyRow.font = { bold: true, size: 14 }
+  companyRow.alignment = { horizontal: "center", vertical: "middle" }
+  companyRow.height = 26
+
+  sheet.mergeCells("A3:H3")
+  sheet.getRow(3).getCell(1).value = values.cRow1
+  sheet.mergeCells("A4:H4")
+  sheet.getRow(4).getCell(1).value = values.cRow2
+  sheet.mergeCells("A5:H5")
+  sheet.getRow(5).getCell(1).value = values.cRow3
+
+  for (let i = 3; i <= 5; i++) {
+    const row = sheet.getRow(i)
+    row.font = { bold: true, size: 14 }
+    row.alignment = { horizontal: "center", vertical: "middle" }
+    row.height = 26
+  }
+
+  sheet.addRow([])
+
+  // ======================
+  // ORDER INFO
+  // ======================
+  sheet.addRow(["Vendor:", values.vendor]).font = { bold: true }
+  sheet.addRow(["Order No", `#${order.billNo}`]).font = { bold: true }
+  sheet.addRow(["Date", new Date(order.date).toLocaleDateString()]).font = {
+    bold: true,
+  }
+  sheet.addRow(["Party", order.partyName || "-"]).font = { bold: true }
+
+  sheet.addRow([])
+
+  // ======================
+  // TABLE HEADER
+  // ======================
+  const headerRow = sheet.addRow([
+    "S No",
+    "Image",
+    "DESCRIPTION",
+    "ITEM CODE",
+    "Qty",
+    "Unit",
+    "Rate (AED)",
+    "Amount (AED)",
+  ])
+  headerRow.height = 30
+  headerRow.font = { bold: true, size: 12 }
+  headerRow.alignment = { horizontal: "center", vertical: "middle" }
+
+  // ======================
+  // FETCH IMAGES
+  // ======================
+  const itemNames = order.items.map((i) => i.itemName)
+  const imageMap = await fetchInventoryImages(itemNames)
+
+  let rowIndex = sheet.rowCount + 1
+
+  // ======================
+  // ITEM ROWS
+  // ======================
+  for (const item of order.items) {
+    const imageUrl = imageMap[item.itemName]?.[0] || ""
+
+    const row = sheet.addRow([
+      rowIndex - headerRow.number,
+      imageUrl ? "View Image" : "",
+      item.itemName,
+      "",
+      "",
+      item.unit,
+      Number(item.rate),
+      "",
+    ])
+
+    row.font = { size: 11 }
+
+    row.eachCell((cell) => {
+      cell.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true,
+      }
+    })
+
+    // Clickable image link
+    if (imageUrl) {
+      row.getCell(2).value = {
+        text: "View Image",
+        hyperlink: API_BASE+'/'+ imageUrl,
+      }
+      row.getCell(2).font = {
+        color: { argb: "FF0563C1" },
+        underline: true,
+      }
+    }
+
+    // ======================
+    // EMBED IMAGE (DYNAMIC)
+    // ======================
+    if (imageUrl) {
+      const img = await loadImageAsBase64(imageUrl)
+
+      if (img) {
+        const imageId = workbook.addImage({
+          base64: img.base64, // PURE base64 (NO data URL)
+          extension: img.type === "PNG" ? "png" : "jpeg",
+        })
+
+        // Scale image to column width
+        const scale = MAX_IMAGE_WIDTH_PX / img.width
+        const scaledWidth = img.width * scale
+        let scaledHeight = img.height * scale
+
+        // Cap very tall images
+        if (scaledHeight > MAX_IMAGE_HEIGHT_PX) {
+          scaledHeight = MAX_IMAGE_HEIGHT_PX
+        }
+
+        // Dynamic row height
+        row.height = Math.max(
+          scaledHeight / PX_PER_ROW_UNIT + 30, // space for link
+          MIN_ROW_HEIGHT
+        )
+
+     const rowNumber = row.number
+
+sheet.addImage(imageId, {
+  tl: {
+    col: IMAGE_COLUMN_INDEX - 1 + 0.05,
+    row: rowNumber - 1 + 0.05,
+  },
+  br: {
+    col: IMAGE_COLUMN_INDEX,
+    row: rowNumber + 1,
+  },
+  editAs: "twoCell",
+})
+
+
+      }
+    } else {
+      row.height = MIN_ROW_HEIGHT
+    }
+
+    rowIndex++
+  }
+
+  // ======================
+  // TOTALS
+  // ======================
+  sheet.addRow([])
+  sheet.addRow(["", "", "", "", "Subtotal", subtotal]).font = { bold: true }
+  sheet.addRow(["", "", "", "", "VAT (5%)", vat]).font = { bold: true }
+
+  const totalRow = sheet.addRow(["", "", "", "", "Grand Total", total])
+  totalRow.font = { bold: true, size: 13 }
+
+  // ======================
+  // EXPORT
+  // ======================
+  const buffer = await workbook.xlsx.writeBuffer()
+  saveAs(
+    new Blob([buffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `SaleOrder-${order.billNo}.xlsx`
+  )
+}
+
+
+
+
+
+const generateSaleOrderExcelOldStable = async (values) => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet("Sale Order")
 
