@@ -2785,4 +2785,51 @@ router.post("/reset-sales-status", async (req, res) => {
 
 
 
+
+
+
+
+
+
+router.get(
+  "/CurrentLiveStockCount",
+  Auth.userAuth,
+  async (req, res) => {
+    try {
+      const result = await Inventory.aggregate([
+        // 1️⃣ Only rows that are in stock
+        {
+          $match: {
+            CLOSINGQTY: { $gt: 0 },
+          },
+        },
+
+        // 2️⃣ Group by product NAME (ignore company)
+        {
+          $group: {
+            _id: "$NAME",
+          },
+        },
+
+        // 3️⃣ Count unique product names
+        {
+          $count: "uniqueInStockProducts",
+        },
+      ]);
+
+      return res.json({
+        ok: true,
+        count: result[0]?.uniqueInStockProducts || 0,
+      });
+    } catch (error) {
+      console.error("Unique in-stock count error:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+
 module.exports = router;
