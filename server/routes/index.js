@@ -2794,37 +2794,67 @@ router.post("/reset-sales-status", async (req, res) => {
 
 
 
+
+
 router.get(
   "/CurrentLiveStockCount",
   
   async (req, res) => {
     try {
-      // 1️⃣ Fetch only what we need
+      // 1️⃣ Fetch only required fields
       const items = await Inventory.find(
         {},
         { NAME: 1, CLOSINGQTY: 1 }
       ).lean();
 
-      // 2️⃣ Track products that are in stock
-      const inStockProducts = new Set();
+      /**
+       * productStockMap:
+       * {
+       *   "product name": true | false
+       * }
+       *
+       * true  => in stock (at least one company)
+       * false => checked so far but not in stock
+       */
+      const productStockMap = Object.create(null);
 
       for (const item of items) {
-        // Already counted → skip
-        if (inStockProducts.has(item.NAME)) continue;
+        const name = item.NAME?.trim();
+        if (!name) continue;
+
+        // If already confirmed IN STOCK, skip further checks
+        if (productStockMap[name] === true) continue;
 
         const pieces = parseClosingQtyToPieces(item.CLOSINGQTY);
 
         if (pieces > 0) {
-          inStockProducts.add(item.NAME);
+          productStockMap[name] = true;
+        } else {
+          // Only mark false if we haven't seen it before
+          if (!(name in productStockMap)) {
+            productStockMap[name] = false;
+          }
         }
+      }
+
+      const totalUniqueProducts = Object.keys(productStockMap).length;
+
+      let inStockProducts = 0;
+      let outOfStockProducts = 0;
+
+      for (const isInStock of Object.values(productStockMap)) {
+        if (isInStock) inStockProducts++;
+        else outOfStockProducts++;
       }
 
       return res.json({
         ok: true,
-        count: inStockProducts.size,
+        totalUniqueProducts,
+        inStockProducts,
+        outOfStockProducts,
       });
     } catch (error) {
-      console.error("Unique in-stock count error:", error);
+      console.error("Inventory summary error:", error);
       return res.status(500).json({
         ok: false,
         error: error.message,
