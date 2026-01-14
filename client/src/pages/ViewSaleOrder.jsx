@@ -506,8 +506,8 @@ const generateSaleOrderExcel = async (values) => {
 
   const MAX_IMAGE_WIDTH_PX =
     sheet.getColumn(IMAGE_COLUMN_INDEX).width * PX_PER_COL_UNIT
-  const MAX_IMAGE_HEIGHT_PX = 280
-  const MIN_ROW_HEIGHT = 90
+  const MAX_IMAGE_HEIGHT_PX = 150
+  const MIN_ROW_HEIGHT = 70
 
   // ======================
   // HEADER
