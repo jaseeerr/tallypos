@@ -413,7 +413,8 @@ useEffect(() => {
     unit: unitDisplay,
 
     qty: item.qty || 1,
-    rate: Number(item.SALESPRICE) || 0,
+          rate: item?.qty ? Number(item.qty)* Number(item.SALESPRICE) : Number(item.SALESPRICE)  || 0,
+
     rateOfTax: 5,
     amount: Number(item.SALESPRICE) || 0,
   },
