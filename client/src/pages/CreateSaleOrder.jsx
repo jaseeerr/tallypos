@@ -1038,7 +1038,7 @@ onClick={() => {
         </div>
 
         {/* SELECTED ITEMS */}
-        {selectedItems.length > 0 && (
+        { (
           <>
           {/* ===================== */}
 {/* 1. SELECTED ITEMS */}
