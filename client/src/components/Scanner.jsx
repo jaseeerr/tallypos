@@ -42,17 +42,25 @@ function Scanner() {
   }, [])
 
   /* Flutter scan bridge */
-  useEffect(() => {
-    if (!isFlutterApp || !scannerOpen) return
+ useEffect(() => {
+  if (!isFlutterApp) return
 
-    window.onFlutterQrScanned = (code) => {
-      if (code) handleScan(code)
-    }
+  window.onFlutterQrScanned = (code) => {
+    if (code) handleScan(code)
+  }
 
-    return () => {
-      delete window.onFlutterQrScanned
-    }
-  }, [scannerOpen, isFlutterApp])
+  window.onFlutterQrClosed = () => {
+    setScannerOpen(false)
+    setProduct(null)
+    setScannerError(null)
+    lastScannedRef.current = null
+  }
+
+  return () => {
+    delete window.onFlutterQrScanned
+    delete window.onFlutterQrClosed
+  }
+}, [isFlutterApp])
 
   const fetchProductById = async (id) => {
     const res = await axios.post(`/inventory/${id}`, { companyName })
