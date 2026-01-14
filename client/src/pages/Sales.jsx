@@ -426,34 +426,47 @@ useEffect(() => {
     showNotification("success", "Item added", `${item.NAME} has been added to the sale.`)
   }
 
-  const updateItem = (index, field, value) => {
-    const updated = [...selectedItems]
-    const numValue = Number(value) || 0
+const updateItem = (index, field, value) => {
+  const updated = [...selectedItems]
 
-    // Validate quantity doesn't exceed available stock
-    if (field === "qty") {
-      const item = updated[index]
-      const qtyInPieces = numValue * (item.piecesPerUnit || 1)
-      const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
+  // ✅ allow temporary empty value while typing (mobile fix)
+  if (value === "") {
+    updated[index][field] = ""
+    setSelectedItems(updated)
+    return
+  }
 
-      if (qtyInPieces > item.stock) {
-  showNotification(
-    "warning",
-    "Stock Exceeded",
-    `${item.name}: Selling ${numValue} ${item.unit} (${qtyInPieces} pcs) while only ${item.stock} pcs are available.`
-  )
-}
+  const numValue = Number(value) || 0
 
-      if (numValue <= 0) {
-        showNotification("warning", "Invalid Quantity", `Quantity must be at least 1.`)
-        return
-      }
+  // Validate quantity doesn't exceed available stock
+  if (field === "qty") {
+    const item = updated[index]
+    const qtyInPieces = numValue * (item.piecesPerUnit || 1)
+    const maxQtyInUnits = Math.floor(item.stock / (item.piecesPerUnit || 1))
+
+    if (qtyInPieces > item.stock) {
+      showNotification(
+        "warning",
+        "Stock Exceeded",
+        `${item.name}: Selling ${numValue} ${item.unit} (${qtyInPieces} pcs) while only ${item.stock} pcs are available.`
+      )
     }
 
-    updated[index][field] = numValue
-    updated[index].amount = updated[index].qty * updated[index].rate
-    setSelectedItems(updated)
+    if (numValue <= 0) {
+      showNotification(
+        "warning",
+        "Invalid Quantity",
+        `Quantity must be at least 1.`
+      )
+      return
+    }
   }
+
+  updated[index][field] = numValue
+  updated[index].amount = updated[index].qty * updated[index].rate
+  setSelectedItems(updated)
+}
+
 
   const removeItem = (index) => {
     const itemName = selectedItems[index].name
@@ -1050,6 +1063,11 @@ onClick={() => {
                       type="number"
                       value={item.qty}
                       onChange={(e) => updateItem(index, "qty", e.target.value)}
+                       onBlur={() => {
+    if (!item.qty || item.qty < 1) {
+      updateItem(index, "qty", 1)
+    }
+  }}
                       className="w-20 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     />
                   </div>
@@ -1062,6 +1080,11 @@ onClick={() => {
                       type="number"
                       value={item.rate}
                       onChange={(e) => updateItem(index, "rate", e.target.value)}
+                       onBlur={() => {
+    if (!item.rate || item.rate < 1) {
+      updateItem(index, "rate", 1)
+    }
+  }}
                       className="w-28 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     />
                   </div>

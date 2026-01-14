@@ -515,23 +515,33 @@ const addItem = (item) => {
 }
 
 
-  const updateItem = (index, field, value) => {
-    const updated = [...selectedItems]
-    const numValue = Number(value) || 0
+const updateItem = (index, field, value) => {
+  const updated = [...selectedItems]
 
-    if (field === "qty") {
-      const item = updated[index]
-
-      if (numValue <= 0) {
-        showNotification("warning", "Invalid Quantity", `Quantity must be at least 1.`)
-        return
-      }
-    }
-
-    updated[index][field] = numValue
-    updated[index].amount = updated[index].qty * updated[index].rate
+  // Allow empty while typing
+  if (value === "") {
+    updated[index][field] = ""
     setSelectedItems(updated)
+    return
   }
+
+  const numValue = Number(value)
+
+  if (field === "qty" && numValue < 1) {
+    showNotification("warning", "Invalid Quantity", "Quantity must be at least 1.")
+    return
+  }
+
+  if (field === "rate" && numValue < 1) {
+    showNotification("warning", "Invalid Rate", "Rate must be at least 1 AED.")
+    return
+  }
+
+  updated[index][field] = numValue
+  updated[index].amount = updated[index].qty * updated[index].rate
+  setSelectedItems(updated)
+}
+
 
   const removeItem = (index) => {
     const itemName = selectedItems[index].name
@@ -1029,188 +1039,240 @@ onClick={() => {
 
         {/* SELECTED ITEMS */}
         {selectedItems.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <Package className="w-5 h-5 text-blue-600" />
-                Selected Items ({selectedItems.length})
-              </h2>
-            </div>
+          <>
+          {/* ===================== */}
+{/* 1. SELECTED ITEMS */}
+{/* ===================== */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+  <h2 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
+    <Package className="w-5 h-5 text-blue-600" />
+    Selected Items ({selectedItems.length})
+  </h2>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Item
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Unit
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Rate
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Tax %
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-           <tbody className="divide-y divide-gray-100">
-  {selectedItems.map((item, idx) => (
-    <tr key={idx} className="hover:bg-gray-50 transition-colors align-top">
-      {/* ITEM + STOCK */}
-      <td className="px-6 py-4">
-        <div className="font-medium text-gray-800">{item.name}</div>
+  <div className="space-y-6">
+    {selectedItems.map((item, index) => (
+      <div
+        key={index}
+        className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 pb-6 border-b border-gray-100 last:border-b-0 last:pb-0"
+      >
+        {/* ITEM INFO */}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-gray-900 font-semibold text-sm mb-2">
+            {item.name}
+          </h3>
 
-        {/* Company-wise stock */}
-        <div className="mt-2 space-y-1">
-          {getCompanyStockInfo(item).map((s) => (
-            <div
-              key={s.company}
-              className="flex items-center justify-between text-[11px]"
-            >
-              <span className="text-gray-500 uppercase tracking-wide">
-                {s.company.replace(/-/g, " ")}
-              </span>
+          <div className="text-xs text-gray-500 mb-3">
+            <span className="font-medium text-gray-600">Unit:</span>{" "}
+            {item.unit}
+          </div>
 
-              <span className="font-medium text-gray-800 tabular-nums">
-                <span className="text-emerald-600">
-                  net: {s.net}
+          {/* Company-wise stock */}
+          <div className="space-y-1">
+            {getCompanyStockInfo(item).map((s) => (
+              <div
+                key={s.company}
+                className="flex items-center justify-between text-[11px]"
+              >
+                <span className="text-gray-500 uppercase tracking-wide">
+                  {s.company.replace(/-/g, " ")}
                 </span>
-                {" | "}
-                <span className="text-gray-700">
-                  gross: {s.gross}
+
+                <span className="font-medium text-gray-800 tabular-nums">
+                  <span className="text-emerald-600">net: {s.net}</span>
+                  {" | "}
+                  <span className="text-gray-700">gross: {s.gross}</span>
+                  {" | "}
+                  <span className="text-amber-600">pend: {s.pending}</span>
                 </span>
-                {" | "}
-                <span className="text-amber-600">
-                  pend: {s.pending}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </td>
-
-      {/* UNIT */}
-      <td className="px-6 py-4 text-center">
-        <span className="text-sm font-medium text-gray-600">
-          {item.unit}
-        </span>
-      </td>
-
-      {/* QUANTITY */}
-      <td className="px-6 py-4">
-        <div className="flex flex-col items-center gap-1">
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={item.qty}
-            onChange={(e) => updateItem(idx, "qty", e.target.value)}
-            className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-center
-              focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-      </td>
-
-      {/* RATE */}
-      <td className="px-6 py-4">
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={item.rate}
-          onChange={(e) => updateItem(idx, "rate", e.target.value)}
-          className="w-28 px-3 py-1.5 border border-gray-300 rounded-lg text-center
-            focus:ring-2 focus:ring-blue-500 outline-none"
-        />
-      </td>
-
-      {/* TAX */}
-      <td className="px-6 py-4">
-        <input
-          type="number"
-          min="0"
-          max="100"
-          step="0.1"
-          value={item.rateOfTax}
-          onChange={(e) => updateItem(idx, "rateOfTax", e.target.value)}
-          disabled={!includeVAT}
-          className="w-20 px-3 py-1.5 border border-gray-300 rounded-lg text-center
-            focus:ring-2 focus:ring-blue-500 outline-none
-            disabled:bg-gray-100 disabled:text-gray-500"
-        />
-      </td>
-
-      {/* AMOUNT */}
-      <td className="px-6 py-4 text-right">
-        <span className="font-semibold text-gray-800">
-          AED {item.amount.toFixed(2)}
-        </span>
-      </td>
-
-      {/* ACTION */}
-      <td className="px-6 py-4 text-center">
-        <button
-          onClick={() => removeItem(idx)}
-          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-          title="Remove item"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </td>
-    </tr>
-  ))}
-</tbody>
-
-              </table>
-            </div>
-
-            {/* TOTALS SECTION */}
-            <div className="p-6 bg-gray-50 border-t border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeVAT}
-                    onChange={() => setIncludeVAT(!includeVAT)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  Include VAT
-                </label>
               </div>
+            ))}
+          </div>
+        </div>
 
-              <div className="space-y-2 max-w-sm ml-auto">
-                <div className="flex justify-between text-gray-700">
-                  <span className="font-medium">Subtotal:</span>
-                  <span className="font-semibold">AED {subtotal.toFixed(2)}</span>
-                </div>
-                {includeVAT && (
-                  <div className="flex justify-between text-gray-700">
-                    <span className="font-medium">VAT:</span>
-                    <span className="font-semibold">AED {vatAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-300">
-                  <span>Total:</span>
-                  <span className="text-blue-600">AED {total.toFixed(2)}</span>
-                </div>
-              </div>
+        {/* CONTROLS */}
+        <div className="flex flex-wrap items-end gap-3">
+          {/* QTY */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Quantity
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={item.qty}
+              onChange={(e) => updateItem(index, "qty", e.target.value)}
+               onBlur={() => {
+    if (!item.qty || item.qty < 1) {
+      updateItem(index, "qty", 1)
+    }
+  }}
+              className="w-20 px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-center
+                focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* RATE */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Rate (AED)
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              value={item.rate}
+              onChange={(e) => updateItem(index, "rate", e.target.value)}
+               onBlur={() => {
+    if (!item.rate || item.rate < 1) {
+      updateItem(index, "rate", 1)
+    }
+  }}
+              className="w-28 px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-center
+                focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* TAX */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Tax %
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={item.rateOfTax}
+              onChange={(e) => updateItem(index, "rateOfTax", e.target.value)}
+              disabled={!includeVAT}
+              className="w-20 px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-center
+                focus:ring-2 focus:ring-blue-500 outline-none
+                disabled:bg-gray-100 disabled:text-gray-500"
+            />
+          </div>
+
+          {/* AMOUNT */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+              Amount (AED)
+            </label>
+            <div className="w-28 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+              <span className="text-sm font-bold text-gray-900 block text-center">
+                {item.amount.toFixed(2)}
+              </span>
             </div>
           </div>
+
+          {/* REMOVE */}
+          <button
+            onClick={() => removeItem(index)}
+            className="px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
+            title="Remove item"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+{/* ===================== */}
+{/* 2. VAT TOGGLE */}
+{/* ===================== */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+  <div className="flex items-center justify-between">
+    <div>
+      <h3 className="text-sm font-semibold text-gray-900">VAT (5%)</h3>
+      <p className="text-xs text-gray-500 mt-1">
+        Enable or disable VAT calculation
+      </p>
+    </div>
+
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input
+        type="checkbox"
+        checked={includeVAT}
+        onChange={() => setIncludeVAT(!includeVAT)}
+        className="sr-only peer"
+      />
+      <div className="w-12 h-6 bg-gray-200 rounded-full peer-checked:bg-emerald-500 transition-all"></div>
+      <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-6 shadow"></span>
+    </label>
+  </div>
+</div>
+
+{/* ===================== */}
+{/* 3. TOTALS */}
+{/* ===================== */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+  <div className="space-y-4">
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-600 font-medium">Subtotal</span>
+      <span className="text-gray-900 font-semibold">
+        AED {subtotal.toFixed(2)}
+      </span>
+    </div>
+
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-600 font-medium">
+        VAT {includeVAT ? "(5%)" : "(Excluded)"}
+      </span>
+      <span className="text-gray-900 font-semibold">
+        AED {vatAmount.toFixed(2)}
+      </span>
+    </div>
+
+    <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
+      <span className="text-lg font-bold text-gray-900">Total</span>
+      <span className="text-2xl font-bold text-blue-600">
+        AED {total.toFixed(2)}
+      </span>
+    </div>
+  </div>
+</div>
+
+{/* ===================== */}
+{/* 4. ACTION BUTTONS */}
+{/* ===================== */}
+<div className="flex justify-end gap-4 mb-10">
+  <button
+    onClick={() => window.location.reload()}
+    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+    disabled={submitting}
+  >
+    Reset Form
+  </button>
+
+  <button
+    onClick={submitSaleOrder}
+    disabled={submitting || selectedItems.length === 0}
+    className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold
+      hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg
+      disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  >
+    {submitting ? (
+      <>
+        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        Saving...
+      </>
+    ) : (
+      <>
+        <CheckCircle className="w-5 h-5" />
+        Save Sale
+      </>
+    )}
+  </button>
+</div>
+
+          </>
+      
+
         )}
 
         {/* SUBMIT BUTTON */}
-        <div className="flex justify-end gap-3 mb-24">
+        {/* <div className="hidden flex justify-end gap-3 mb-24">
           <button
             onClick={submitSaleOrder}
             disabled={submitting || selectedItems.length === 0}
@@ -1228,7 +1290,7 @@ onClick={() => {
               </>
             )}
           </button>
-        </div>
+        </div> */}
 
         {/* SCANNER MODAL */}
         {scannerOpen && !isFlutterApp &&(
