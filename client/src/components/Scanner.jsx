@@ -212,7 +212,27 @@ function Scanner() {
 
 
         {product && (
-              <div className="p-6 space-y-6">
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
+
+      {/* Header */}
+      <div className="flex justify-between items-center p-5 bg-gradient-to-r from-emerald-600 to-emerald-700">
+        <h2 className="text-white font-bold text-xl">
+          Product Details
+        </h2>
+        <button
+          onClick={() => {
+            setProductModalOpen(false)
+            setProduct(null)
+          }}
+          className="text-white hover:bg-white/20 p-2 rounded-lg"
+        >
+          <X />
+        </button>
+      </div>
+
+      {/* BODY (your existing product JSX) */}
+      <div className="p-6 space-y-6">
                 {/* Image */}
                 {Array.isArray(product.imageUrl) && product.imageUrl.length > 0 ? (
                   <div className="relative flex justify-center">
@@ -318,9 +338,12 @@ function Scanner() {
 </div>
 
               </div>
+    </div>
+  </div>
+            
             )}
 
-            
+
       <CustomAlert
   open={alert.open}
   type={alert.type}
