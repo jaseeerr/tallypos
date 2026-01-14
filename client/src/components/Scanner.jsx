@@ -127,13 +127,17 @@ function Scanner() {
 <div className="w-full max-h-screen py-2">
       <button
         onClick={() => {
-          setScannerOpen(true)
           setProduct(null)
           setScannerError(null)
           lastScannedRef.current = null
 
           if (window.FlutterScanQR?.postMessage) {
             window.FlutterScanQR.postMessage("open")
+          }
+          else
+          {
+                      setScannerOpen(true)
+
           }
         }}
         className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold flex items-center gap-2 shadow-lg"
