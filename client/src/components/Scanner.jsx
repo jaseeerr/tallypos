@@ -274,25 +274,21 @@ function Scanner() {
 
   {/* Scan Another */}
   <button
-   onClick={() => {
-  // FULL reset
-  setScannerOpen(false)
+ onClick={() => {
   setProduct(null)
   setScannerError(null)
   lastScannedRef.current = null
   setImageIndex(0)
 
-  // allow React to unmount everything
-  setTimeout(() => {
+  if (window.FlutterScanQR?.postMessage) {
+    // Flutter controls camera
+    window.FlutterScanQR.postMessage("open")
+  } else {
+    // Web controls camera
     setScannerOpen(true)
-
-    if (window.FlutterScanQR?.postMessage) {
-      window.FlutterScanQR.postMessage(
-        JSON.stringify({ action: "open", ts: Date.now() })
-      )
-    }
-  }, 50)
+  }
 }}
+
 
 
     className="w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold"
