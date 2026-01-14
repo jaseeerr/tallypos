@@ -203,7 +203,15 @@ function Scanner() {
             )}
 
             {/* PRODUCT MODAL */}
-            {product && (
+          
+          </div>
+        </div>
+      )}
+
+
+
+
+        {product && (
               <div className="p-6 space-y-6">
                 {/* Image */}
                 {Array.isArray(product.imageUrl) && product.imageUrl.length > 0 ? (
@@ -311,9 +319,8 @@ function Scanner() {
 
               </div>
             )}
-          </div>
-        </div>
-      )}
+
+            
       <CustomAlert
   open={alert.open}
   type={alert.type}
