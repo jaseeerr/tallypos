@@ -69,7 +69,7 @@ function BottomNavbar() {
       )}
 
       {isMenuOpen && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-sm">
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-sm">
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.16,1,0.3,1)]">
             <div className="divide-y divide-slate-200/60">
               {navList.map((item, index) => {

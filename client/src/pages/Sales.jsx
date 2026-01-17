@@ -631,11 +631,11 @@ const updateItem = (index, field, value) => {
         )}
 
         {/* HEADER */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 mt-10 2xl:mt-0">
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
     
     {/* Title Section */}
-    <div>
+    <div className="">
       <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
         Create New Sale
       </h1>
