@@ -457,7 +457,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4 sm:p-6 lg:p-8 mb-2  ">
-      <div className="max-w-7xl mx-auto ">
+      <div className="max-w-7xl mx-auto mt-8 2xl:mt-0">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mb-8 lg:mb-10">
           <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl border border-blue-400">
             <Activity className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
