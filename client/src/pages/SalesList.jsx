@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom"
 export default function SalesList() {
   const axiosInstance = MyAxiosInstance()
 const navigate = useNavigate()
+  const isFlutter = !!window.__IS_FLUTTER_APP__;
 
   // State
   const [sales, setSales] = useState([])
@@ -285,7 +286,8 @@ const goToSaleDetails = (billNo) => {
         )}
 
         {/* Header */}
-        <div className="mb-6">
+       <div className={`mb-6 ${isFlutter === true ? "mt-10" : ""}`}>
+
           <div className="flex items-center gap-3 mb-2 ">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 ">
               <FileText className="w-5 h-5 text-white" />

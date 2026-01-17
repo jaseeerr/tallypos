@@ -186,12 +186,14 @@ function createSaleOrder() {
   /* ----------------------------------
      UI
   ---------------------------------- */
+  const isFlutter = !!window.__IS_FLUTTER_APP__;
 
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between mb-3">
+<div className={`flex items-center justify-between mb-3 ${isFlutter === true ? "mt-10" : ""}`}>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
                 <ShoppingCart className="text-white" size={16} />

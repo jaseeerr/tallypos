@@ -96,6 +96,9 @@ const fetchOrders = async (pageToLoad = 1, reset = false) => {
     return () => observerRef.current?.disconnect()
   }, [hasMore, loading, page])
 
+    const isFlutter = !!window.__IS_FLUTTER_APP__;
+
+    
   // =============================
   // RENDER
   // =============================
@@ -103,7 +106,7 @@ const fetchOrders = async (pageToLoad = 1, reset = false) => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* HEADER */}
-        <div className="mb-8 ">
+<div className={`mb-8 ${isFlutter === true ? "mt-10" : ""}`}>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md">
               <ShoppingCart className="w-8 h-8 text-indigo-600" />

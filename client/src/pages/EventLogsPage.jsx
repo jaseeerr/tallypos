@@ -185,11 +185,17 @@ export default function EventLogsPage() {
     endDate !== "",
   ].filter(Boolean).length
 
+    const isFlutter = !!window.__IS_FLUTTER_APP__;
+
+    
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-6 font-mono">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 border-b border-gray-200 pb-6">
+<div className={`mb-8 border-b border-gray-200 pb-6 ${isFlutter === true ? "mt-10" : ""}`}>
+
+
+
           <div className="flex items-center gap-3 mb-2">
             <Terminal className="w-6 h-6 text-gray-400" />
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Event Logs</h1>

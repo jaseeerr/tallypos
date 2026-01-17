@@ -25,6 +25,9 @@ import {
 } from "lucide-react"
 import { API_BASE } from "../utils/url"
 export default function AddSale() {
+
+    const isFlutter = !!window.__IS_FLUTTER_APP__;
+
   const axios = MyAxiosInstance()
 const [isFlutterApp, setIsFlutterApp] = useState(false)
 const lastScannedRef = useRef(null)
@@ -631,7 +634,7 @@ const updateItem = (index, field, value) => {
         )}
 
         {/* HEADER */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 mt-10 2xl:mt-0">
+<div className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 ${isFlutter === true ? "mt-10" : ""}`}>
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
     
     {/* Title Section */}

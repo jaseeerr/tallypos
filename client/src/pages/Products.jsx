@@ -530,11 +530,15 @@ setAlert({
   return Math.max(0, Math.min(index, length - 1))
 }
 
+  const isFlutter = !!window.__IS_FLUTTER_APP__;
+
+
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+<div className={`flex items-center justify-between mb-4 ${isFlutter === true ? "mt-10" : ""}`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
                 <Package className="text-white" size={20} />

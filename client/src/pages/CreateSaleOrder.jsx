@@ -713,6 +713,7 @@ const handleRemoveCartItems = () => {
 }
 
 
+  const isFlutter = !!window.__IS_FLUTTER_APP__;
 
 
   // =============================
@@ -753,7 +754,7 @@ const handleRemoveCartItems = () => {
         )}
 
         {/* HEADER */}
-       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100">
+<div className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 ${isFlutter === true ? "mt-10" : ""}`}>
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
     
     {/* Title Section */}

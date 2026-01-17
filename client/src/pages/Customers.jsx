@@ -118,12 +118,15 @@ console.log(res.data)
     return ["ALL","AMANA-FIRST-TRADING-LLC","FANCY-PALACE-TRADING-LLC"]
   }, [customers])
 
+    const isFlutter = !!window.__IS_FLUTTER_APP__;
+
+    
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* HEADER */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm">
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-slate-200/50 shadow-sm ">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex items-center gap-3 mb-6">
+<div className={`flex items-center gap-3 mb-6 ${isFlutter === true ? "mt-10" : ""}`}>
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Users className="text-white" size={24} />
             </div>
