@@ -1008,114 +1008,124 @@ onClick={() => {
         </div>
 
        {/* SELECTED ITEMS */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-blue-600" />
-            Selected Items
-          </h2>
+     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+  <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
+    <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+    Selected Items
+  </h2>
 
-          <div className="space-y-6">
-            {selectedItems.map((item, index) => (
-              <div
-                key={item.itemId}
-                className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-gray-100 last:border-b-0 last:pb-0"
-              >
-                {/* Item Info */}
-             <div className="flex-1 min-w-0">
-  <h3 className="text-gray-900 font-semibold text-sm mb-2">
-    {item.name}
-  </h3>
-
-  <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-    <span>
-      <span className="font-medium text-gray-600">Unit:</span>{" "}
-      {item.unit}
-    </span>
-  </div>
-
-  {/* Company-wise stock (same as inventory dropdown) */}
-  <div className="space-y-1">
-    {getCompanyStockInfo(item).map((s) => (
+  <div className="space-y-6">
+    {selectedItems.map((item, index) => (
       <div
-        key={s.company}
-        className="flex items-center justify-between text-[11px]"
+        key={item.itemId}
+        className="flex flex-col gap-4 border-b border-gray-100 pb-6 last:border-b-0 last:pb-0"
       >
-        <span className="text-gray-500 uppercase tracking-wide">
-          {s.company.replace(/-/g, " ")}
-        </span>
+        {/* TOP SECTION */}
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          {/* Item Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 break-words">
+              {item.name}
+            </h3>
 
-        <span className="font-medium text-gray-800">
-          net:{" "}
-          <span className="text-emerald-600">{s.net}</span>{" "}
-          | gross:{" "}
-          <span className="text-gray-700">{s.gross}</span>{" "}
-          | pend:{" "}
-          <span className="text-amber-600">{s.pending}</span>
-        </span>
+            <div className="text-xs text-gray-500 mb-2">
+              <span className="font-medium text-gray-600">Unit:</span>{" "}
+              {item.unit}
+            </div>
+
+            {/* Company Stock */}
+            <div className="space-y-1">
+              {getCompanyStockInfo(item).map((s) => (
+                <div
+                  key={s.company}
+                  className="flex justify-between text-[11px]"
+                >
+                  <span className="text-gray-500 uppercase tracking-wide truncate">
+                    {s.company.replace(/-/g, " ")}
+                  </span>
+
+                  <span className="font-medium text-gray-800 whitespace-nowrap">
+                    net:{" "}
+                    <span className="text-emerald-600">{s.net}</span>{" "}
+                    | gross:{" "}
+                    <span className="text-gray-700">{s.gross}</span>{" "}
+                    | pend:{" "}
+                    <span className="text-amber-600">{s.pending}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CONTROLS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end w-full lg:w-auto">
+            {/* Quantity */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                Quantity
+              </label>
+              <input
+                type="number"
+                value={item.qty}
+                onChange={(e) =>
+                  updateItem(index, "qty", e.target.value)
+                }
+                onBlur={() => {
+                  if (!item.qty || item.qty < 1) {
+                    updateItem(index, "qty", 1)
+                  }
+                }}
+                className="w-full sm:w-20 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-center focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            {/* Rate */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                Rate (AED)
+              </label>
+              <input
+                type="number"
+                value={item.rate}
+                onChange={(e) =>
+                  updateItem(index, "rate", e.target.value)
+                }
+                onBlur={() => {
+                  if (!item.rate || item.rate < 1) {
+                    updateItem(index, "rate", 1)
+                  }
+                }}
+                className="w-full sm:w-24 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-center focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            {/* Amount */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                Amount (AED)
+              </label>
+              <div className="w-full sm:w-24 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                <span className="text-sm font-bold text-gray-900">
+                  {item.amount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Delete */}
+            <button
+              onClick={() => removeItem(index)}
+              className="h-10 w-full sm:w-10 flex items-center justify-center bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-100"
+              title="Remove item"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
     ))}
   </div>
 </div>
 
-
-
-                {/* Controls */}
-                <div className="flex items-end gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Quantity</label>
-                    <input
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) => updateItem(index, "qty", e.target.value)}
-                       onBlur={() => {
-    if (!item.qty || item.qty < 1) {
-      updateItem(index, "qty", 1)
-    }
-  }}
-                      className="w-20 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                      Rate (AED)
-                    </label>
-                    <input
-                      type="number"
-                      value={item.rate}
-                      onChange={(e) => updateItem(index, "rate", e.target.value)}
-                       onBlur={() => {
-    if (!item.rate || item.rate < 1) {
-      updateItem(index, "rate", 1)
-    }
-  }}
-                      className="w-28 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
-                      Amount (AED)
-                    </label>
-                    <div className="w-28 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
-                      <span className="text-sm font-bold text-gray-900 block text-center">
-                        {item.amount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => removeItem(index)}
-                    className="px-3 py-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all border border-red-100"
-                    title="Remove item"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* VAT TOGGLE */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
