@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 
 import Scanner from "../components/Scanner"
-
+import CustomAlert from "../components/CustomAlert"
 
 // Note: You'll need to update this path to match your axios instance location
 import MyAxiosInstance from "../utils/axios";
@@ -457,7 +457,12 @@ export default function Home() {
 
 
   const isFlutter = !!window.__IS_FLUTTER_APP__;
-
+const [showFlutterAlert, setShowFlutterAlert] = useState(false);
+useEffect(() => {
+  if (typeof window !== "undefined" && window.__IS_FLUTTER_APP__) {
+    setShowFlutterAlert(true);
+  }
+}, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4 sm:p-6 lg:p-8 mb-2  ">
      <div className={`max-w-7xl mx-auto ${isFlutter === true ? "mt-10" : "mt-0"}`}>
@@ -708,6 +713,14 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+<CustomAlert
+  open={showFlutterAlert}
+  type="message"
+  title="Flutter App"
+  message="Flutter app detected"
+  onClose={() => setShowFlutterAlert(false)}
+/>
 
       <ConfirmationModal
         isOpen={modalOpen}
