@@ -471,7 +471,19 @@ const generateSaleOrderPDF = async () => {
     doc.text(`Page ${i} of ${totalPages}  |  Generated on ${new Date().toLocaleString()}`, pageWidth / 2, footerY + 5, { align: "center" })
   }
 
+const pdfBase64 = doc.output("datauristring")
+
+if (window.__IS_FLUTTER_APP__ && window.FlutterShareFile) {
+  window.FlutterShareFile.postMessage(
+    JSON.stringify({
+      type: "pdf",
+      filename: `SaleOrder-${order.billNo}.pdf`,
+      data: pdfBase64,
+    })
+  )
+} else {
   doc.save(`SaleOrder-${order.billNo}.pdf`)
+}
 }
 
 
@@ -684,6 +696,23 @@ sheet.addImage(imageId, {
   // EXPORT
   // ======================
   const buffer = await workbook.xlsx.writeBuffer()
+
+const base64 = btoa(
+  new Uint8Array(buffer).reduce(
+    (data, byte) => data + String.fromCharCode(byte),
+    ""
+  )
+)
+
+if (window.__IS_FLUTTER_APP__ && window.FlutterShareFile) {
+  window.FlutterShareFile.postMessage(
+    JSON.stringify({
+      type: "excel",
+      filename: `SaleOrder-${order.billNo}.xlsx`,
+      data: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`,
+    })
+  )
+} else {
   saveAs(
     new Blob([buffer], {
       type:
@@ -691,6 +720,9 @@ sheet.addImage(imageId, {
     }),
     `SaleOrder-${order.billNo}.xlsx`
   )
+}
+
+ 
 }
 
 
