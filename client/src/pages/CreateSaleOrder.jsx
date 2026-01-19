@@ -1550,35 +1550,43 @@ onClick={() => {
           </div>
 
           {/* Stock Information */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1 bg-slate-200 rounded-lg flex-shrink-0">
-                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />
-              </div>
-              <p className="font-bold text-slate-800 text-xs sm:text-sm">Stock Availability</p>
-            </div>
-            <div className="space-y-1.5">
-             {getCompanyStockInfo(scannedProduct).map((s) => (
-  <div
-    key={s.company}
-    className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg text-xs shadow-sm border border-slate-100 gap-2"
-  >
-    <span className="text-slate-600 font-medium truncate">
-      {s.company.replace(/-/g, " ")}
-    </span>
-
-    <span className="font-medium text-slate-800 tabular-nums">
-      <span className="text-emerald-600">net: {s.net}</span>
-      {" | "}
-      <span className="text-slate-700">gross: {s.gross}</span>
-      {" | "}
-      <span className="text-amber-600">pend: {s.pending}</span>
-    </span>
+         <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-xl p-3 border border-slate-200 shadow-sm">
+  <div className="flex items-center gap-2 mb-2">
+    <div className="p-1 bg-slate-200 rounded-lg flex-shrink-0">
+      <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />
+    </div>
+    <p className="font-bold text-slate-800 text-xs sm:text-sm">
+      Stock Availability
+    </p>
   </div>
-))}
 
-            </div>
-          </div>
+  <div className="space-y-2">
+    {getCompanyStockInfo(scannedProduct).map((s) => (
+      <div
+        key={s.company}
+        className="bg-white rounded-lg shadow-sm border border-slate-100 p-2.5"
+      >
+        <p className="text-slate-700 font-semibold text-xs sm:text-sm break-words">
+          {s.company.replace(/-/g, " ")}
+        </p>
+
+       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums">
+  <span className="text-emerald-600 font-medium whitespace-nowrap">
+    net: {s.net}
+  </span>
+  <span className="text-slate-700 font-medium whitespace-nowrap">
+    gross: {s.gross}
+  </span>
+  <span className="text-amber-600 font-medium whitespace-nowrap">
+    pend: {s.pending}
+  </span>
+</div>
+
+      </div>
+    ))}
+  </div>
+</div>
+
         </div>
 
         {/* Action Buttons */}

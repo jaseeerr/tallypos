@@ -1331,265 +1331,226 @@ onClick={() => {
       )}
 
  {scannedProduct && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
-    <div className="bg-white w-full max-w-sm sm:max-w-md lg:max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-6 py-5 sm:py-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-emerald-500/10"></div>
-        <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 relative z-10">
-          <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-            <Package className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          Scanned Product
-        </h3>
-      </div>
+<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm py-4 px-3 sm:py-3 sm:px-3 animate-in fade-in duration-200">
+  <div className="bg-white w-full max-w-[95%] sm:max-w-md lg:max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200 flex flex-col">
+    {/* Header */}
+    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-3 py-2.5 sm:px-6 sm:py-5 relative overflow-hidden shrink-0">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-emerald-500/10"></div>
+      <h3 className="text-sm sm:text-xl lg:text-2xl font-bold text-white flex items-center gap-2 sm:gap-3 relative z-10">
+        <div className="p-1 sm:p-2 bg-white/10 rounded-md sm:rounded-lg backdrop-blur-sm">
+          <Package className="w-3.5 h-3.5 sm:w-5 sm:h-5 lg:w-6 lg:h-6" />
+        </div>
+        Scanned Product
+      </h3>
+    </div>
 
-      {/* Content */}
-      <div className="p-6 sm:p-8 lg:p-10 space-y-6 sm:space-y-8">
-        {/* Image Slider */}
-        <div className="relative">
-          {Array.isArray(scannedProduct.imageUrl) &&
-          scannedProduct.imageUrl.length > 0 &&
-          typeof scannedProduct.imageUrl[0] === "string" &&
-          scannedProduct.imageUrl[0].trim() !== "" ? (
-            <div className="relative group">
-              <div className="flex justify-center overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner">
-                <img
-                  src={
-                    API_BASE +
-                    "/" +
-                    scannedProduct.imageUrl[
+    {/* Content */}
+    <div className="p-3 sm:p-6 lg:p-10 space-y-2.5 sm:space-y-6 lg:space-y-8 flex-1">
+      {/* Image Slider */}
+      <div className="relative">
+        {Array.isArray(scannedProduct.imageUrl) &&
+        scannedProduct.imageUrl.length > 0 &&
+        typeof scannedProduct.imageUrl[0] === "string" &&
+        scannedProduct.imageUrl[0].trim() !== "" ? (
+          <div className="relative group">
+            <div className="flex justify-center overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 shadow-inner">
+              <img
+                src={
+                  API_BASE +
+                  "/" +
+                  scannedProduct.imageUrl[
+                    (typeof window !== "undefined" &&
+                      window.__currentImageIndex) ||
+                      0
+                  ] || "/placeholder.svg"
+                }
+                alt={scannedProduct.NAME}
+                className="w-24 h-24 sm:w-56 sm:h-56 lg:w-80 lg:h-80 object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            </div>
+
+            {/* Image Navigation */}
+            {scannedProduct.imageUrl.length > 1 && (
+              <>
+                <button
+                  onClick={() => {
+                    const current =
                       (typeof window !== "undefined" &&
                         window.__currentImageIndex) ||
-                        0
-                    ] || "/placeholder.svg"
-                  }
-                  alt={scannedProduct.NAME}
-                  className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+                      0;
+                    window.__currentImageIndex =
+                      current === 0
+                        ? scannedProduct.imageUrl.length - 1
+                        : current - 1;
+                    setScannedProduct({ ...scannedProduct });
+                  }}
+                  className="absolute left-1 sm:left-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-1 sm:p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                >
+                  <ChevronLeft className="w-3 h-3 sm:w-5 sm:h-5 text-slate-700" />
+                </button>
 
-              {/* Image Navigation */}
-              {scannedProduct.imageUrl.length > 1 && (
-                <>
-                  <button
-                    onClick={() => {
-                      const current =
-                        (typeof window !== "undefined" &&
+                <button
+                  onClick={() => {
+                    const current =
+                      (typeof window !== "undefined" &&
+                        window.__currentImageIndex) ||
+                      0;
+                    window.__currentImageIndex =
+                      (current + 1) % scannedProduct.imageUrl.length;
+                    setScannedProduct({ ...scannedProduct });
+                  }}
+                  className="absolute right-1 sm:right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-1 sm:p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
+                >
+                  <ChevronRight className="w-3 h-3 sm:w-5 sm:h-5 text-slate-700" />
+                </button>
+
+                {/* Image Indicators */}
+                <div className="flex justify-center gap-1 sm:gap-2 mt-2 sm:mt-4">
+                  {scannedProduct.imageUrl.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        window.__currentImageIndex = index;
+                        setScannedProduct({ ...scannedProduct });
+                      }}
+                      className={`h-1 sm:h-2 rounded-full transition-all ${
+                        ((typeof window !== "undefined" &&
                           window.__currentImageIndex) ||
-                        0;
-                      window.__currentImageIndex =
-                        current === 0
-                          ? scannedProduct.imageUrl.length - 1
-                          : current - 1;
-                      setScannedProduct({ ...scannedProduct });
-                    }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-slate-700" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const current =
-                        (typeof window !== "undefined" &&
-                          window.__currentImageIndex) ||
-                        0;
-                      window.__currentImageIndex =
-                        (current + 1) % scannedProduct.imageUrl.length;
-                      setScannedProduct({ ...scannedProduct });
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-white hover:bg-slate-50 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 border border-slate-200"
-                  >
-                    <ChevronRight className="w-5 h-5 text-slate-700" />
-                  </button>
-
-                  {/* Image Indicators */}
-                  <div className="flex justify-center gap-2 mt-4">
-                    {scannedProduct.imageUrl.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          window.__currentImageIndex = index;
-                          setScannedProduct({ ...scannedProduct });
-                        }}
-                        className={`h-2 rounded-full transition-all ${
-                          ((typeof window !== "undefined" &&
-                            window.__currentImageIndex) ||
-                            0) === index
-                            ? "w-10 bg-slate-700"
-                            : "w-2 bg-slate-300 hover:bg-slate-400"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-2xl border-2 border-dashed border-slate-300">
-                <ImageIcon className="w-16 h-16 text-slate-400 mb-3" />
-                <span className="text-slate-500 text-sm font-medium">
-                  No image available
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Product Details */}
-        <div className="space-y-5">
-          <div className="text-center">
-            <h4 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 leading-tight">
-              {scannedProduct.NAME}
-            </h4>
-            <div className="inline-flex items-center gap-3 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-6 py-3 rounded-2xl border-2 border-emerald-200 shadow-sm">
-              <DollarSign className="w-6 h-6 text-emerald-600" />
-              <span className="text-3xl font-bold text-emerald-700">
-                {Number(scannedProduct.SALESPRICE).toFixed(2)}
+                          0) === index
+                          ? "w-4 sm:w-10 bg-slate-700"
+                          : "w-1 sm:w-2 bg-slate-300 hover:bg-slate-400"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <div className="w-24 h-24 sm:w-56 sm:h-56 lg:w-80 lg:h-80 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg sm:rounded-2xl border-2 border-dashed border-slate-300">
+              <ImageIcon className="w-8 h-8 sm:w-16 sm:h-16 text-slate-400 mb-1 sm:mb-3" />
+              <span className="text-slate-500 text-[10px] sm:text-sm font-medium">
+                No image available
               </span>
-              <span className="text-base text-emerald-600 font-semibold">AED</span>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Stock Information */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-5 border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="p-2 bg-slate-200 rounded-lg">
-                <Layers className="w-5 h-5 text-slate-700" />
-              </div>
-              <p className="font-bold text-slate-800 text-lg">Stock Availability</p>
-            </div>
-          <div className="space-y-2.5">
-  {getCompanyStockInfo(scannedProduct).map((s) => (
-    <div
-      key={s.company}
-      className="flex items-center justify-between bg-white px-4 py-3 rounded-xl text-sm shadow-sm border border-slate-100"
-    >
-      <span className="text-slate-600 font-medium">
-        {s.company.replace(/-/g, " ")}
-      </span>
-
-      <span className="font-medium text-slate-800 tabular-nums">
-        <span className="text-emerald-600">
-          net: {s.net}
-        </span>
-        {" | "}
-        <span className="text-slate-700">
-          gross: {s.gross}
-        </span>
-        {" | "}
-        <span className="text-amber-600">
-          pend: {s.pending}
-        </span>
-      </span>
-    </div>
-  ))}
-</div>
-
+      {/* Product Details */}
+      <div className="space-y-2 sm:space-y-5">
+        <div className="text-center">
+          <h4 className="text-xs sm:text-xl lg:text-2xl font-bold text-slate-900 mb-1.5 sm:mb-4 leading-tight line-clamp-2">
+            {scannedProduct.NAME}
+          </h4>
+          <div className="inline-flex items-center gap-1.5 sm:gap-3 bg-gradient-to-br from-emerald-50 to-emerald-100/50 px-3 py-1.5 sm:px-6 sm:py-3 rounded-lg sm:rounded-2xl border-2 border-emerald-200 shadow-sm">
+            <DollarSign className="w-3.5 h-3.5 sm:w-6 sm:h-6 text-emerald-600" />
+            <span className="text-base sm:text-3xl font-bold text-emerald-700">
+              {Number(scannedProduct.SALESPRICE).toFixed(2)}
+            </span>
+            <span className="text-[10px] sm:text-base text-emerald-600 font-semibold">AED</span>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-3 pt-2">
+        {/* Stock Information */}
+       <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-lg sm:rounded-2xl p-2 sm:p-5 border border-slate-200 shadow-sm">
+  <div className="flex items-center gap-1.5 sm:gap-2.5 mb-1.5 sm:mb-4">
+    <div className="p-1 sm:p-2 bg-slate-200 rounded-md sm:rounded-lg">
+      <Layers className="w-3 h-3 sm:w-5 sm:h-5 text-slate-700" />
+    </div>
+    <p className="font-bold text-slate-800 text-[11px] sm:text-lg">
+      Stock Availability
+    </p>
+  </div>
 
-          {/* QUICK QUANTITY SELECTOR */}
-<div className="mb-2">
-  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-    Quantity
-  </label>
+  <div className="space-y-1.5 sm:space-y-3 max-h-16 sm:max-h-none overflow-y-auto">
+    {getCompanyStockInfo(scannedProduct).map((s) => (
+      <div
+        key={s.company}
+        className="bg-white px-2 py-1.5 sm:px-4 sm:py-3 rounded-md sm:rounded-xl text-[9px] sm:text-sm shadow-sm border border-slate-100"
+      >
+        {/* Company Name */}
+        <div className="font-semibold text-slate-700 mb-0.5 sm:mb-1 break-words">
+          {s.company.replace(/-/g, " ")}
+        </div>
 
-  <input
-    type="number"
-    min="1"
-    step="1"
-    inputMode="numeric"
-    value={scannedProduct?.qty ?? 1}
-    onChange={(e) => {
-      if (!scannedProduct) return
-
-      const val = e.target.value
-
-      // allow empty while typing
-      if (val === "") {
-        setScannedProduct({ ...scannedProduct, qty: "" })
-        return
-      }
-
-      const num = Number(val)
-
-      if (num < 1) {
-        return
-      }
-
-      setScannedProduct({
-        ...scannedProduct,
-        qty: num,
-      })
-    }}
-    onBlur={() => {
-      if (!scannedProduct) return
-
-      if (!scannedProduct.qty || scannedProduct.qty < 1) {
-        setScannedProduct({
-          ...scannedProduct,
-          qty: 1,
-        })
-      }
-    }}
-    className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-center
-      focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
-  />
+        {/* Stock Info Row */}
+        <div className="flex items-center gap-2 sm:gap-4 font-medium tabular-nums">
+          <span className="text-emerald-600">
+            n:{s.net}
+          </span>
+          <span className="text-slate-700">
+            g:{s.gross}
+          </span>
+          <span className="text-amber-600">
+            p:{s.pending}
+          </span>
+        </div>
+      </div>
+    ))}
+  </div>
 </div>
 
+      </div>
 
-          {/* Primary Actions Row */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => {
-                addItem(scannedProduct);
-                setScannedProduct(null);
-                lastScannedRef.current = null;
-                window.__currentImageIndex = 0;
+      {/* Action Buttons */}
+      <div className="space-y-1.5 sm:space-y-3 shrink-0">
 
-                if (isFlutterApp) {
-                  window.FlutterScanQR?.postMessage("open");
-                } else {
-                  setScannerOpen(true);
-                }
-              }}
-              className="py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 hover:scale-105"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Item</span>
-              <span className="sm:hidden">Add</span>
-            </button>
+        {/* QUICK QUANTITY SELECTOR */}
+        <div>
+          <label className="block text-[9px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5 sm:mb-1">
+            Quantity
+          </label>
 
-            <button
-              onClick={() => {
-                addItem(scannedProduct);
-                setScannedProduct(null);
-                lastScannedRef.current = null;
-                window.__currentImageIndex = 0;
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            value={scannedProduct?.qty ?? 1}
+            onChange={(e) => {
+              if (!scannedProduct) return
 
-                if (isFlutterApp) {
-                  window.FlutterScanQR?.postMessage("close");
-                } else {
-                  setScannerOpen(false);
-                }
-              }}
-              className="py-3.5 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 hover:scale-105"
-            >
-              <CheckCircle2 className="w-5 h-5" />
-              <span className="hidden sm:inline">Add & Close</span>
-              <span className="sm:hidden">Add & Close</span>
-            </button>
-          </div>
+              const val = e.target.value
 
-          {/* Cancel Button Row */}
+              if (val === "") {
+                setScannedProduct({ ...scannedProduct, qty: "" })
+                return
+              }
+
+              const num = Number(val)
+
+              if (num < 1) {
+                return
+              }
+
+              setScannedProduct({
+                ...scannedProduct,
+                qty: num,
+              })
+            }}
+            onBlur={() => {
+              if (!scannedProduct) return
+
+              if (!scannedProduct.qty || scannedProduct.qty < 1) {
+                setScannedProduct({
+                  ...scannedProduct,
+                  qty: 1,
+                })
+              }
+            }}
+            className="w-full px-2 py-1.5 sm:px-3 sm:py-2.5 bg-white border border-gray-200 rounded-md sm:rounded-lg text-[11px] sm:text-sm font-semibold text-center
+              focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+          />
+        </div>
+
+
+        {/* Primary Actions Row */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
           <button
             onClick={() => {
+              addItem(scannedProduct);
               setScannedProduct(null);
               lastScannedRef.current = null;
               window.__currentImageIndex = 0;
@@ -1600,15 +1561,54 @@ onClick={() => {
                 setScannerOpen(true);
               }
             }}
-            className="w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300"
+            className="py-2 px-2 sm:py-3.5 sm:px-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-md sm:rounded-xl font-semibold transition-all flex items-center justify-center gap-1 sm:gap-2 shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 hover:scale-105 text-[11px] sm:text-base"
           >
-            <X className="w-5 h-5" />
-            Cancel
+            <ShoppingCart className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+            <span>Add</span>
+          </button>
+
+          <button
+            onClick={() => {
+              addItem(scannedProduct);
+              setScannedProduct(null);
+              lastScannedRef.current = null;
+              window.__currentImageIndex = 0;
+
+              if (isFlutterApp) {
+                window.FlutterScanQR?.postMessage("close");
+              } else {
+                setScannerOpen(false);
+              }
+            }}
+            className="py-2 px-2 sm:py-3.5 sm:px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-md sm:rounded-xl font-semibold transition-all flex items-center justify-center gap-1 sm:gap-2 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 hover:scale-105 text-[11px] sm:text-base"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+            <span>Add & Close</span>
           </button>
         </div>
+
+        {/* Cancel Button Row */}
+        <button
+          onClick={() => {
+            setScannedProduct(null);
+            lastScannedRef.current = null;
+            window.__currentImageIndex = 0;
+
+            if (isFlutterApp) {
+              window.FlutterScanQR?.postMessage("open");
+            } else {
+              setScannerOpen(true);
+            }
+          }}
+          className="w-full py-2 px-2 sm:py-3.5 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md sm:rounded-xl font-semibold transition-all flex items-center justify-center gap-1 sm:gap-2 border border-slate-200 hover:border-slate-300 text-[11px] sm:text-base"
+        >
+          <X className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+          Cancel
+        </button>
       </div>
     </div>
   </div>
+</div>
 )}
 
     </div>
