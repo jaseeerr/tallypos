@@ -222,6 +222,7 @@ function Scanner() {
         </h2>
         <button
           onClick={() => {
+             setScannerOpen(false)
             setProductModalOpen(false)
             setProduct(null)
           }}
