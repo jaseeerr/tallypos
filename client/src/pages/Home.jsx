@@ -468,7 +468,7 @@ export default function Home() {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              Tally Health Monitor
+              Tally Health Monitor 11
             </h1>
             <p className="text-gray-600 text-sm sm:text-base mt-2 leading-relaxed">
               Real-time system status tracking 
