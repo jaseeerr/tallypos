@@ -2,12 +2,26 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Home, ShoppingCart, Users,Package, LogOut,BadgeDollarSign,Activity ,ScrollText,ReceiptText, Plus,FilePlusCorner, Eye,Menu, ChevronDown } from "lucide-react"
+import { Home, ShoppingCart, Users,Package,ArrowDownUp, LogOut,BadgeDollarSign,Activity ,ScrollText,ReceiptText, Plus,FilePlusCorner, Eye,Menu, ChevronDown } from "lucide-react"
 
 function BottomNavbar() {
+  const isFlutterApp = Boolean(window.__IS_FLUTTER_APP__);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [expandedItem, setExpandedItem] = useState(null)
   const navigate = useNavigate()
+
+ function loadUpdates() {
+  if (window.__IS_FLUTTER_APP__ && window.FlutterReload) {
+    window.FlutterReload.postMessage("reload")
+  } else {
+    window.location.reload()
+  }
+
+  setIsMenuOpen(false)
+  setExpandedItem(null)
+}
+
 
   const navList = [
     { name: "Dashboard", path: "/", icon: Home, color: "from-slate-600 to-slate-800" },
@@ -33,7 +47,16 @@ function BottomNavbar() {
         { name: "Customers", path: "/customers", icon: Users, color: "from-blue-600 to-indigo-600" },
 
         { name: "Cart", path: "/cart", icon: ShoppingCart, color: "from-slate-600 to-indigo-800" },
-        { name: "Event Logs", path: "/logs", icon: Activity , color: "from-orange-600 to-indigo-800" },
+         {
+      name: "More",
+      icon: ReceiptText,
+      color: "from-red-600 to-indigo-600",
+      subItems: [
+        { name: "Event Logs", path: "/logs", icon: Activity },
+        { name: "Load Updates", action: loadUpdates, icon: ArrowDownUp },
+      ],
+    },
+        // { name: "Event Logs", path: "/logs", icon: Activity , color: "from-orange-600 to-indigo-800" },
 
   ]
 
@@ -122,7 +145,14 @@ function BottomNavbar() {
                             return (
                               <button
                                 key={sub.path}
-                                onClick={() => handleNavigation(sub.path)}
+                               onClick={() => {
+  if (sub.action) {
+    sub.action()
+  } else {
+    handleNavigation(sub.path)
+  }
+}}
+
                                 className="w-full px-4 py-3 flex items-center gap-3 rounded-xl hover:bg-white transition"
                               >
                                 <div className="bg-slate-200 p-2 rounded-lg">
