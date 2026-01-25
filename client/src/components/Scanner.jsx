@@ -32,6 +32,7 @@ function Scanner() {
   const [loadingScan, setLoadingScan] = useState(false)
   const [scannerError, setScannerError] = useState(null)
   const [product, setProduct] = useState(null)
+  const [showProductModal, setShowProductModal] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
 
   /* Detect Flutter */
@@ -52,6 +53,7 @@ function Scanner() {
   window.onFlutterQrClosed = () => {
     setScannerOpen(false)
     setProduct(null)
+    setShowProductModal(false)
     setScannerError(null)
     lastScannedRef.current = null
   }
@@ -85,6 +87,7 @@ function Scanner() {
       // }
 
       setProduct(prod)
+      setShowProductModal(true)
     } catch (err) {
       setScannerError(err.message || "Scan failed")
       lastScannedRef.current = null
@@ -136,6 +139,7 @@ function Scanner() {
       <button
         onClick={() => {
           setProduct(null)
+          setShowProductModal(false)
           setScannerError(null)
           lastScannedRef.current = null
 
@@ -211,7 +215,7 @@ function Scanner() {
 
 
 
-        {product && (
+        {showProductModal && product && (
           <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
     <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden">
 
@@ -223,7 +227,7 @@ function Scanner() {
         <button
           onClick={() => {
              setScannerOpen(false)
-            setProductModalOpen(false)
+            setShowProductModal(false)
             setProduct(null)
           }}
           className="text-white hover:bg-white/20 p-2 rounded-lg"
@@ -317,6 +321,7 @@ function Scanner() {
   <button
  onClick={() => {
   setProduct(null)
+  setShowProductModal(false)
   setScannerError(null)
   lastScannedRef.current = null
   setImageIndex(0)
