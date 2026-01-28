@@ -7,6 +7,7 @@ const logger = require('morgan');
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const agentRouter = require('./routes/agent')
+const dataEntryRouter = require('./routes/dataEntry')
 require('dotenv').config()
 const cors = require('cors')
 require('./DB/connect')
@@ -39,6 +40,7 @@ app.use(
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/agent', agentRouter);
+app.use('/dataEntry', dataEntryRouter);
 
 
 // catch 404 and forward to error handler

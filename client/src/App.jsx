@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 
 import Navbar from './components/Navbar'
@@ -20,6 +20,112 @@ import ViewOrder from './pages/ViewSaleOrder'
 import CartPage from './pages/Cart'
 import EventLogsPage from './pages/EventLogsPage'
 import PrivacyPolicy from './pages/Privacy'
+import DataEntry from './pages/dataEntry/DataEntry'
+
+function AppRoutes({ isAuthed }) {
+  const location = useLocation()
+  const hideNavbarRoutes = new Set(["/auth", "/dataEntry"])
+  const shouldShowNavbar = isAuthed && !hideNavbarRoutes.has(location.pathname)
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {shouldShowNavbar && <Navbar />}
+
+      <div className="flex-grow">
+        <Routes>
+          {/* Auth Page (Accessible without login) */}
+          <Route
+            path="/auth"
+            element={isAuthed ? <Navigate to="/" replace /> : <Auth />}
+          />
+
+          <Route
+            path="/privacy-policy"
+            element={isAuthed ? <PrivacyPolicy /> : <PrivacyPolicy />}
+          />
+
+          {/* Protected Routes */}
+          <Route
+            path="/"
+            element={isAuthed ? <Home /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/products"
+            element={isAuthed ? <Products /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/sale"
+            element={isAuthed ? <Sales /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/sale/:billNo"
+            element={isAuthed ? <ViewSale /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/editSale/:billNo"
+            element={isAuthed ? <EditSale /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/listSales"
+            element={isAuthed ? <SalesList /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/listSaleOrders"
+            element={isAuthed ? <SaleOrdersList /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/viewOrder/:id"
+            element={isAuthed ? <ViewOrder /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/addSaleOrder"
+            element={isAuthed ? <CreateSaleOrder /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/customers"
+            element={isAuthed ? <Customers /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/cart"
+            element={isAuthed ? <CartPage /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/logs"
+            element={isAuthed ? <EventLogsPage /> : <Navigate to="/auth" replace />}
+          />
+
+          <Route
+            path="/api-doc"
+            element={isAuthed ? <TallyApiDoc /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/workflow"
+            element={isAuthed ? <Workflow /> : <Navigate to="/auth" replace />}
+          />
+          <Route
+            path="/dataEntry"
+            element={<DataEntry/>}
+          />
+
+          {/* Catch-all Undefined Route Handler */}
+          <Route
+            path="*"
+            element={
+              isAuthed ? <Navigate to="/" replace /> : <Navigate to="/auth" replace />
+            }
+          />
+        </Routes>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token") || null)
@@ -35,102 +141,7 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen flex flex-col">
-
-        {/* Hide Navbar on auth page */}
-        {isAuthed && <Navbar />}
-
-        <div className="flex-grow">
-          <Routes>
-
-
-            {/* Auth Page (Accessible without login) */}
-            <Route
-              path="/auth"
-              element={isAuthed ? <Navigate to="/" replace /> : <Auth />}
-            />
-
-  <Route
-              path="/privacy-policy"
-element={isAuthed ? <PrivacyPolicy/>: <PrivacyPolicy />}            />
-
-            {/* Protected Routes */}
-            <Route
-              path="/"
-              element={isAuthed ? <Home /> : <Navigate to="/auth" replace />}
-            />
-            <Route
-              path="/products"
-              element={isAuthed ? <Products /> : <Navigate to="/auth" replace />}
-            />
-            <Route
-              path="/sale"
-              element={isAuthed ? <Sales /> : <Navigate to="/auth" replace />}
-            />
-            <Route
-              path="/sale/:billNo"
-              element={isAuthed ? <ViewSale /> : <Navigate to="/auth" replace />}
-            />
-             <Route
-              path="/editSale/:billNo"
-              element={isAuthed ? <EditSale /> : <Navigate to="/auth" replace />}
-            />
-
-            <Route
-              path="/listSales"
-              element={isAuthed ? <SalesList /> : <Navigate to="/auth" replace />}
-            />
-
-             <Route
-              path="/listSaleOrders"
-              element={isAuthed ? <SaleOrdersList /> : <Navigate to="/auth" replace />}
-            />
-
-              <Route
-              path="/viewOrder/:id"
-              element={isAuthed ? <ViewOrder /> : <Navigate to="/auth" replace />}
-            />
-
-            <Route
-              path="/addSaleOrder"
-              element={isAuthed ? <CreateSaleOrder /> : <Navigate to="/auth" replace />}
-            />
-
-            <Route
-              path="/customers"
-              element={isAuthed ? <Customers /> : <Navigate to="/auth" replace />}
-            />
-
-             <Route
-              path="/cart"
-              element={isAuthed ? <CartPage /> : <Navigate to="/auth" replace />}
-            />
-
-               <Route
-              path="/logs"
-              element={isAuthed ? <EventLogsPage /> : <Navigate to="/auth" replace />}
-            />
-
-            <Route
-              path="/api-doc"
-              element={isAuthed ? <TallyApiDoc /> : <Navigate to="/auth" replace />}
-            />
-            <Route
-              path="/workflow"
-              element={isAuthed ? <Workflow /> : <Navigate to="/auth" replace />}
-            />
-
-            {/* Catch-all Undefined Route Handler */}
-            <Route
-              path="*"
-              element={
-                isAuthed ? <Navigate to="/" replace /> : <Navigate to="/auth" replace />
-              }
-            />
-
-          </Routes>
-        </div>
-      </div>
+      <AppRoutes isAuthed={isAuthed} />
     </Router>
   )
 }
