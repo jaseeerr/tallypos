@@ -1,5 +1,10 @@
 var express = require('express');
 var router = express.Router();
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+const Auth = require("../auth/auth");
+const Sale = require("../models/Sale");
 const Inventory = require('../models/Inventory')
 /* GET users listing. */
 router.get('/', function(req, res, next) {
@@ -110,6 +115,72 @@ function parseClosingQtyToPieces(closingQty = "") {
   }
 
   return total;
+}
+
+function extractPrimaryUnit(units = "") {
+  const u = units.toLowerCase();
+  if (u.includes("doz")) return "Doz";
+  if (u.includes("gross")) return "Gross";
+  if (u.includes("pair")) return "Pair";
+  return "pcs";
+}
+
+function extractUnitCount(stockStr = "") {
+  if (typeof stockStr !== "string") return 0;
+  const match = stockStr.match(/(-?\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function buildQtyString(qty, unit) {
+  return `${qty} ${unit}`;
+}
+
+async function applyUnsyncedSalesDeduction({ items }) {
+  if (!items.length) return items;
+
+  const itemNames = items.map((i) => i.NAME);
+
+  const unsyncedSales = await Sale.find({
+    status: { $in: ["pending", "processing"] },
+    "items.itemName": { $in: itemNames },
+  }).lean();
+
+  const unsyncedMap = {};
+
+  unsyncedSales.forEach((sale) => {
+    const company = sale.companyName;
+
+    sale.items.forEach((saleItem) => {
+      if (!itemNames.includes(saleItem.itemName)) return;
+
+      if (!unsyncedMap[company]) unsyncedMap[company] = {};
+      unsyncedMap[company][saleItem.itemName] =
+        (unsyncedMap[company][saleItem.itemName] || 0) + saleItem.qty;
+    });
+  });
+
+  return items.map((item) => {
+    const result = { ...item };
+
+    Object.keys(item)
+      .filter((k) => k.endsWith("Stock"))
+      .forEach((stockKey) => {
+        const company = stockKey.replace("Stock", "");
+
+        const unit = extractPrimaryUnit(item[`${company}Unit`] || "");
+        const grossQty = extractUnitCount(item[stockKey]);
+        const unsyncedQty =
+          unsyncedMap[company]?.[item.NAME] || 0;
+
+        const netQty = grossQty - unsyncedQty;
+
+        result[`${company}-UnsyncedQty`] = unsyncedQty;
+        result[`${company}-NetAvailable`] =
+          buildQtyString(netQty, unit);
+      });
+
+    return result;
+  });
 }
 
 /* ============================================================
