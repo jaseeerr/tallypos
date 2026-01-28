@@ -19,6 +19,23 @@ module.exports = {
       next();
     });
   },
+   dataEntryAuth: (req, res, next) => {
+    const dataEntryKey = req.headers["dataentrykey"]; // headers are lowercase
+
+    if (!dataEntryKey) {
+      return res
+        .status(401)
+        .json({ success: false, message: "No data entry key provided" });
+    }
+
+    if (dataEntryKey !== process.env.DATA_ENTRY_KEY) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Invalid data entry key" });
+    }
+
+    next();
+  },
 
 //   adminAuth: (req, res, next) => {
 //     const authHeader = req.headers["authorization"];

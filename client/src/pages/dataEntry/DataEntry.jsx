@@ -20,7 +20,7 @@ import MyAxiosInstance from "../../utils/axios"
 import { API_BASE } from "../../utils/url"
 import CustomAlert from "../../components/CustomAlert"
 export default function DataEntry() {
-  const axiosInstance = MyAxiosInstance()
+  const axiosInstance = MyAxiosInstance(3)
   const envDataEntryKey = import.meta.env.VITE_DATA_ENTRY_KEY || import.meta.env.DATA_ENTRY_KEY
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [keyInput, setKeyInput] = useState("")

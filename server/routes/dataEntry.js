@@ -187,7 +187,7 @@ async function applyUnsyncedSalesDeduction({ items }) {
    GET INVENTORY (With Cross-Company Stock Insight)
    ============================================================ */
 
-router.get("/inventory", async (req, res) => {
+router.get("/inventory",Auth.dataEntryAuth, async (req, res) => {
   try {
     const {
       companyName,
@@ -306,7 +306,7 @@ processedItems = await applyUnsyncedSalesDeduction({
 
 
 
-router.put("/inventory/add-images/:id",Auth.userAuth,upload.array("images", 10), async (req, res) => {
+router.put("/inventory/add-images/:id",Auth.dataEntryAuth,Authupload.array("images", 10), async (req, res) => {
     try {
       const inventoryId = req.params.id;
 
@@ -357,7 +357,7 @@ if (!Array.isArray(inv.imageUrl)) {
 
 
 
-router.put("/inventory/delete-image/:id",Auth.userAuth,async (req, res) => {
+router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => {
     try {
       const inventoryId = req.params.id;
       const { imageUrl } = req.body;
