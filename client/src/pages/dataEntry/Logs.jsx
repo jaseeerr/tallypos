@@ -2,13 +2,13 @@ import { useEffect, useState } from "react"
 import MyAxiosInstance from "../../utils/axios"
 
 export default function Logs() {
-  const axiosInstance = MyAxiosInstance()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
     let isMounted = true
+    const axiosInstance = MyAxiosInstance()
 
     async function fetchLogs() {
       try {
@@ -36,7 +36,7 @@ export default function Logs() {
     return () => {
       isMounted = false
     }
-  }, [axiosInstance])
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6">
