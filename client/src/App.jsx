@@ -21,6 +21,7 @@ import CartPage from './pages/Cart'
 import EventLogsPage from './pages/EventLogsPage'
 import PrivacyPolicy from './pages/Privacy'
 import DataEntry from './pages/dataEntry/DataEntry'
+import Logs from './pages/dataEntry/Logs'
 
 function AppRoutes({ isAuthed }) {
   const location = useLocation()
@@ -112,6 +113,10 @@ function AppRoutes({ isAuthed }) {
           <Route
             path="/dataEntry"
             element={<DataEntry/>}
+          />
+            <Route
+            path="/entryLogs"
+            element={isAuthed ? <Logs /> : <Navigate to="/auth" replace />}
           />
 
           {/* Catch-all Undefined Route Handler */}
