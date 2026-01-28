@@ -21,6 +21,10 @@ import { API_BASE } from "../../utils/url"
 import CustomAlert from "../../components/CustomAlert"
 export default function DataEntry() {
   const axiosInstance = MyAxiosInstance()
+  const envDataEntryKey = import.meta.env.VITE_DATA_ENTRY_KEY || import.meta.env.DATA_ENTRY_KEY
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [keyInput, setKeyInput] = useState("")
+  const [keyError, setKeyError] = useState("")
 
   const [alert, setAlert] = useState({
   open: false,
@@ -65,6 +69,31 @@ const [savingPrice, setSavingPrice] = useState(false)
   const isMountedRef = useRef(false)
   const firstLoadCompleteRef = useRef(false)
 
+  useEffect(() => {
+    const storedKey = localStorage.getItem("dataEntryKey")
+    if (envDataEntryKey && storedKey === envDataEntryKey) {
+      setIsUnlocked(true)
+    }
+  }, [envDataEntryKey])
+
+  function handleUnlockSubmit(e) {
+    e.preventDefault()
+    setKeyError("")
+
+    if (!envDataEntryKey) {
+      setKeyError("Data entry key is not configured.")
+      return
+    }
+
+    if (keyInput.trim() === envDataEntryKey) {
+      localStorage.setItem("dataEntryKey", envDataEntryKey)
+      setIsUnlocked(true)
+      return
+    }
+
+    setKeyError("Invalid key. Please try again.")
+  }
+
   function addToCart(productId) {
     const cartItems = JSON.parse(localStorage.getItem("cartItems") || "[]")
     if (!cartItems.includes(productId)) {
@@ -95,6 +124,10 @@ setAlert({
   }, [searchQuery])
 
   async function fetchInventory(resetPage = false) {
+    if (!isUnlocked) {
+      return
+    }
+
     if (isFetchingRef.current) {
       return
     }
@@ -151,11 +184,19 @@ setAlert({
   }
 
   useEffect(() => {
+    if (!isUnlocked) {
+      return
+    }
+
     fetchInventory(true)
     isMountedRef.current = true
-  }, [])
+  }, [isUnlocked])
 
   useEffect(() => {
+    if (!isUnlocked) {
+      return
+    }
+
     if (!isMountedRef.current) {
       return
     }
@@ -170,9 +211,13 @@ setAlert({
     setInitialLoading(true)
 
     fetchInventory(true)
-  }, [activeCompany, debouncedSearch, includeOutOfStock])
+  }, [activeCompany, debouncedSearch, includeOutOfStock, isUnlocked])
 
   useEffect(() => {
+    if (!isUnlocked) {
+      return
+    }
+
     if (!firstLoadCompleteRef.current) {
       return
     }
@@ -195,7 +240,7 @@ setAlert({
     return () => {
       observer.disconnect()
     }
-  }, [firstLoadCompleteRef.current, loading])
+  }, [firstLoadCompleteRef.current, loading, isUnlocked])
 
   function handleQRDownloadOldStableBigSize(item) {
     const qrContainer = document.getElementById(`qr-${modalItem._id}`)
@@ -447,7 +492,7 @@ setAlert({
         formData.append("images", file)
       })
 
-      await axiosInstance.put(`/inventory/add-images/${modalItem._id}`, formData)
+      await axiosInstance.put(`/dataEntry/inventory/add-images/${modalItem._id}`, formData)
 
       setUploading(false)
       setModalOpen(false)
@@ -475,7 +520,7 @@ setAlert({
   async function handleRemoveImage(imageUrl) {
     try {
       setUploading(true)
-      await axiosInstance.put(`/inventory/delete-image/${modalItem._id}`, { imageUrl })
+      await axiosInstance.put(`/dataEntry/inventory/delete-image/${modalItem._id}`, { imageUrl })
 
       // Remove from previews
       const imageArray = Array.isArray(modalItem.imageUrl)
@@ -531,6 +576,45 @@ setAlert({
 }
 
   const isFlutter = !!window.__IS_FLUTTER_APP__;
+
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/70 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+              <Package className="text-white" size={20} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">Data Entry Locked</h1>
+              <p className="text-xs text-slate-500">Enter the access key to continue</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleUnlockSubmit} className="space-y-3">
+            <input
+              type="password"
+              placeholder="Enter data entry key"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+            />
+
+            {keyError && (
+              <p className="text-sm text-red-600">{keyError}</p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
+            >
+              Unlock
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
 
   

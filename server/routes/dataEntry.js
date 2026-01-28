@@ -353,4 +353,71 @@ if (!Array.isArray(inv.imageUrl)) {
     }
   }
 );
+
+
+
+
+router.put("/inventory/delete-image/:id",Auth.userAuth,async (req, res) => {
+    try {
+      const inventoryId = req.params.id;
+      const { imageUrl } = req.body;
+
+      if (!imageUrl) {
+        return res.status(400).json({
+          ok: false,
+          message: "imageUrl is required",
+        });
+      }
+
+      const inventory = await Inventory.findById(inventoryId);
+
+      if (!inventory) {
+        return res.status(404).json({
+          ok: false,
+          message: "Inventory item not found",
+        });
+      }
+
+      // Check image exists in array
+      if (!inventory.imageUrl.includes(imageUrl)) {
+        return res.status(400).json({
+          ok: false,
+          message: "Image not found on this inventory item",
+        });
+      }
+
+      // Delete file from disk
+      const filePath = path.join(
+        __dirname,
+        "..",
+        imageUrl.replace(/^\//, "")
+      );
+
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Remove only this image from array
+      inventory.imageUrl = inventory.imageUrl.filter(
+        (img) => img !== imageUrl
+      );
+
+      await inventory.save();
+
+      return res.json({
+        ok: true,
+        message: "Image deleted successfully",
+        inventory,
+      });
+
+    } catch (error) {
+      console.error("Delete inventory image error:", error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
 module.exports = router;
