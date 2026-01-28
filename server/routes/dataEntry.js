@@ -6,6 +6,7 @@ const multer = require("multer");
 const Auth = require("../auth/auth");
 const Sale = require("../models/Sale");
 const Inventory = require('../models/Inventory')
+const InventoryImageLog = require('../models/DataEntryLogs')
 /* GET users listing. */
 router.get('/', function(req, res, next) {
   res.send('DataEntryPoint');
@@ -306,14 +307,26 @@ processedItems = await applyUnsyncedSalesDeduction({
 
 
 
-router.put("/inventory/add-images/:id",Auth.dataEntryAuth,upload.array("images", 10), async (req, res) => {
-    try {
-      const inventoryId = req.params.id;
+router.put("/inventory/add-images/:id",Auth.dataEntryAuth,upload.array("images", 10),async (req, res) => {
+    const inventoryId = req.params.id;
 
+    try {
       if (!req.files || req.files.length === 0) {
+        // LOG: error – no images provided
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "add",
+          status: "error",
+          errorMessage: "At least one image is required",
+          filenames: [],
+          imageCount: 0,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+
         return res.status(400).json({
           ok: false,
-          message: "At least one image is required"
+          message: "At least one image is required",
         });
       }
 
@@ -321,35 +334,84 @@ router.put("/inventory/add-images/:id",Auth.dataEntryAuth,upload.array("images",
 
       if (!inv) {
         // cleanup uploaded files
-        req.files.forEach(file => fs.unlinkSync(file.path));
+        req.files.forEach((file) => fs.unlinkSync(file.path));
+
+        // LOG: error – inventory not found
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "add",
+          status: "error",
+          errorMessage: "Inventory item not found",
+          filenames: req.files.map((f) => f.filename),
+          imageCount: req.files.length,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+
         return res.status(404).json({
           ok: false,
-          message: "Inventory item not found"
+          message: "Inventory item not found",
         });
       }
 
       const newImages = req.files.map(
-        file => `uploads/inventory/${file.filename}`
+        (file) => `uploads/inventory/${file.filename}`
       );
 
       console.log(typeof inv.imageUrl, inv.imageUrl);
-if (!Array.isArray(inv.imageUrl)) {
-  inv.imageUrl = [];
-}
+
+      if (!Array.isArray(inv.imageUrl)) {
+        inv.imageUrl = [];
+      }
+
+      const imagesBefore = inv.imageUrl.length;
 
       inv.imageUrl = [...inv.imageUrl, ...newImages];
       await inv.save();
+
+      // LOG: success
+      await InventoryImageLog.create({
+        inventoryId: inv._id,
+        action: "add",
+        status: "success",
+        errorMessage: null,
+        filenames: newImages,
+        imageCount: newImages.length,
+        imagesBefore,
+        imagesAfter: inv.imageUrl.length,
+      });
 
       return res.json({
         ok: true,
         message: "Images added successfully",
         images: newImages,
-        inventory: inv
+        inventory: inv,
       });
-
     } catch (error) {
       console.error("Add inventory images error:", error);
-      return res.status(500).json({ ok: false, error: error.message });
+
+      // LOG: server error
+      try {
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "add",
+          status: "error",
+          errorMessage: error.message,
+          filenames: req.files
+            ? req.files.map((f) => `uploads/inventory/${f.filename}`)
+            : [],
+          imageCount: req.files ? req.files.length : 0,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+      } catch (logError) {
+        console.error("Inventory image log error:", logError);
+      }
+
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
     }
   }
 );
@@ -358,11 +420,24 @@ if (!Array.isArray(inv.imageUrl)) {
 
 
 router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => {
+    const inventoryId = req.params.id;
+
     try {
-      const inventoryId = req.params.id;
       const { imageUrl } = req.body;
 
       if (!imageUrl) {
+        // LOG: error – missing imageUrl
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "delete",
+          status: "error",
+          errorMessage: "imageUrl is required",
+          filenames: [],
+          imageCount: 0,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+
         return res.status(400).json({
           ok: false,
           message: "imageUrl is required",
@@ -372,6 +447,18 @@ router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => 
       const inventory = await Inventory.findById(inventoryId);
 
       if (!inventory) {
+        // LOG: error – inventory not found
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "delete",
+          status: "error",
+          errorMessage: "Inventory item not found",
+          filenames: [imageUrl],
+          imageCount: 1,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+
         return res.status(404).json({
           ok: false,
           message: "Inventory item not found",
@@ -380,11 +467,25 @@ router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => 
 
       // Check image exists in array
       if (!inventory.imageUrl.includes(imageUrl)) {
+        // LOG: error – image not on inventory
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "delete",
+          status: "error",
+          errorMessage: "Image not found on this inventory item",
+          filenames: [imageUrl],
+          imageCount: 1,
+          imagesBefore: inventory.imageUrl.length,
+          imagesAfter: inventory.imageUrl.length,
+        });
+
         return res.status(400).json({
           ok: false,
           message: "Image not found on this inventory item",
         });
       }
+
+      const imagesBefore = inventory.imageUrl.length;
 
       // Delete file from disk
       const filePath = path.join(
@@ -404,14 +505,42 @@ router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => 
 
       await inventory.save();
 
+      // LOG: success
+      await InventoryImageLog.create({
+        inventoryId: inventory._id,
+        action: "delete",
+        status: "success",
+        errorMessage: null,
+        filenames: [imageUrl],
+        imageCount: 1,
+        imagesBefore,
+        imagesAfter: inventory.imageUrl.length,
+      });
+
       return res.json({
         ok: true,
         message: "Image deleted successfully",
         inventory,
       });
-
     } catch (error) {
       console.error("Delete inventory image error:", error);
+
+      // LOG: server error
+      try {
+        await InventoryImageLog.create({
+          inventoryId,
+          action: "delete",
+          status: "error",
+          errorMessage: error.message,
+          filenames: req.body?.imageUrl ? [req.body.imageUrl] : [],
+          imageCount: req.body?.imageUrl ? 1 : 0,
+          imagesBefore: null,
+          imagesAfter: null,
+        });
+      } catch (logError) {
+        console.error("Inventory image log error:", logError);
+      }
+
       return res.status(500).json({
         ok: false,
         error: error.message,
@@ -419,5 +548,132 @@ router.put("/inventory/delete-image/:id",Auth.dataEntryAuth,async (req, res) => 
     }
   }
 );
+
+
+// EDIT INVENTORY ITEM
+router.put("/editInventoryItem/:id",Auth.dataEntryAuth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Only allow editable fields (security)
+    const allowedFields = [
+      "SALESPRICE",
+      "STDCOST",
+      "GROUP",
+      "UNITS",
+      "NAME",
+      "note", // 👈 added
+    ]
+
+    const updates = {}
+
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        updates[key] = req.body[key]
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      await InventoryImageLog.create({
+        inventoryId: id,
+        action: "edit",
+        status: "error",
+        errorMessage: "No valid fields provided for update",
+        updatedFields: [],
+        updates: {},
+      })
+
+      return res.status(400).json({
+        message: "No valid fields provided for update",
+      })
+    }
+
+    const existingItem = await Inventory.findById(id).lean()
+
+    if (!existingItem) {
+      await InventoryImageLog.create({
+        inventoryId: id,
+        action: "edit",
+        status: "error",
+        errorMessage: "Inventory item not found",
+        updatedFields: Object.keys(updates),
+        updates,
+      })
+
+      return res.status(404).json({
+        message: "Inventory item not found",
+      })
+    }
+
+    const updatedItem = await Inventory.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true }
+    )
+
+    const updatedFields = Object.keys(updates)
+    const beforeValues = {}
+    const afterValues = {}
+
+    updatedFields.forEach((field) => {
+      beforeValues[field] = existingItem[field]
+      afterValues[field] = updatedItem[field]
+    })
+
+    await InventoryImageLog.create({
+      inventoryId: updatedItem._id,
+      action: "edit",
+      status: "success",
+      updatedFields,
+      updates,
+      beforeValues,
+      afterValues,
+    })
+
+    res.json({
+      message: "Inventory item updated successfully",
+      item: updatedItem,
+    })
+  } catch (err) {
+    console.error("Edit inventory error:", err)
+    try {
+      await InventoryImageLog.create({
+        inventoryId: req.params.id,
+        action: "edit",
+        status: "error",
+        errorMessage: err.message,
+        updatedFields: Object.keys(req.body || {}),
+        updates: req.body || {},
+      })
+    } catch (logError) {
+      console.error("Inventory edit log error:", logError)
+    }
+    res.status(500).json({
+      message: "Server error while updating inventory item",
+    })
+  }
+})
+
+
+
+
+router.get("/logs", Auth.userAuth, async (req, res) => {
+  try {
+    const logs = await InventoryImageLog.find()
+      .sort({ timestamp: -1 })
+      .lean();
+
+    return res.json({
+      ok: true,
+      items: logs,
+    });
+  } catch (error) {
+    console.error("Fetch data entry logs error:", error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;

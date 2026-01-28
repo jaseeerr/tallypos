@@ -432,7 +432,7 @@ setPreviews((prev) => {
   try {
     setSavingPrice(true)
 
-    await axiosInstance.put(`/editInventoryItem/${modalItem._id}`, {
+    await axiosInstance.put(`/dataEntry/editInventoryItem/${modalItem._id}`, {
       SALESPRICE: salesPrice,
       note:productNote
     })
