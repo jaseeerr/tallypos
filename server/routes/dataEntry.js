@@ -306,7 +306,7 @@ processedItems = await applyUnsyncedSalesDeduction({
 
 
 
-router.put("/inventory/add-images/:id",Auth.dataEntryAuth,Authupload.array("images", 10), async (req, res) => {
+router.put("/inventory/add-images/:id",Auth.dataEntryAuth,upload.array("images", 10), async (req, res) => {
     try {
       const inventoryId = req.params.id;
 
